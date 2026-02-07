@@ -16,17 +16,15 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Organizacao e Sintaxe Moderna
+    - name: IA de Limpeza e Sintaxe Unica
       run: |
-        echo "### LIMPANDO E ORGANIZANDO ###"
-        # 1. Cria a estrutura oficial
+        echo "### RECONSTRUINDO SEM AVISOS ###"
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # 2. Resgata sua MainActivity e AndroidManifest
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 3. Cria o BUILD.GRADLE da RAIZ corrigido
+        # 1. RAIZ LIMPA
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -37,13 +35,9 @@ jobs:
         }
         EOF
 
-        # 4. Ajuste para zerar os 2 últimos erros (Aspas e Parênteses)
+        # 2. APP COM STRING UNICA (Resolve o erro do relatorio)
         cat <<EOF > app/build.gradle
-        plugins {
-            id("com.android.application")
-            id("org.jetbrains.kotlin.android") version "1.9.0" apply false
-        }
-        apply plugin: "com.android.application"
+        apply plugin: 'com.android.application'
         android {
             namespace = "com.monstro.v18"
             compileSdk = 34
@@ -56,28 +50,25 @@ jobs:
             }
         }
         dependencies {
-            // Corrigindo a notação de strings para limpar o relatório
-            implementation("androidx.core:core-ktx:1.12.0")
-            implementation("androidx.appcompat:appcompat:1.6.1")
+            // Sintaxe sugerida pelo seu relatorio
+            implementation "androidx.core:core-ktx:1.12.0"
+            implementation "androidx.appcompat:appcompat:1.6.1"
         }
         EOF
 
-        # 5. Mapa do projeto fixado
         echo "include ':app'" > settings.gradle
-        
-        # 6. Prepara o motor sem download externo
         gradle wrapper
         chmod +x gradlew
 
-    - name: Compilar APK Monstro
-      run: ./gradlew :app:assembleDebug --stacktrace
+    - name: Gerar APK Monstro
+      run: ./gradlew :app:assembleDebug --no-configuration-cache
       continue-on-error: true
 
     - name: Enviar APK para Henrique
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK-Garantido
+        name: MonstroV18-APK
         path: |
           app/build/outputs/apk/debug/*.apk
           **/build/reports/**
