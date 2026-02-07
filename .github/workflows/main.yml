@@ -1,4 +1,4 @@
-name: Android CI Analisador Geral
+name: Android CI Monstro V18 - Analisador Elite
 
 on:
   push:
@@ -16,36 +16,34 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Escaneamento e Reparo de Pastas
+    - name: IA de Organizacao e Auto-Reparo
       run: |
-        echo "### INICIANDO VARREDURA COMPLETA ###"
-        
-        # 1. Cria a estrutura correta se não existir
+        echo "### INICIANDO SCAN DE PASTAS ###"
+        # 1. Cria a estrutura padrão que o Android exige
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # 2. ANALISA TODAS AS PASTAS: Acha os arquivos vitais não importa onde estejam
-        echo "Buscando arquivos perdidos..."
+        # 2. Busca sua MainActivity e AndroidManifest em qualquer lugar do projeto
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -exec cp {} app/src/main/ \;
         
-        # 3. Resolve conflitos de script na raiz (Erro de 900ms)
+        # 3. Resolve conflitos de configuração na raiz
         sed -i '/allprojects/,/}/d' build.gradle || true
         
-        # 4. Garante o motor do Gradle sem apagar o que já está bom
+        # 4. Garante que o motor do Gradle esteja pronto para ligar
         gradle wrapper --gradle-version 8.2.2
         chmod +x gradlew
-        echo "✓ Estrutura Organizada."
+        ./gradlew clean
 
-    - name: Build com Relatório Profundo
+    - name: Build com Rastreamento Profundo
       run: ./gradlew assembleDebug --stacktrace --info
-      continue-on-error: true 
+      continue-on-error: true # Garante que cheguemos no upload mesmo se der erro
 
-    - name: Upload de Tudo (APK + Diagnóstico)
-      if: always() 
+    - name: Upload de Diagnostico Total
+      if: always() # Força o robô a te entregar os arquivos no final
       uses: actions/upload-artifact@v4
       with:
-        name: Resultados-Analise-Monstro
+        name: Pacote-Monstro-V18
         path: |
           app/build/outputs/apk/debug/*.apk
-          app/build/reports/
-          build/reports/
+          **/build/reports/**
+          **/build/test-results/**
