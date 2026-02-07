@@ -16,17 +16,17 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Organizacao e Sintaxe Moderna
+    - name: IA de Organizacao e Sintaxe de Elite
       run: |
         echo "### LIMPANDO E ORGANIZANDO ###"
-        # 1. Cria a estrutura oficial
+        # 1. Cria a estrutura oficial para o Gradle não se perder
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # 2. Resgata sua MainActivity e AndroidManifest
+        # 2. Resgata seu código e manifesto em qualquer pasta
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 3. Cria o BUILD.GRADLE da RAIZ corrigido
+        # 3. Cria o BUILD.GRADLE da RAIZ
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -37,15 +37,14 @@ jobs:
         }
         EOF
 
-        # 4. Cria o BUILD.GRADLE do APP com sintaxe de '=' (Resolve os 6 erros)
+        # 4. CRIA O BUILD.GRADLE DO APP (SINTAXE SEM ERROS)
         cat <<EOF > app/build.gradle
         plugins {
-            id 'com.android.application'
-            id 'org.jetbrains.kotlin.android' version '1.9.0' apply false
+            id("com.android.application")
+            id("org.jetbrains.kotlin.android")
         }
-        apply plugin: 'com.android.application'
         android {
-            namespace = 'com.monstro.v18'
+            namespace = "com.monstro.v18"
             compileSdk = 34
             defaultConfig {
                 applicationId = "com.monstro.v18"
@@ -56,6 +55,7 @@ jobs:
             }
         }
         dependencies {
+            // Uso de aspas duplas e parenteses para zerar o relatório
             implementation("androidx.core:core-ktx:1.12.0")
             implementation("androidx.appcompat:appcompat:1.6.1")
         }
@@ -64,7 +64,7 @@ jobs:
         # 5. Mapa do projeto fixado
         echo "include ':app'" > settings.gradle
         
-        # 6. Prepara o motor sem download externo
+        # 6. Prepara o motor
         gradle wrapper
         chmod +x gradlew
 
