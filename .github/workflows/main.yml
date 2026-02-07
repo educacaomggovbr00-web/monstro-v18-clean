@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Final Supremo
+name: Monstro V18 - Arrastao Total de Arquivos
 
 on:
   push:
@@ -16,16 +16,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Limpeza e Sintaxe Blindada
+    - name: IA de Limpeza e Reconstrucao
       run: |
-        echo "### LIMPANDO TUDO PARA O GIRO FINAL ###"
+        echo "### RECONSTRUINDO TUDO DO ZERO ###"
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # Resgata seus arquivos
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 1. Cria a raiz sem frescura
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -36,7 +34,6 @@ jobs:
         }
         EOF
 
-        # 2. APP com sintaxe de string única (Resolve os 2 erros do print)
         cat <<EOF > app/build.gradle
         apply plugin: "com.android.application"
         android {
@@ -46,31 +43,30 @@ jobs:
                 applicationId = "com.monstro.v18"
                 minSdk = 24
                 targetSdk = 34
-                versionCode = 18
-                versionName = "18.0"
             }
         }
         dependencies {
-            // Sintaxe exata pedida pelo seu relatorio
             implementation("androidx.core:core-ktx:1.12.0")
             implementation("androidx.appcompat:appcompat:1.6.1")
         }
         EOF
 
         echo "include ':app'" > settings.gradle
+        echo "org.gradle.configuration-cache=false" > gradle.properties
         gradle wrapper
         chmod +x gradlew
 
-    - name: Gerar APK Monstro (Sem Bloqueio)
-      # Adicionado o comando para ignorar o cache que gera o relatorio HTML
-      run: ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace
+    - name: Gerar APK Monstro
+      run: ./gradlew clean :app:assembleDebug --no-configuration-cache --stacktrace
       continue-on-error: true
 
-    - name: Enviar APK para Henrique
+    - name: Captura Absoluta (Qualquer Arquivo)
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK
+        name: MonstroV18-ARRASTAO-DE-ARQUIVOS
+        # O comando abaixo ignora nome e pasta. Ele pega TUDO que sobrou no servidor.
         path: |
-          app/build/outputs/apk/debug/*.apk
-          **/build/reports/**
+          **/*
+          !**/.git/**
+          !**/node_modules/**
