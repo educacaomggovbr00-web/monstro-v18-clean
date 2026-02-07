@@ -1,4 +1,4 @@
-name: Monstro V18 - IA Final de Reconstrucao
+ name: Monstro V18 - Versao Final Sem Erros
 
 on:
   push:
@@ -16,26 +16,30 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA Berserker - Montagem com Repositorios
+    - name: IA de Limpeza e Organizacao Raiz
       run: |
-        echo "### LIGANDO OS MOTORES ###"
+        echo "### LIMPANDO TUDO E REORGANIZANDO ###"
+        # 1. Cria a pasta app limpa
+        mkdir -p app/src/main/java/com/monstro/v18
         
-        # 1. Cria a estrutura blindada
-        mkdir -p reconstrucao/app/src/main/java/com/monstro/v18
+        # 2. Move seus arquivos direto para o lugar certo sem pastas intermediarias
+        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
+        find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 2. Resgata sua MainActivity
-        find . -name "MainActivity.kt" -exec cp {} reconstrucao/app/src/main/java/com/monstro/v18/ \;
-        find . -name "AndroidManifest.xml" -exec cp {} reconstrucao/app/src/main/ \;
-        
-        # 3. Cria o BUILD.GRADLE com os endereços do Google (Resolve o erro do print)
-        cat <<EOF > reconstrucao/app/build.gradle
+        # 3. Cria o BUILD.GRADLE direto na raiz para o motor ligar de primeira
+        cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
             dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
         }
+        allprojects {
+            repositories { google(); mavenCentral() }
+        }
+        EOF
+
+        # 4. Cria o BUILD.GRADLE do APP com as dependencias do Monstro
+        cat <<EOF > app/build.gradle
         apply plugin: 'com.android.application'
-        apply plugin: 'org.jetbrains.kotlin.android'
-        
         android {
             namespace 'com.monstro.v18'
             compileSdk 34
@@ -45,28 +49,28 @@ jobs:
                 targetSdk 34
             }
         }
-        repositories { google(); mavenCentral() }
         dependencies {
             implementation 'androidx.core:core-ktx:1.12.0'
             implementation 'androidx.appcompat:appcompat:1.6.1'
         }
         EOF
 
-        # 4. Finaliza o mapa e substitui a bagunça
-        echo "include ':app'" > reconstrucao/settings.gradle
-        gradle wrapper --project-dir reconstrucao
-        mv reconstrucao/* .
+        # 5. Define o mapa do projeto
+        echo "include ':app'" > settings.gradle
+        
+        # 6. Liga o motor sem baixar nada de fora
+        gradle wrapper
         chmod +x gradlew
 
     - name: Gerar APK Monstro V18
-      run: ./gradlew :app:assembleDebug --stacktrace --info
+      run: ./gradlew :app:assembleDebug --stacktrace
       continue-on-error: true
 
-    - name: Upload do APK
+    - name: Upload Final
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-Final
+        name: MonstroV18-APK-Garantido
         path: |
           app/build/outputs/apk/debug/*.apk
           **/build/reports/**
