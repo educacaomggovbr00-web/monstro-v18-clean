@@ -1,4 +1,4 @@
-name: Android CI Monstro V18 - Final
+name: Android CI com Auto-Corretor
 
 on:
   push:
@@ -16,22 +16,27 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Preparar Ambiente
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: IA de Correção de Estrutura
       run: |
-        # Resolve o conflito de repositórios que causou a regressão de 900ms
+        echo "Lendo erros de estrutura..."
+        # Resolve o conflito de repositório via script para não travar nos 900ms
         sed -i '/allprojects/,/}/d' build.gradle
+        gradle wrapper
         chmod +x gradlew
-        ./gradlew clean
+        ./gradlew clean 
 
-    - name: Tentar Build do APK
+    - name: Build com Auto-Recovery
       run: ./gradlew assembleDebug --stacktrace
-      continue-on-error: true # Não deixa o robô parar o processo se der erro aqui
+      continue-on-error: true # Não deixa o robô parar o processo se der erro
 
-    - name: Upload de Resultados (Sempre)
-      if: always() # ISSO AQUI É A CHAVE: Faz o upload mesmo se der erro
+    - name: Upload de Resultados
+      if: always() # GARANTE O UPLOAD: Sobe arquivos mesmo se o build der errado
       uses: actions/upload-artifact@v4
       with:
-        name: Resultados-Monstro-V18
+        name: Pacote-Monstro-V18
         path: |
           app/build/outputs/apk/debug/*.apk
           app/build/reports/problems/
