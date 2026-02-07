@@ -9,6 +9,7 @@ buildscript {
     }
 }
 
+// O robô vai usar essa tarefa para limpar qualquer resto de build que deu erro antes
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
