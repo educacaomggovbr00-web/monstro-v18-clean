@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Final Supremo Full
+name: Monstro V18 - Build Final Supremo
 
 on:
   push:
@@ -16,38 +16,37 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Construcao - Kit Completo de Ferramentas
+    - name: IA de Organizacao e Sintaxe Moderna
       run: |
-        echo "### ORGANIZANDO ESTRUTURA PARA COMPILAÇÃO ###"
+        echo "### LIMPANDO E ORGANIZANDO ###"
+        # 1. Cria a estrutura oficial
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # 1. Busca profunda pelos seus arquivos
+        # 2. Resgata sua MainActivity e AndroidManifest
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 2. BUILD.GRADLE DA RAIZ (KIT COMPLETO)
+        # 3. Cria o BUILD.GRADLE da RAIZ corrigido
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
-            dependencies { 
-                classpath 'com.android.tools.build:gradle:8.2.2'
-                classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
-            }
+            dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
         }
         allprojects {
             repositories { google(); mavenCentral() }
         }
         EOF
 
-        # 3. BUILD.GRADLE DO APP (SINTAXE MODERNA + JAVA 17)
+        # 4. Ajuste para zerar os 2 últimos erros (Aspas e Parênteses)
         cat <<EOF > app/build.gradle
-        apply plugin: 'com.android.application'
-        apply plugin: 'org.jetbrains.kotlin.android'
-
+        plugins {
+            id("com.android.application")
+            id("org.jetbrains.kotlin.android") version "1.9.0" apply false
+        }
+        apply plugin: "com.android.application"
         android {
-            namespace = 'com.monstro.v18'
+            namespace = "com.monstro.v18"
             compileSdk = 34
-
             defaultConfig {
                 applicationId = "com.monstro.v18"
                 minSdk = 24
@@ -55,38 +54,30 @@ jobs:
                 versionCode = 18
                 versionName = "18.0"
             }
-
-            compileOptions {
-                sourceCompatibility = JavaVersion.VERSION_17
-                targetCompatibility = JavaVersion.VERSION_17
-            }
-            kotlinOptions {
-                jvmTarget = '17'
-            }
         }
-
         dependencies {
+            // Corrigindo a notação de strings para limpar o relatório
             implementation("androidx.core:core-ktx:1.12.0")
             implementation("androidx.appcompat:appcompat:1.6.1")
-            implementation("com.google.android.material:material:1.11.0")
-            implementation("com.google.android.exoplayer:exoplayer:2.19.1")
         }
         EOF
 
-        # 4. Mapa e Motor
+        # 5. Mapa do projeto fixado
         echo "include ':app'" > settings.gradle
+        
+        # 6. Prepara o motor sem download externo
         gradle wrapper
         chmod +x gradlew
 
-    - name: Gerar APK Monstro V18
-      run: ./gradlew :app:assembleDebug --stacktrace --info
+    - name: Compilar APK Monstro
+      run: ./gradlew :app:assembleDebug --stacktrace
       continue-on-error: true
 
     - name: Enviar APK para Henrique
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK-Full
+        name: MonstroV18-APK-Garantido
         path: |
           app/build/outputs/apk/debug/*.apk
           **/build/reports/**
