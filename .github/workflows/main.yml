@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Final Supremo
+name: Monstro V18 - Build Real Compose
 
 on:
   push:
@@ -16,16 +16,11 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Estrutura e Compilacao Kotlin
+    - name: Preparar Ambiente Moderno
       run: |
-        echo "### MONTANDO ESTRUTURA PARA APK REAL ###"
-        mkdir -p app/src/main/java/com/monstro/v18
+        echo "### MONTANDO GRADLE PARA COMPOSE ###"
         
-        # Resgata seus arquivos
-        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
-        find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
-        
-        # 1. BUILD.GRADLE RAIZ (Com repositórios explícitos)
+        # 1. RAIZ - Plugins Necessários [Sua Correção #2]
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -39,15 +34,15 @@ jobs:
         }
         EOF
 
-        # 2. BUILD.GRADLE APP (Sintaxe para evitar o erro de runtime)
+        # 2. APP - Compose Ativado e Sem Conflitos [Sua Correção #2 e #3]
         cat <<EOF > app/build.gradle
-        plugins {
-            id 'com.android.application'
-            id 'org.jetbrains.kotlin.android'
-        }
+        apply plugin: 'com.android.application'
+        apply plugin: 'org.jetbrains.kotlin.android'
+
         android {
             namespace = 'com.monstro.v18'
             compileSdk = 34
+
             defaultConfig {
                 applicationId = "com.monstro.v18"
                 minSdk = 24
@@ -55,6 +50,15 @@ jobs:
                 versionCode = 18
                 versionName = "18.0"
             }
+
+            buildFeatures {
+                compose = true
+            }
+
+            composeOptions {
+                kotlinCompilerExtensionVersion = '1.5.8'
+            }
+
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
@@ -63,14 +67,21 @@ jobs:
                 jvmTarget = '17'
             }
         }
+
         dependencies {
+            // Kit Compose BOM - Alinhado com seu código [Sua Correção #3]
+            implementation platform('androidx.compose:compose-bom:2024.02.00')
+            implementation 'androidx.compose.ui:ui'
+            implementation 'androidx.compose.material3:material3'
+            implementation 'androidx.activity:activity-compose:1.8.2'
             implementation 'androidx.core:core-ktx:1.12.0'
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.11.0'
+            
+            // Motor de Vídeo Media3 (ExoPlayer moderno) [Sua Correção #3]
+            implementation 'androidx.media3:media3-exoplayer:1.2.1'
+            implementation 'androidx.media3:media3-ui:1.2.1'
         }
         EOF
 
-        # 3. SETTINGS E PROPERTIES (Essencial para o motor não pifar)
         echo "include ':app'" > settings.gradle
         echo "android.useAndroidX=true" > gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
@@ -78,13 +89,13 @@ jobs:
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Gerar APK Monstro Real
-      # Adicionado --no-configuration-cache para limpar o log
-      run: ./gradlew :app:assembleDebug --stacktrace --no-configuration-cache
+    - name: Build APK Real
+      # Sem cache mascarando erro e com info detalhado [Sua Correção #4]
+      run: ./gradlew :app:assembleDebug --no-configuration-cache --info
 
-    - name: Enviar APK (Validacao de 2MB+)
+    - name: Enviar APK (Validacao de Sucesso)
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK-FINAL
+        name: MonstroV18-APK-REAL
         path: app/build/outputs/apk/debug/*.apk
-        if-no-files-found: error
+        if-no-files-found: error # Falha se não sair o binário real [Sua Correção #4]
