@@ -1,4 +1,4 @@
-name: Android CI Monstro V18 - IA Berserker
+name: Android CI Monstro V18 - Versao Final
 
 on:
   push:
@@ -16,39 +16,37 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Auto-Reparo e Escaneamento Profundo
+    - name: IA de Auto-Reparo e Escaneamento
       run: |
-        echo "### INICIANDO SCAN DE IA ###"
+        echo "### ORGANIZANDO ESTRUTURA ###"
         
-        # 1. Resolve o conflito de repositórios na raiz (Erro dos 900ms)
+        # 1. Cria a pasta 'app' oficial para o Gradle não se perder
+        mkdir -p app/src/main/java/com/monstro/v18
+        
+        # 2. IA DE BUSCA: Caça sua MainActivity e coloca no lugar certo
+        # Isso resolve a bagunça de pastas que vimos nos seus prints
+        find . -maxdepth 10 -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
+        
+        # 3. GARANTE O MANIFESTO: Copia apenas se não for o mesmo arquivo (evita erro do Build #37)
+        find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
+        
+        # 4. LIMPEZA DE CONFIGURAÇÃO: Tira o conflito de repositórios da raiz
         sed -i '/allprojects/,/}/d' build.gradle || true
         
-        # 2. IA DE RECONSTRUÇÃO: Cria a pasta 'app' correta e move os arquivos perdidos
-        # Isso resolve aquele B.O. das pastas com nomes longos que vimos no seu print
-        mkdir -p app/src/main/java/com/monstro/v18
-        find . -maxdepth 10 -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
-        find . -maxdepth 10 -name "AndroidManifest.xml" -exec cp {} app/src/main/ \;
-        
-        # 3. VERIFICAÇÃO DE MÓDULO: Garante que o Gradle reconheça a pasta 'app'
-        if [ ! -f "settings.gradle" ]; then
-          echo "rootProject.name = 'MonstroV18'" > settings.gradle
-          echo "include ':app'" >> settings.gradle
-        fi
-
-        # 4. REGENERAÇÃO DO MOTOR: Cria o gradlew se ele sumiu ou quebrou
-        gradle wrapper --gradle-version 8.2.2
+        # 5. REGENERAÇÃO DO MOTOR: Usa o Gradle nativo (Resolve o erro do Build #37)
+        gradle wrapper
         chmod +x gradlew
         ./gradlew clean
 
-    - name: Build Forçado com Diagnóstico
-      run: ./gradlew :app:assembleDebug --stacktrace --info
+    - name: Compilar APK Monstro V18
+      run: ./gradlew assembleDebug --stacktrace --info
       continue-on-error: true 
 
-    - name: Upload de Tudo (APK + Logs de Erro)
+    - name: Entrega de Resultados (APK + Logs)
       if: always() 
       uses: actions/upload-artifact@v4
       with:
-        name: Pacote-Final-Monstro
+        name: Pacote-Monstro-V18
         path: |
           app/build/outputs/apk/debug/*.apk
           **/build/reports/**
