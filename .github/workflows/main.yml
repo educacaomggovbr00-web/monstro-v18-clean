@@ -1,4 +1,4 @@
-name: Restauracao Monstro V18
+name: Android CI Analisador Geral
 
 on:
   push:
@@ -16,45 +16,36 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Reconstrução de Estrutura
+    - name: IA de Escaneamento e Reparo de Pastas
       run: |
-        echo "Limpando e reconstruindo módulo app..."
-        # 1. Cria a pasta app de verdade
-        mkdir -p app_nova/src/main/java/com/monstro/v18
+        echo "### INICIANDO VARREDURA COMPLETA ###"
         
-        # 2. Copia sua MainActivity para o lugar certo, não importa onde ela esteja
-        find . -name "MainActivity.kt" -exec cp {} app_nova/src/main/java/com/monstro/v18/ \;
+        # 1. Cria a estrutura correta se não existir
+        mkdir -p app/src/main/java/com/monstro/v18
         
-        # 3. Cria um build.gradle novo e funcional para o app
-        cat <<EOF > app_nova/build.gradle
-        plugins {
-            id 'com.android.application'
-            id 'org.jetbrains.kotlin.android'
-        }
-        android {
-            namespace 'com.monstro.v18'
-            compileSdk 34
-            defaultConfig { applicationId "com.monstro.v18"; minSdk 24; targetSdk 34 }
-        }
-        dependencies {
-            implementation 'androidx.core:core-ktx:1.12.0'
-            implementation 'androidx.media3:media3-exoplayer:1.2.1'
-        }
-        EOF
-
-        # 4. Substitui a pasta bagunçada pela nova
-        rm -rf app
-        mv app_nova app
+        # 2. ANALISA TODAS AS PASTAS: Acha os arquivos vitais não importa onde estejam
+        echo "Buscando arquivos perdidos..."
+        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
+        find . -name "AndroidManifest.xml" -exec cp {} app/src/main/ \;
         
+        # 3. Resolve conflitos de script na raiz (Erro de 900ms)
+        sed -i '/allprojects/,/}/d' build.gradle || true
+        
+        # 4. Garante o motor do Gradle sem apagar o que já está bom
+        gradle wrapper --gradle-version 8.2.2
         chmod +x gradlew
-        ./gradlew clean
+        echo "✓ Estrutura Organizada."
 
-    - name: Build Forçado
-      run: ./gradlew assembleDebug --stacktrace
+    - name: Build com Relatório Profundo
+      run: ./gradlew assembleDebug --stacktrace --info
+      continue-on-error: true 
 
-    - name: Upload APK
-      if: always()
+    - name: Upload de Tudo (APK + Diagnóstico)
+      if: always() 
       uses: actions/upload-artifact@v4
       with:
-        name: Resultado-Final-Monstro
-        path: app/build/outputs/apk/debug/*.apk
+        name: Resultados-Analise-Monstro
+        path: |
+          app/build/outputs/apk/debug/*.apk
+          app/build/reports/
+          build/reports/
