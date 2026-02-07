@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Final Supremo
+name: Monstro V18 - Build Real Kotlin Garantido
 
 on:
   push:
@@ -16,29 +16,33 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Limpeza e Compilacao Direta
+    - name: IA de Estrutura e Compilacao Kotlin
       run: |
-        echo "### LIMPANDO TUDO PARA O GIRO FINAL ###"
+        echo "### LIMPANDO E MONTANDO MOTOR KOTLIN ###"
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # Resgata seus arquivos
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 1. RAIZ MINIMALISTA
+        # 1. BUILD.GRADLE RAIZ - Adicionando Plugin Kotlin [Sua Correção #1 e #3]
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
-            dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
+            dependencies { 
+                classpath 'com.android.tools.build:gradle:8.2.2'
+                classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+            }
         }
         allprojects {
             repositories { google(); mavenCentral() }
         }
         EOF
 
-        # 2. APP SEM AS DEPENDENCIAS QUE DAO AVISO
+        # 2. BUILD.GRADLE APP - Compilação Real e Java 17 [Sua Correção #2 e #4]
         cat <<EOF > app/build.gradle
         apply plugin: 'com.android.application'
+        apply plugin: 'org.jetbrains.kotlin.android'
+
         android {
             namespace = 'com.monstro.v18'
             compileSdk = 34
@@ -49,31 +53,33 @@ jobs:
                 versionCode = 18
                 versionName = "18.0"
             }
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
+            kotlinOptions {
+                jvmTarget = '17'
+            }
         }
         dependencies {
-            // Removendo o que gera aviso para o robô passar direto
+            implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
+            implementation 'androidx.core:core-ktx:1.12.0'
             implementation 'androidx.appcompat:appcompat:1.6.1'
         }
         EOF
 
         echo "include ':app'" > settings.gradle
-        
-        # DESATIVA O CACHE QUE GERA O RELATORIO HTML
-        echo "org.gradle.configuration-cache=false" > gradle.properties
-        
-        gradle wrapper
+        # Força versão do Gradle compatível com AGP 8.2.2 [Sua Correção #3]
+        gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Forcar Geracao do APK
-      # O comando --no-configuration-cache é a chave para o relatório sumir
-      run: ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace
-      continue-on-error: true
+    - name: Gerar APK Monstro Real
+      # Sem cache e com info para validar a compilação [Sua Correção #5]
+      run: ./gradlew :app:assembleDebug --no-configuration-cache --info
 
-    - name: Enviar APK para Henrique
-      if: always()
+    - name: Enviar APK (Validacao de Tamanho)
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK-Garantido
-        path: |
-          app/build/outputs/apk/debug/*.apk
-          **/build/reports/**
+        name: MonstroV18-APK-FINAL-REAL
+        path: app/build/outputs/apk/debug/*.apk
+        if-no-files-found: error # Faz o build falhar se não tiver APK [Sua Correção #5]
