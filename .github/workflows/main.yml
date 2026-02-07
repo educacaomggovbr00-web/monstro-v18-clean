@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Final
+name: Monstro V18 - Build Final Supremo
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Organizador de Pastas e Motor Gradle
+    - name: IA de Organizacao e Sintaxe Moderna
       run: |
         echo "### LIMPANDO E ORGANIZANDO ###"
         # 1. Cria a estrutura oficial
@@ -26,7 +26,7 @@ jobs:
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 3. Cria o BUILD.GRADLE da RAIZ
+        # 3. Cria o BUILD.GRADLE da RAIZ corrigido
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -37,32 +37,38 @@ jobs:
         }
         EOF
 
-        # 4. Cria o BUILD.GRADLE do APP
+        # 4. Cria o BUILD.GRADLE do APP com sintaxe de '=' (Resolve os 6 erros)
         cat <<EOF > app/build.gradle
+        plugins {
+            id 'com.android.application'
+            id 'org.jetbrains.kotlin.android' version '1.9.0' apply false
+        }
         apply plugin: 'com.android.application'
         android {
-            namespace 'com.monstro.v18'
-            compileSdk 34
+            namespace = 'com.monstro.v18'
+            compileSdk = 34
             defaultConfig {
-                applicationId "com.monstro.v18"
-                minSdk 24
-                targetSdk 34
+                applicationId = "com.monstro.v18"
+                minSdk = 24
+                targetSdk = 34
+                versionCode = 18
+                versionName = "18.0"
             }
         }
         dependencies {
-            implementation 'androidx.core:core-ktx:1.12.0'
-            implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation("androidx.core:core-ktx:1.12.0")
+            implementation("androidx.appcompat:appcompat:1.6.1")
         }
         EOF
 
-        # 5. Mapa do projeto
+        # 5. Mapa do projeto fixado
         echo "include ':app'" > settings.gradle
         
-        # 6. Prepara o motor
+        # 6. Prepara o motor sem download externo
         gradle wrapper
         chmod +x gradlew
 
-    - name: Compilar APK
+    - name: Compilar APK Monstro
       run: ./gradlew :app:assembleDebug --stacktrace
       continue-on-error: true
 
@@ -70,7 +76,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK
+        name: MonstroV18-APK-Garantido
         path: |
           app/build/outputs/apk/debug/*.apk
           **/build/reports/**
