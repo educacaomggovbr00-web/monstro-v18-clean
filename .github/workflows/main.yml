@@ -1,4 +1,4 @@
- name: Monstro V18 - Versao Final Sem Erros
+name: Monstro V18 - Build Final
 
 on:
   push:
@@ -16,17 +16,17 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Limpeza e Organizacao Raiz
+    - name: Organizador de Pastas e Motor Gradle
       run: |
-        echo "### LIMPANDO TUDO E REORGANIZANDO ###"
-        # 1. Cria a pasta app limpa
+        echo "### LIMPANDO E ORGANIZANDO ###"
+        # 1. Cria a estrutura oficial
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # 2. Move seus arquivos direto para o lugar certo sem pastas intermediarias
+        # 2. Resgata sua MainActivity e AndroidManifest
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 3. Cria o BUILD.GRADLE direto na raiz para o motor ligar de primeira
+        # 3. Cria o BUILD.GRADLE da RAIZ
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -37,7 +37,7 @@ jobs:
         }
         EOF
 
-        # 4. Cria o BUILD.GRADLE do APP com as dependencias do Monstro
+        # 4. Cria o BUILD.GRADLE do APP
         cat <<EOF > app/build.gradle
         apply plugin: 'com.android.application'
         android {
@@ -55,22 +55,22 @@ jobs:
         }
         EOF
 
-        # 5. Define o mapa do projeto
+        # 5. Mapa do projeto
         echo "include ':app'" > settings.gradle
         
-        # 6. Liga o motor sem baixar nada de fora
+        # 6. Prepara o motor
         gradle wrapper
         chmod +x gradlew
 
-    - name: Gerar APK Monstro V18
+    - name: Compilar APK
       run: ./gradlew :app:assembleDebug --stacktrace
       continue-on-error: true
 
-    - name: Upload Final
+    - name: Enviar APK para Henrique
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK-Garantido
+        name: MonstroV18-APK
         path: |
           app/build/outputs/apk/debug/*.apk
           **/build/reports/**
