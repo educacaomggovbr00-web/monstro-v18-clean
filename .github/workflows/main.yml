@@ -1,4 +1,4 @@
-name: Android CI com Auto-Corretor
+name: Android CI com Auto-Corretor Elite
 
 on:
   push:
@@ -16,26 +16,28 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-
-    # --- ESSE É O SEU ROBÔ CORRETOR ---
-    - name: IA de Correção de Estrutura
+    - name: IA de Auto-Reparo e Limpeza
       run: |
-        echo "Lendo erros de estrutura..."
-        # Se o gradlew não existir, ele cria
-        gradle wrapper
-        # Dá permissão de execução automática
+        echo "Iniciando Diagnóstico de IA..."
+        
+        # CORREÇÃO 1: Resolve o conflito de repositórios (Erro dos 900ms)
+        # Remove blocos repetidos que brigam com o settings.gradle
+        sed -i '/allprojects/,/}/d' build.gradle
+        
+        # CORREÇÃO 2: Garante que o Gradle Wrapper esteja atualizado
+        gradle wrapper --gradle-version 8.2.2
         chmod +x gradlew
-        # Limpa o cache se houver sujeira de builds antigos
-        ./gradlew clean 
+        
+        # CORREÇÃO 3: Limpeza profunda de cache e arquivos temporários
+        ./gradlew clean --no-daemon
 
-    - name: Build com Auto-Recovery
-      run: ./gradlew assembleDebug --stacktrace
-      # O --stacktrace faz o robô te dar o mapa exato se algo quebrar
+    - name: Build Forçado Monstro V18
+      run: |
+        # O comando --stacktrace vai nos dizer exatamente o que sobrou de erro
+        ./gradlew assembleDebug --stacktrace --info
 
-    - name: Upload APK
-      if: success() # Só sobe se a "IA" conseguir corrigir e buildar
+    - name: Upload APK do Monstro
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-Final-APK
