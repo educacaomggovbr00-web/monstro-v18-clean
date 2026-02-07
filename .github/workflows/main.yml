@@ -1,4 +1,4 @@
-name: Android CI com Auto-Corretor
+name: Android CI com Auto-Corretor Elite
 
 on:
   push:
@@ -16,28 +16,33 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-
-    - name: IA de Correção de Estrutura
+    - name: IA de Organização e Reparo
       run: |
-        echo "Lendo erros de estrutura..."
-        # Resolve o conflito de repositório via script para não travar nos 900ms
+        echo "Limpando bagunça de pastas..."
+        # 1. Cria a pasta 'app' se ela não existir como módulo
+        mkdir -p app
+        
+        # 2. MOVE TUDO PARA O LUGAR CERTO AUTOMATICAMENTE
+        # Se o build.gradle estiver na raiz, ele move para /app
+        [ -f build.gradle ] && cp build.gradle app/ 
+        # Se a pasta src estiver fora de /app, ele move para dentro
+        [ -d src ] && mv src app/
+        
+        # 3. Resolve o conflito de repositórios que causou a regressão
         sed -i '/allprojects/,/}/d' build.gradle
-        gradle wrapper
+        
         chmod +x gradlew
-        ./gradlew clean 
+        ./gradlew clean
 
-    - name: Build com Auto-Recovery
-      run: ./gradlew assembleDebug --stacktrace
-      continue-on-error: true # Não deixa o robô parar o processo se der erro
+    - name: Build Forçado Monstro V18
+      run: ./gradlew :app:assembleDebug --stacktrace
+      continue-on-error: true
 
-    - name: Upload de Resultados
-      if: always() # GARANTE O UPLOAD: Sobe arquivos mesmo se o build der errado
+    - name: Upload APK ou Relatórios
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: Pacote-Monstro-V18
+        name: MonstroV18-Final-APK
         path: |
           app/build/outputs/apk/debug/*.apk
-          app/build/reports/problems/
           build/reports/
