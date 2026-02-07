@@ -2,32 +2,30 @@ name: Android CI
 
 on:
   push:
-    # Ajustado para funcionar tanto em 'main' quanto em 'principal'
-    branches: [ "main", "principal" ]
+    # Ajustado para a sua branch que aparece no print
+    branches: [ "principal", "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4 # Atualizado para v4
+
     - name: set up JDK 17
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4 # Atualizado para v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: android
 
-    # Este passo é NOVO: ele cria o motor do Gradle que falta no seu projeto
     - name: Setup Gradle
-      uses: gradle/gradle-build-action@v2
-    
+      uses: gradle/actions/setup-gradle@v3 # Versão estável do motor gradle
+
     - name: Build with Gradle
-      # Usamos 'gradle assembleDebug' direto porque você ainda não tem o ./gradlew
       run: gradle assembleDebug
 
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4 # O segredo está aqui! v4 resolve o erro do print
       with:
         name: MonstroV18-Debug-APK
         path: app/build/outputs/apk/debug/*.apk
