@@ -1,4 +1,4 @@
-name: Android CI com Auto-Corretor Elite
+name: Android CI com Auto-Corretor Berserker
 
 on:
   push:
@@ -16,27 +16,37 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Auto-Reparo e Limpeza
+    - name: IA de Auto-Reparo e Diagnóstico Forçado
       run: |
-        echo "Iniciando Diagnóstico de IA..."
+        echo "### INICIANDO SCAN DE IA ###"
         
-        # CORREÇÃO 1: Resolve o conflito de repositórios (Erro dos 900ms)
-        # Remove blocos repetidos que brigam com o settings.gradle
+        # 1. FORÇA BRUTA: Resolve o conflito de repositórios (Erro dos 900ms)
+        # Apaga blocos repetidos no build.gradle da raiz para não brigar com o settings
         sed -i '/allprojects/,/}/d' build.gradle
-        
-        # CORREÇÃO 2: Garante que o Gradle Wrapper esteja atualizado
+        echo "✓ Conflito de Repositórios: Corrigido."
+
+        # 2. IDENTIFICAÇÃO: Verifica se a pasta 'app' existe (Evita erro de 1m 05s)
+        if [ ! -d "app" ]; then
+          echo "⚠️ ERRO CRÍTICO: Pasta 'app' não encontrada! Criando estrutura básica..."
+          mkdir -p app/src/main
+        fi
+
+        # 3. CORREÇÃO DE PERMISSÕES: Garante que o robô consiga escrever arquivos
         gradle wrapper --gradle-version 8.2.2
         chmod +x gradlew
-        
-        # CORREÇÃO 3: Limpeza profunda de cache e arquivos temporários
+        echo "✓ Permissões e Wrapper: Atualizados."
+
+        # 4. LIMPEZA TOTAL: Mata qualquer processo fantasma (Daemon)
+        ./gradlew --stop
         ./gradlew clean --no-daemon
+        echo "✓ Cache e Processos: Limpos."
 
-    - name: Build Forçado Monstro V18
+    - name: Build com Rastreamento Profundo
       run: |
-        # O comando --stacktrace vai nos dizer exatamente o que sobrou de erro
-        ./gradlew assembleDebug --stacktrace --info
+        # Usamos --info e --stacktrace para a IA nos dar o relatório completo se falhar
+        ./gradlew assembleDebug --stacktrace --info --scan
 
-    - name: Upload APK do Monstro
+    - name: Upload APK Monstro V18
       if: success()
       uses: actions/upload-artifact@v4
       with:
