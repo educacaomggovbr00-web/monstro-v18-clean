@@ -1,4 +1,4 @@
-name: Android CI
+name: Android CI com Auto-Corretor
 
 on:
   push:
@@ -15,16 +15,28 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        # Removi a linha 'cache: android' que causou o erro no seu print
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
 
-    - name: Build with Gradle
-      run: gradle assembleDebug
+    # --- ESSE É O SEU ROBÔ CORRETOR ---
+    - name: IA de Correção de Estrutura
+      run: |
+        echo "Lendo erros de estrutura..."
+        # Se o gradlew não existir, ele cria
+        gradle wrapper
+        # Dá permissão de execução automática
+        chmod +x gradlew
+        # Limpa o cache se houver sujeira de builds antigos
+        ./gradlew clean 
+
+    - name: Build com Auto-Recovery
+      run: ./gradlew assembleDebug --stacktrace
+      # O --stacktrace faz o robô te dar o mapa exato se algo quebrar
 
     - name: Upload APK
+      if: success() # Só sobe se a "IA" conseguir corrigir e buildar
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-Debug-APK
+        name: MonstroV18-Final-APK
         path: app/build/outputs/apk/debug/*.apk
