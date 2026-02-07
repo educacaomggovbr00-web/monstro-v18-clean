@@ -1,4 +1,4 @@
-name: Android CI com Auto-Corretor Elite
+name: Restauracao Monstro V18
 
 on:
   push:
@@ -16,33 +16,45 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Organização e Reparo
+    - name: IA de Reconstrução de Estrutura
       run: |
-        echo "Limpando bagunça de pastas..."
-        # 1. Cria a pasta 'app' se ela não existir como módulo
-        mkdir -p app
+        echo "Limpando e reconstruindo módulo app..."
+        # 1. Cria a pasta app de verdade
+        mkdir -p app_nova/src/main/java/com/monstro/v18
         
-        # 2. MOVE TUDO PARA O LUGAR CERTO AUTOMATICAMENTE
-        # Se o build.gradle estiver na raiz, ele move para /app
-        [ -f build.gradle ] && cp build.gradle app/ 
-        # Se a pasta src estiver fora de /app, ele move para dentro
-        [ -d src ] && mv src app/
+        # 2. Copia sua MainActivity para o lugar certo, não importa onde ela esteja
+        find . -name "MainActivity.kt" -exec cp {} app_nova/src/main/java/com/monstro/v18/ \;
         
-        # 3. Resolve o conflito de repositórios que causou a regressão
-        sed -i '/allprojects/,/}/d' build.gradle
+        # 3. Cria um build.gradle novo e funcional para o app
+        cat <<EOF > app_nova/build.gradle
+        plugins {
+            id 'com.android.application'
+            id 'org.jetbrains.kotlin.android'
+        }
+        android {
+            namespace 'com.monstro.v18'
+            compileSdk 34
+            defaultConfig { applicationId "com.monstro.v18"; minSdk 24; targetSdk 34 }
+        }
+        dependencies {
+            implementation 'androidx.core:core-ktx:1.12.0'
+            implementation 'androidx.media3:media3-exoplayer:1.2.1'
+        }
+        EOF
+
+        # 4. Substitui a pasta bagunçada pela nova
+        rm -rf app
+        mv app_nova app
         
         chmod +x gradlew
         ./gradlew clean
 
-    - name: Build Forçado Monstro V18
-      run: ./gradlew :app:assembleDebug --stacktrace
-      continue-on-error: true
+    - name: Build Forçado
+      run: ./gradlew assembleDebug --stacktrace
 
-    - name: Upload APK ou Relatórios
+    - name: Upload APK
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-Final-APK
-        path: |
-          app/build/outputs/apk/debug/*.apk
-          build/reports/
+        name: Resultado-Final-Monstro
+        path: app/build/outputs/apk/debug/*.apk
