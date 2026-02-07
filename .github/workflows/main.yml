@@ -16,7 +16,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Limpeza e Reconstrucao
+    - name: IA de Organizacao e Limpeza Total
       run: |
         echo "### LIMPANDO TUDO PARA O GIRO FINAL ###"
         mkdir -p app/src/main/java/com/monstro/v18
@@ -24,22 +24,22 @@ jobs:
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 1. RAIZ SEM RECLAMACOES
+        # 1. RAIZ MINIMALISTA
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
-            dependencies { classpath("com.android.tools.build:gradle:8.2.2") }
+            dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
         }
         allprojects {
             repositories { google(); mavenCentral() }
         }
         EOF
 
-        # 2. APP COM SINTAXE DE STRING UNICA (O fim dos 2 avisos)
+        # 2. APP COM SINTAXE LIMPA (SEM ERRO DE 5 SEGUNDOS)
         cat <<EOF > app/build.gradle
-        apply plugin: "com.android.application"
+        apply plugin: 'com.android.application'
         android {
-            namespace = "com.monstro.v18"
+            namespace = 'com.monstro.v18'
             compileSdk = 34
             defaultConfig {
                 applicationId = "com.monstro.v18"
@@ -50,20 +50,20 @@ jobs:
             }
         }
         dependencies {
-            // Notacao de string unica exigida pelo seu relatorio
-            implementation("androidx.core:core-ktx:1.12.0")
-            implementation("androidx.appcompat:appcompat:1.6.1")
+            implementation 'androidx.core:core-ktx:1.12.0'
+            implementation 'androidx.appcompat:appcompat:1.6.1'
         }
         EOF
 
         echo "include ':app'" > settings.gradle
+        # Mata o cache de vez no arquivo
         echo "org.gradle.configuration-cache=false" > gradle.properties
         gradle wrapper
         chmod +x gradlew
 
     - name: Gerar APK Monstro
-      # Rodando sem o cache que gera aquele HTML de erro
-      run: ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace
+      # Comando direto e reto, sem frescura para nao dar exit code 1
+      run: ./gradlew :app:assembleDebug --stacktrace
       continue-on-error: true
 
     - name: Captura Garantida do APK
