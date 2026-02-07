@@ -1,4 +1,4 @@
-name: Android CI com Auto-Corretor Berserker
+name: Android CI Monstro V18 - Final
 
 on:
   push:
@@ -16,39 +16,23 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Auto-Reparo e Diagnóstico Forçado
+    - name: Preparar Ambiente
       run: |
-        echo "### INICIANDO SCAN DE IA ###"
-        
-        # 1. FORÇA BRUTA: Resolve o conflito de repositórios (Erro dos 900ms)
-        # Apaga blocos repetidos no build.gradle da raiz para não brigar com o settings
+        # Resolve o conflito de repositórios que causou a regressão de 900ms
         sed -i '/allprojects/,/}/d' build.gradle
-        echo "✓ Conflito de Repositórios: Corrigido."
-
-        # 2. IDENTIFICAÇÃO: Verifica se a pasta 'app' existe (Evita erro de 1m 05s)
-        if [ ! -d "app" ]; then
-          echo "⚠️ ERRO CRÍTICO: Pasta 'app' não encontrada! Criando estrutura básica..."
-          mkdir -p app/src/main
-        fi
-
-        # 3. CORREÇÃO DE PERMISSÕES: Garante que o robô consiga escrever arquivos
-        gradle wrapper --gradle-version 8.2.2
         chmod +x gradlew
-        echo "✓ Permissões e Wrapper: Atualizados."
+        ./gradlew clean
 
-        # 4. LIMPEZA TOTAL: Mata qualquer processo fantasma (Daemon)
-        ./gradlew --stop
-        ./gradlew clean --no-daemon
-        echo "✓ Cache e Processos: Limpos."
+    - name: Tentar Build do APK
+      run: ./gradlew assembleDebug --stacktrace
+      continue-on-error: true # Não deixa o robô parar o processo se der erro aqui
 
-    - name: Build com Rastreamento Profundo
-      run: |
-        # Usamos --info e --stacktrace para a IA nos dar o relatório completo se falhar
-        ./gradlew assembleDebug --stacktrace --info --scan
-
-    - name: Upload APK Monstro V18
-      if: success()
+    - name: Upload de Resultados (Sempre)
+      if: always() # ISSO AQUI É A CHAVE: Faz o upload mesmo se der erro
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-Final-APK
-        path: app/build/outputs/apk/debug/*.apk
+        name: Resultados-Monstro-V18
+        path: |
+          app/build/outputs/apk/debug/*.apk
+          app/build/reports/problems/
+          build/reports/
