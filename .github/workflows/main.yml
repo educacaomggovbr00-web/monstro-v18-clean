@@ -1,4 +1,4 @@
-name: Android CI Monstro V18 - Versao Final
+name: Monstro V18 - IA de Reconstrucao Total
 
 on:
   push:
@@ -16,38 +16,46 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Auto-Reparo e Escaneamento
+    - name: IA Berserker - Reconstruindo Projeto
       run: |
-        echo "### ORGANIZANDO ESTRUTURA ###"
+        echo "### INICIANDO RECONSTRUCAO FORCADA ###"
         
-        # 1. Cria a pasta 'app' oficial para o Gradle não se perder
-        mkdir -p app/src/main/java/com/monstro/v18
-        
-        # 2. IA DE BUSCA: Caça sua MainActivity e coloca no lugar certo
-        # Isso resolve a bagunça de pastas que vimos nos seus prints
-        find . -maxdepth 10 -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
-        
-        # 3. GARANTE O MANIFESTO: Copia apenas se não for o mesmo arquivo (evita erro do Build #37)
-        find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
-        
-        # 4. LIMPEZA DE CONFIGURAÇÃO: Tira o conflito de repositórios da raiz
+        # 1. Limpa qualquer conflito de configuracao anterior
         sed -i '/allprojects/,/}/d' build.gradle || true
         
-        # 5. REGENERAÇÃO DO MOTOR: Usa o Gradle nativo (Resolve o erro do Build #37)
-        gradle wrapper
+        # 2. Cria a estrutura oficial que o Android exige
+        mkdir -p reconstrucao/app/src/main/java/com/monstro/v18
+        
+        # 3. Caça seus arquivos onde quer que eles estejam e move para a nova estrutura
+        find . -name "MainActivity.kt" -exec cp {} reconstrucao/app/src/main/java/com/monstro/v18/ \;
+        find . -name "AndroidManifest.xml" -exec cp {} reconstrucao/app/src/main/ \;
+        
+        # 4. Se o build.gradle do app não existir, ele cria um basico funcional
+        cat <<EOF > reconstrucao/app/build.gradle
+        plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+        android { namespace 'com.monstro.v18'; compileSdk 34
+            defaultConfig { applicationId "com.monstro.v18"; minSdk 24; targetSdk 34 }
+        }
+        dependencies { implementation 'androidx.core:core-ktx:1.12.0' }
+        EOF
+
+        # 5. Cria o mapa do projeto (settings.gradle)
+        echo "include ':app'" > reconstrucao/settings.gradle
+        cp gradlew reconstrucao/ || gradle wrapper --project-dir reconstrucao
+        
+        # 6. Substitui tudo pela nova estrutura organizada
+        mv reconstrucao/* .
         chmod +x gradlew
-        ./gradlew clean
 
-    - name: Compilar APK Monstro V18
-      run: ./gradlew assembleDebug --stacktrace --info
-      continue-on-error: true 
+    - name: Gerar APK Monstro V18
+      run: ./gradlew :app:assembleDebug --stacktrace --info
+      continue-on-error: true
 
-    - name: Entrega de Resultados (APK + Logs)
-      if: always() 
+    - name: Upload Garantido do Resultado
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: Pacote-Monstro-V18
+        name: Resultado-Monstro-V18
         path: |
           app/build/outputs/apk/debug/*.apk
           **/build/reports/**
-          **/build/test-results/**
