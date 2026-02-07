@@ -1,4 +1,4 @@
-name: Android CI Monstro V18 - Analisador Elite
+name: Android CI Monstro V18 - IA Berserker
 
 on:
   push:
@@ -16,33 +16,39 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Organizacao e Auto-Reparo
+    - name: IA de Auto-Reparo e Escaneamento Profundo
       run: |
-        echo "### INICIANDO SCAN DE PASTAS ###"
-        # 1. Cria a estrutura padrão que o Android exige
-        mkdir -p app/src/main/java/com/monstro/v18
+        echo "### INICIANDO SCAN DE IA ###"
         
-        # 2. Busca sua MainActivity e AndroidManifest em qualquer lugar do projeto
-        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
-        find . -name "AndroidManifest.xml" -exec cp {} app/src/main/ \;
-        
-        # 3. Resolve conflitos de configuração na raiz
+        # 1. Resolve o conflito de repositórios na raiz (Erro dos 900ms)
         sed -i '/allprojects/,/}/d' build.gradle || true
         
-        # 4. Garante que o motor do Gradle esteja pronto para ligar
+        # 2. IA DE RECONSTRUÇÃO: Cria a pasta 'app' correta e move os arquivos perdidos
+        # Isso resolve aquele B.O. das pastas com nomes longos que vimos no seu print
+        mkdir -p app/src/main/java/com/monstro/v18
+        find . -maxdepth 10 -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
+        find . -maxdepth 10 -name "AndroidManifest.xml" -exec cp {} app/src/main/ \;
+        
+        # 3. VERIFICAÇÃO DE MÓDULO: Garante que o Gradle reconheça a pasta 'app'
+        if [ ! -f "settings.gradle" ]; then
+          echo "rootProject.name = 'MonstroV18'" > settings.gradle
+          echo "include ':app'" >> settings.gradle
+        fi
+
+        # 4. REGENERAÇÃO DO MOTOR: Cria o gradlew se ele sumiu ou quebrou
         gradle wrapper --gradle-version 8.2.2
         chmod +x gradlew
         ./gradlew clean
 
-    - name: Build com Rastreamento Profundo
-      run: ./gradlew assembleDebug --stacktrace --info
-      continue-on-error: true # Garante que cheguemos no upload mesmo se der erro
+    - name: Build Forçado com Diagnóstico
+      run: ./gradlew :app:assembleDebug --stacktrace --info
+      continue-on-error: true 
 
-    - name: Upload de Diagnostico Total
-      if: always() # Força o robô a te entregar os arquivos no final
+    - name: Upload de Tudo (APK + Logs de Erro)
+      if: always() 
       uses: actions/upload-artifact@v4
       with:
-        name: Pacote-Monstro-V18
+        name: Pacote-Final-Monstro
         path: |
           app/build/outputs/apk/debug/*.apk
           **/build/reports/**
