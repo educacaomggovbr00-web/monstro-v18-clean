@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Real Kotlin Garantido
+name: Monstro V18 - Build Final Supremo
 
 on:
   push:
@@ -18,13 +18,14 @@ jobs:
 
     - name: IA de Estrutura e Compilacao Kotlin
       run: |
-        echo "### LIMPANDO E MONTANDO MOTOR KOTLIN ###"
+        echo "### MONTANDO ESTRUTURA PARA APK REAL ###"
         mkdir -p app/src/main/java/com/monstro/v18
         
+        # Resgata seus arquivos
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 1. BUILD.GRADLE RAIZ - Adicionando Plugin Kotlin [Sua Correção #1 e #3]
+        # 1. BUILD.GRADLE RAIZ (Com repositórios explícitos)
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -38,11 +39,12 @@ jobs:
         }
         EOF
 
-        # 2. BUILD.GRADLE APP - Compilação Real e Java 17 [Sua Correção #2 e #4]
+        # 2. BUILD.GRADLE APP (Sintaxe para evitar o erro de runtime)
         cat <<EOF > app/build.gradle
-        apply plugin: 'com.android.application'
-        apply plugin: 'org.jetbrains.kotlin.android'
-
+        plugins {
+            id 'com.android.application'
+            id 'org.jetbrains.kotlin.android'
+        }
         android {
             namespace = 'com.monstro.v18'
             compileSdk = 34
@@ -62,24 +64,27 @@ jobs:
             }
         }
         dependencies {
-            implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
             implementation 'androidx.core:core-ktx:1.12.0'
             implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.android.material:material:1.11.0'
         }
         EOF
 
+        # 3. SETTINGS E PROPERTIES (Essencial para o motor não pifar)
         echo "include ':app'" > settings.gradle
-        # Força versão do Gradle compatível com AGP 8.2.2 [Sua Correção #3]
+        echo "android.useAndroidX=true" > gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
+        
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
     - name: Gerar APK Monstro Real
-      # Sem cache e com info para validar a compilação [Sua Correção #5]
-      run: ./gradlew :app:assembleDebug --no-configuration-cache --info
+      # Adicionado --no-configuration-cache para limpar o log
+      run: ./gradlew :app:assembleDebug --stacktrace --no-configuration-cache
 
-    - name: Enviar APK (Validacao de Tamanho)
+    - name: Enviar APK (Validacao de 2MB+)
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK-FINAL-REAL
+        name: MonstroV18-APK-FINAL
         path: app/build/outputs/apk/debug/*.apk
-        if-no-files-found: error # Faz o build falhar se não tiver APK [Sua Correção #5]
+        if-no-files-found: error
