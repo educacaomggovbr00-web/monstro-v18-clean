@@ -16,26 +16,27 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: IA de Organizacao e Limpeza Total
+    - name: IA de Limpeza e Sintaxe Unica
       run: |
         echo "### LIMPANDO TUDO PARA O GIRO FINAL ###"
         mkdir -p app/src/main/java/com/monstro/v18
         
+        # Resgata sua MainActivity e AndroidManifest
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/ \;
         find . -name "AndroidManifest.xml" -not -path "./app/src/main/AndroidManifest.xml" -exec cp {} app/src/main/ \; || true
         
-        # 1. RAIZ MINIMALISTA
+        # 1. BUILD.GRADLE DA RAIZ (Sintaxe Corrigida)
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
-            dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
+            dependencies { classpath("com.android.tools.build:gradle:8.2.2") }
         }
         allprojects {
             repositories { google(); mavenCentral() }
         }
         EOF
 
-        # 2. APP COM SINTAXE LIMPA (SEM ERRO DE 5 SEGUNDOS)
+        # 2. BUILD.GRADLE DO APP (STRING UNICA - MATA OS 2 AVISOS)
         cat <<EOF > app/build.gradle
         apply plugin: 'com.android.application'
         android {
@@ -50,23 +51,26 @@ jobs:
             }
         }
         dependencies {
-            implementation 'androidx.core:core-ktx:1.12.0'
-            implementation 'androidx.appcompat:appcompat:1.6.1'
+            // Sintaxe de string unica exigida pelo relatorio
+            implementation("androidx.core:core-ktx:1.12.0")
+            implementation("androidx.appcompat:appcompat:1.6.1")
         }
         EOF
 
         echo "include ':app'" > settings.gradle
-        # Mata o cache de vez no arquivo
+        
+        # Desativa o cache que gera o relatorio chato
         echo "org.gradle.configuration-cache=false" > gradle.properties
+        
         gradle wrapper
         chmod +x gradlew
 
     - name: Gerar APK Monstro
-      # Comando direto e reto, sem frescura para nao dar exit code 1
-      run: ./gradlew :app:assembleDebug --stacktrace
+      # Comando direto sem o cache que trava o build
+      run: ./gradlew clean :app:assembleDebug --no-configuration-cache --stacktrace
       continue-on-error: true
 
-    - name: Captura Garantida do APK
+    - name: Enviar APK para Henrique
       if: always()
       uses: actions/upload-artifact@v4
       with:
