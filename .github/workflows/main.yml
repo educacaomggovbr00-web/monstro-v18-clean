@@ -18,9 +18,9 @@ jobs:
 
     - name: Preparar Ambiente Moderno
       run: |
-        echo "### MONTANDO GRADLE PARA COMPOSE ###"
+        echo "### MONTANDO GRADLE COM MEMORIA EXTRA ###"
         
-        # 1. RAIZ - Plugins Necessários [Sua Correção #2]
+        # 1. RAIZ - Plugins Necessários
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -34,15 +34,13 @@ jobs:
         }
         EOF
 
-        # 2. APP - Compose Ativado e Sem Conflitos [Sua Correção #2 e #3]
+        # 2. APP - Compose Ativado e Sem Conflitos
         cat <<EOF > app/build.gradle
         apply plugin: 'com.android.application'
         apply plugin: 'org.jetbrains.kotlin.android'
-
         android {
             namespace = 'com.monstro.v18'
             compileSdk = 34
-
             defaultConfig {
                 applicationId = "com.monstro.v18"
                 minSdk = 24
@@ -50,52 +48,42 @@ jobs:
                 versionCode = 18
                 versionName = "18.0"
             }
-
-            buildFeatures {
-                compose = true
-            }
-
-            composeOptions {
-                kotlinCompilerExtensionVersion = '1.5.8'
-            }
-
+            buildFeatures { compose = true }
+            composeOptions { kotlinCompilerExtensionVersion = '1.5.8' }
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
-            kotlinOptions {
-                jvmTarget = '17'
-            }
+            kotlinOptions { jvmTarget = '17' }
         }
-
         dependencies {
-            // Kit Compose BOM - Alinhado com seu código [Sua Correção #3]
             implementation platform('androidx.compose:compose-bom:2024.02.00')
             implementation 'androidx.compose.ui:ui'
             implementation 'androidx.compose.material3:material3'
             implementation 'androidx.activity:activity-compose:1.8.2'
             implementation 'androidx.core:core-ktx:1.12.0'
-            
-            // Motor de Vídeo Media3 (ExoPlayer moderno) [Sua Correção #3]
             implementation 'androidx.media3:media3-exoplayer:1.2.1'
             implementation 'androidx.media3:media3-ui:1.2.1'
         }
         EOF
 
         echo "include ':app'" > settings.gradle
-        echo "android.useAndroidX=true" > gradle.properties
+        
+        # --- A CHAVE PARA O APK SAIR (MEMORIA EXTRA) ---
+        echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" > gradle.properties
+        echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
         
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
     - name: Build APK Real
-      # Sem cache mascarando erro e com info detalhado [Sua Correção #4]
-      run: ./gradlew :app:assembleDebug --no-configuration-cache --info
+      # Adicionado --no-daemon para o servidor não engasgar no final
+      run: ./gradlew :app:assembleDebug --no-configuration-cache --no-daemon --info
 
     - name: Enviar APK (Validacao de Sucesso)
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-APK-REAL
+        name: MonstroV18-APK-FINAL
         path: app/build/outputs/apk/debug/*.apk
-        if-no-files-found: error # Falha se não sair o binário real [Sua Correção #4]
+        if-no-files-found: error
