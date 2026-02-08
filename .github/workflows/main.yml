@@ -1,4 +1,4 @@
-name: Monstro V18 - Entrega Final
+name: Monstro V18 - Entrega Garantida
 
 on:
   push:
@@ -16,33 +16,22 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Arrumar Pastas e Manifesto
+    - name: Organizacao Automatica
       run: |
-        echo "### ORGANIZANDO ESTRUTURA FINAL ###"
-        mkdir -p app/src/main
-        
-        # Garante o settings.gradle para o robô não se perder
+        echo "### ARRUMANDO AS PECAS DO MONSTRO ###"
+        # 1. O Android exige que o arquivo de configuracao se chame settings.gradle
         echo "include ':app'" > settings.gradle
         
-        # Injeta um Manifesto limpo para evitar erros de permissão no A30s
-        cat <<EOF > app/src/main/AndroidManifest.xml
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application android:label="Monstro V18" android:theme="@android:style/Theme.Material.Light.NoActionBar">
-                <activity android:name="com.monstro.v18.MainActivity" android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        EOF
-
-        # Gera o motor estável 8.4
+        # 2. Cria a pasta do app e move o teu build.gradle para lá
+        mkdir -p app
+        if [ -f build.gradle ]; then mv build.gradle app/; fi
+        
+        # 3. Garante que o motor seja o Gradle 8.4 que o teu A30s gosta
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
     - name: Compilar APK Monstro
+      # Rodamos o build usando a estrutura que acabamos de organizar
       run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
     - name: Entregar para o Henrique
