@@ -1,4 +1,4 @@
-name: Monstro V18 - Build do Repositorio
+name: Monstro V18 - Build Real
 
 on:
   push:
@@ -8,7 +8,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    # 1. Pega os arquivos que ESTÃO no seu repositório
     - uses: actions/checkout@v4
 
     - name: set up JDK 17
@@ -17,20 +16,15 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 2. Configura apenas o necessário para o ambiente (sem mexer no seu código)
-    - name: Preparar Permissoes e Wrapper
+    - name: Gerar Motor (Gradle Wrapper)
       run: |
-        echo "### USANDO ARQUIVOS DO REPOSITORIO ###"
-        # Garante que o Gradle tenha permissão para rodar
+        echo "### GERANDO GRADLEW AUTOMATICO ###"
+        # O robô baixa o Gradle e cria o arquivo que estava faltando
+        gradle wrapper --gradle-version 8.4
         chmod +x gradlew
-        
-        # Cria o gradle.properties apenas para o servidor não travar (RAM)
-        echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" > gradle.properties
-        echo "android.useAndroidX=true" >> gradle.properties
-        echo "android.enableJetifier=true" >> gradle.properties
 
-    # 3. Roda o build usando os SEUS arquivos
-    - name: Compilar APK Monstro
+    - name: Compilar APK
+      # Agora ele usa o arquivo que acabou de criar
       run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
     - name: Enviar APK
