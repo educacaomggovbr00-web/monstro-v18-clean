@@ -23,11 +23,12 @@ jobs:
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Raio-X do Repositorio e Build
+    - name: Correcao de Versao e Build
       run: |
-        echo "### LISTANDO SEUS ARQUIVOS ###"
-        ls -R
-        # O 'clean' tenta apagar qualquer lixo de 57s antes de compilar
+        echo "### FORCANDO MEDIA3 1.2.1 ###"
+        # Esse comando procura o erro '1.2.2' no seu arquivo e troca por '1.2.1' antes de compilar
+        sed -i 's/1.2.2/1.2.1/g' app/build.gradle
+        
         ./gradlew clean :app:assembleDebug --no-daemon --stacktrace --info
 
     - name: Enviar APK
