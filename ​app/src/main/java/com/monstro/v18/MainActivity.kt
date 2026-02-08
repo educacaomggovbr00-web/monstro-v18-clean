@@ -1,6 +1,8 @@
 package com.monstro.v18
 
+import android.Manifest
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -35,37 +37,49 @@ import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/* ⚠️ CONFIGURAÇÃO DE PERMISSÕES:
-  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-*/
+// --- DESIGN SYSTEM & TEMAS ---
+
+val MonstroBg = Color(0xFF020306)
+val MonstroAccent = Color(0xFFa855f7)
+val MonstroPink = Color(0xFFdb2777)
+val EmeraldTurbo = Color(0xFF10b981)
+
+@Composable
+fun MonstroV18Theme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = MonstroAccent,
+            background = MonstroBg,
+            surface = MonstroBg,
+            onSurface = Color.White
+        ),
+        content = content
+    )
+}
 
 // --- MODELAGEM ---
 
 sealed class VfxNode {
-    data class Shake(val intensity: Float) : VfxNode()
-    data class Zoom(val scale: Float) : VfxNode()
-    data class RgbSplit(val offset: Float) : VfxNode()
+    object Shake : VfxNode()
+    object Zoom : VfxNode()
     object Glitch : VfxNode()
 }
 
 data class MonstroPreset(
     val id: String,
     val name: String,
-    val description: String,
-    val stack: List<VfxNode>
+    val description: String
 )
 
 val MonstroLibrary = listOf(
-    MonstroPreset("none", "RAW", "Sem efeitos", emptyList()),
-    MonstroPreset("neon_punch", "NEON PUNCH", "Impacto Vibrante", listOf(VfxNode.Shake(0.8f), VfxNode.RgbSplit(0.1f))),
-    MonstroPreset("trap_lord", "TRAP LORD", "Zoom Agressivo", listOf(VfxNode.Zoom(1.2f), VfxNode.Glitch)),
-    MonstroPreset("dark_energy", "DARK ENERGY", "Contraste e Noise", listOf(VfxNode.RgbSplit(0.3f), VfxNode.Shake(0.4f)))
+    MonstroPreset("none", "RAW", "Sem efeitos"),
+    MonstroPreset("neon_punch", "NEON PUNCH", "Impacto Vibrante"),
+    MonstroPreset("trap_lord", "TRAP LORD", "Zoom Agressivo"),
+    MonstroPreset("dark_energy", "DARK ENERGY", "Contraste e Noise")
 )
 
 data class MonstroClip(
     val uri: Uri,
-    var durationMs: Long = 0,
     val activePreset: MonstroPreset = MonstroLibrary[0]
 )
 
@@ -73,10 +87,7 @@ data class MonstroProject(
     val clips: List<MonstroClip> = emptyList()
 )
 
-val MonstroBg = Color(0xFF020306)
-val MonstroAccent = Color(0xFFa855f7)
-val MonstroPink = Color(0xFFdb2777)
-val EmeraldTurbo = Color(0xFF10b981)
+// --- ACTIVITY PRINCIPAL ---
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,14 +105,33 @@ fun MonstroIndustrialEditor() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Estados do Projeto
     var project by remember { mutableStateOf(MonstroProject()) }
     var selectedIndex by remember { mutableStateOf(0) }
     var isPlaying by remember { mutableStateOf(false) }
-    var duration by remember { mutableStateOf(1L) }
     var isExporting by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
 
-    // ✅ CORREÇÃO 1: Listener Blindado (Evita selectedIndex = -1)
+    // 1. GESTÃO DE PERMISSÕES (Android 13+ e Legado)
+    val permissionToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_VIDEO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            Toast.makeText(context, "Permissão necessária para carregar vídeos!", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(permissionToRequest)
+    }
+
+    // 2. INICIALIZAÇÃO SEGURA DO EXOPLAYER
     val exoPlayer = remember(context) {
         ExoPlayer.Builder(context).build().apply {
             repeatMode = Player.REPEAT_MODE_ONE
@@ -111,7 +141,6 @@ fun MonstroIndustrialEditor() {
                         val newIndex = player.currentMediaItemIndex
                         if (newIndex >= 0) {
                             selectedIndex = newIndex
-                            duration = player.duration.takeIf { it > 0 } ?: 1L
                         }
                     }
                 }
@@ -119,10 +148,12 @@ fun MonstroIndustrialEditor() {
         }
     }
 
+    // LIBERAÇÃO OBRIGATÓRIA DE MEMÓRIA
     DisposableEffect(Unit) {
         onDispose { exoPlayer.release() }
     }
 
+    // SELETOR DE VÍDEO
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             val newClip = MonstroClip(uri = it)
@@ -133,30 +164,29 @@ fun MonstroIndustrialEditor() {
         }
     }
 
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) exoPlayer.play() else exoPlayer.pause()
-        while (isPlaying && exoPlayer.isPlaying) {
-            delay(33)
-        }
-    }
-
     Scaffold(containerColor = MonstroBg) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
             
             MonstroHeader(isExporting)
             Spacer(Modifier.height(16.dp))
 
-            // PREVIEW
+            // 3. PREVIEW SEGURO (Handling Empty State)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color.Black)
+                    .clickable(enabled = project.clips.isEmpty()) { picker.launch("video/*") }
             ) {
                 if (project.clips.isEmpty()) {
-                    Box(Modifier.fillMaxSize().clickable { picker.launch("video/*") }, contentAlignment = Alignment.Center) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text("IMPORTAR MASTER", color = Color.Gray, fontWeight = FontWeight.Black)
+                        Text("TOQUE PARA COMEÇAR", color = Color.Gray.copy(0.5f), fontSize = 10.sp)
                     }
                 } else {
                     AndroidView(
@@ -169,14 +199,14 @@ fun MonstroIndustrialEditor() {
 
             Spacer(Modifier.height(16.dp))
 
-            // TIMELINE
+            // 4. TIMELINE BLINDADA
             MonstroTimeline(
                 clips = project.clips,
                 selectedIndex = selectedIndex,
-                onSelect = { 
-                    if (it in project.clips.indices) {
-                        selectedIndex = it
-                        exoPlayer.seekToDefaultPosition(it)
+                onSelect = { index ->
+                    if (index in project.clips.indices) {
+                        selectedIndex = index
+                        exoPlayer.seekToDefaultPosition(index)
                     }
                 },
                 onAdd = { picker.launch("video/*") }
@@ -186,27 +216,27 @@ fun MonstroIndustrialEditor() {
             MonstroTabHeader(selectedTab) { selectedTab = it }
             Spacer(Modifier.height(12.dp))
 
-            // PAINEL DE CONTROLE
+            // 5. ACESSO SEGURO AOS PRESETS (getOrNull)
             Box(modifier = Modifier.weight(1f)) {
                 if (project.clips.isNotEmpty()) {
-                    if (selectedTab == 0) {
-                        // ✅ CORREÇÃO 2: Acesso Seguro ao Preset (getOrNull)
-                        val currentClipPreset = project.clips.getOrNull(selectedIndex)?.activePreset ?: MonstroLibrary[0]
-                        
+                    val currentClip = project.clips.getOrNull(selectedIndex)
+                    
+                    if (selectedTab == 0 && currentClip != null) {
                         MonstroPresetGrid(
-                            currentPreset = currentClipPreset,
+                            currentPreset = currentClip.activePreset,
                             onSelect = { preset ->
-                                // ✅ CORREÇÃO 3: Blindagem de Atualização de Estado
                                 if (selectedIndex in project.clips.indices) {
-                                    val updatedClips = project.clips.toMutableList()
-                                    updatedClips[selectedIndex] = updatedClips[selectedIndex].copy(activePreset = preset)
-                                    project = project.copy(clips = updatedClips)
-                                    Toast.makeText(context, "${preset.name} Aplicado!", Toast.LENGTH_SHORT).show()
+                                    val updated = project.clips.toMutableList()
+                                    updated[selectedIndex] = updated[selectedIndex].copy(activePreset = preset)
+                                    project = project.copy(clips = updated)
+                                    Toast.makeText(context, "${preset.name} ATIVADO", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         )
                     } else {
-                        Text("Chaos FX em desenvolvimento...", color = Color.Gray, fontSize = 10.sp)
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("ENGINE FX V18 ATIVA", color = Color.Gray, fontSize = 10.sp)
+                        }
                     }
                 }
             }
@@ -216,7 +246,7 @@ fun MonstroIndustrialEditor() {
                 scope.launch {
                     delay(3000)
                     isExporting = false
-                    Toast.makeText(context, "RENDER TURBO COMPLETO", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "PROCESSO INDUSTRIAL COMPLETO", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -229,11 +259,11 @@ fun MonstroIndustrialEditor() {
 fun MonstroHeader(isExporting: Boolean) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Column {
-            Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
+            Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp, letterSpacing = (-1).sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(6.dp).background(if (isExporting) Color.Red else EmeraldTurbo, RoundedCornerShape(50)))
                 Spacer(Modifier.width(6.dp))
-                Text(if (isExporting) "RENDERIZANDO" else "SISTEMA ONLINE", color = Color.Gray, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text(if (isExporting) "RENDERING" else "SISTEMA PRONTO", color = Color.Gray, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
         }
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(Brush.linearGradient(listOf(MonstroAccent, MonstroPink))))
@@ -248,9 +278,9 @@ fun MonstroTimeline(clips: List<MonstroClip>, selectedIndex: Int, onSelect: (Int
             Box(
                 modifier = Modifier
                     .size(90.dp, 50.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(if (active) MonstroAccent.copy(0.2f) else Color.White.copy(0.05f))
-                    .border(1.dp, if (active) MonstroAccent else Color.Transparent, RoundedCornerShape(8.dp))
+                    .border(1.dp, if (active) MonstroAccent else Color.Transparent, RoundedCornerShape(10.dp))
                     .clickable { onSelect(index) },
                 contentAlignment = Alignment.Center
             ) {
@@ -259,7 +289,7 @@ fun MonstroTimeline(clips: List<MonstroClip>, selectedIndex: Int, onSelect: (Int
         }
         item {
             Box(
-                modifier = Modifier.size(50.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(0.05f)).clickable { onAdd() },
+                modifier = Modifier.size(50.dp).clip(RoundedCornerShape(10.dp)).background(Color.White.copy(0.05f)).clickable { onAdd() },
                 contentAlignment = Alignment.Center
             ) {
                 Text("+", color = Color.White, fontSize = 20.sp)
@@ -270,8 +300,8 @@ fun MonstroTimeline(clips: List<MonstroClip>, selectedIndex: Int, onSelect: (Int
 
 @Composable
 fun MonstroTabHeader(selected: Int, onSelect: (Int) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().background(Color.White.copy(0.02f), RoundedCornerShape(8.dp))) {
-        listOf("PRESETS", "FX ENGINE").forEachIndexed { index, title ->
+    Row(modifier = Modifier.fillMaxWidth().background(Color.White.copy(0.02f), RoundedCornerShape(10.dp))) {
+        listOf("PRESETS", "CHAOS FX").forEachIndexed { index, title ->
             val active = selected == index
             Box(
                 modifier = Modifier.weight(1f).clickable { onSelect(index) }.padding(12.dp),
@@ -295,9 +325,9 @@ fun MonstroPresetGrid(currentPreset: MonstroPreset, onSelect: (MonstroPreset) ->
             val active = currentPreset.id == preset.id
             Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(if (active) MonstroPink.copy(0.1f) else Color.White.copy(0.02f))
-                    .border(1.dp, if (active) MonstroPink else Color.White.copy(0.1f), RoundedCornerShape(10.dp))
+                    .border(1.dp, if (active) MonstroPink else Color.White.copy(0.1f), RoundedCornerShape(12.dp))
                     .clickable { onSelect(preset) }
                     .padding(12.dp)
             ) {
@@ -313,8 +343,8 @@ fun MonstroRenderButton(enabled: Boolean, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().height(60.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, disabledContainerColor = Color.White.copy(0.05f)),
         contentPadding = PaddingValues()
     ) {
@@ -325,27 +355,15 @@ fun MonstroRenderButton(enabled: Boolean, onClick: () -> Unit) {
             ),
             contentAlignment = Alignment.Center
         ) {
-            Text("EXPORTAR VIDEO TURBO", color = Color.White, fontWeight = FontWeight.Black)
+            Text("RENDER TURBO MP4", color = Color.White, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
         }
     }
 }
 
 @Composable
 fun MonstroLoadingOverlay() {
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(0.7f)), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(0.8f)), contentAlignment = Alignment.Center) {
         CircularProgressIndicator(color = MonstroAccent)
     }
-}
-
-@Composable
-fun MonstroV18Theme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = MonstroAccent,
-            background = MonstroBg,
-            surface = MonstroBg
-        ), 
-        content = content
-    )
 }
 
