@@ -1,4 +1,4 @@
-name: Monstro V18 - Reset Total
+name: Monstro V18 - Organizacao e Build
 
 on:
   push:
@@ -16,40 +16,29 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Motor Estavel
+    - name: Arrumar Pastas e Motor
       run: |
+        echo "### ORGANIZANDO ESTRUTURA ###"
+        # 1. Cria a pasta app se ela não estiver completa
+        mkdir -p app
+        
+        # 2. Move o build.gradle da raiz para dentro da pasta app
+        if [ -f build.gradle ]; then mv build.gradle app/; fi
+        
+        # 3. Cria o settings.gradle (o Android não lê 'configuracoes.gradle')
+        echo "include ':app'" > settings.gradle
+        
+        # 4. Garante que o motor Gradle 8.4 seja gerado
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Limpeza e Injeção de Segurança
-      run: |
-        # Deleta as pastas de build antigas que podem estar travando em 1m
-        rm -rf app/build
-        mkdir -p app/src/main/java/com/monstro/v18
-        
-        # Injeta o código que deu 'SISTEMA OK' no seu print
-        cat <<EOF > app/src/main/java/com/monstro/v18/MainActivity.kt
-        package com.monstro.v18
-        import android.os.Bundle
-        import androidx.activity.ComponentActivity
-        import androidx.activity.compose.setContent
-        import androidx.compose.material3.Text
-        import androidx.compose.ui.Alignment
-        import androidx.compose.foundation.layout.Box
-        import androidx.compose.foundation.layout.fillMaxSize
-        import androidx.compose.ui.Modifier
+    - name: Compilar APK Monstro
+      # Agora ele vai achar a pasta app e o build.gradle lá dentro
+      run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
-        class MainActivity : ComponentActivity() {
-            override fun onCreate(savedInstanceState: Bundle?) {
-                super.onCreate(savedInstanceState)
-                setContent {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("MONSTRO V18 - VOLTOU A FUNCIONAR")
-                    }
-                }
-            }
-        }
-        EOF
-
-    - name: Build de Recuperacao
-      run: ./gradlew clean :app:assembleDebug --no-daemon
+    - name: Entregar para o Henrique
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: MonstroV18-FINAL
+        path: app/build/outputs/apk/debug/*.apk
