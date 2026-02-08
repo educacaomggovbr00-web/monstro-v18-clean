@@ -12,5 +12,6 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "MonstroV18"
+// Ajuste crucial para bater com o package com.monstro.v18
+rootProject.name = "monstro-v18" 
 include ':app'
