@@ -16,18 +16,15 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Reset de Fabrica e Estrutura
+    - name: Formatacao Total (Novo Pendrive)
       run: |
-        echo "### APAGANDO TUDO PARA MATAR O ERRO ###"
-        # Deleta a pasta oculta que guarda o cache de builds falhos
+        echo "### LIMPANDO RASTROS DO CODSPACE ###"
+        # Apaga tudo que o 'Xbox' (GitHub) poderia tentar ler do cache
         rm -rf .gradle
         rm -rf build
-        rm -rf app/build
-        
-        # Cria as pastas do zero para garantir o caminho
         mkdir -p app/src/main/java/com/monstro/v18
 
-        # Injeta a MainActivity de diagnóstico (O coração que não trava)
+        # Injeta a MainActivity limpa
         cat <<EOF > app/src/main/java/com/monstro/v18/MainActivity.kt
         package com.monstro.v18
         import android.os.Bundle
@@ -47,7 +44,7 @@ jobs:
                 setContent {
                     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF020306)) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("MONSTRO V18 ATIVO", color = Color.White)
+                            Text("MONSTRO V18 - RESET OK", color = Color.White)
                         }
                     }
                 }
@@ -55,7 +52,7 @@ jobs:
         }
         EOF
 
-        # Recria os arquivos de build sem rastro do Java 21
+        # Recria os arquivos de build (O novo kernel)
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -99,6 +96,7 @@ jobs:
             implementation 'androidx.core:core-ktx:1.12.0'
             implementation 'androidx.media3:media3-exoplayer:1.2.1'
             implementation 'androidx.media3:media3-ui:1.2.1'
+            implementation 'androidx.recyclerview:recyclerview:1.3.0'
         }
         EOF
 
@@ -108,11 +106,11 @@ jobs:
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Build APK Limpo (Reset Total)
-      # Agora o build vai demorar mais de 36s, porque ele vai construir de verdade
-      run: ./gradlew clean :app:assembleDebug --no-daemon --info
+    - name: Build do Novo Sistema
+      # O 'clean' é a nossa formatação final
+      run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
-    - name: Enviar APK Final
+    - name: Entregar APK
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
