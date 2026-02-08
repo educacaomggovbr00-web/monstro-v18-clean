@@ -16,18 +16,20 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Gerar Motor (Gradle Wrapper)
+    - name: Gerar Motor e Limpar Cache
       run: |
-        echo "### GERANDO GRADLEW AUTOMATICO ###"
-        # O robô baixa o Gradle e cria o arquivo que estava faltando
+        echo "### RESETANDO AMBIENTE ###"
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
+        # Limpa builds antigos que podem estar no seu repositório
+        ./gradlew clean 
 
-    - name: Compilar APK
-      # Agora ele usa o arquivo que acabou de criar
-      run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+    - name: Compilar APK (Modo Detalhado)
+      # Adicionamos --stacktrace e --info para ver o erro real
+      run: ./gradlew :app:assembleDebug --no-daemon --stacktrace --info
 
     - name: Enviar APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
