@@ -16,16 +16,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # MOTOR FIXO QUE NÃO MEXEMOS MAIS
+    # MOTOR FIXO QUE NÃO MEXEMOS
     - name: Gerar Motor (Gradle Wrapper)
       run: |
         echo "### MOTOR ESTÁVEL 8.4 ###"
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Compilar APK (Limpeza de Início)
-      # O 'clean' aqui vai tentar destravar esses 4 segundos iniciais
-      run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace --info
+    - name: Raio-X do Repositorio e Build
+      run: |
+        echo "### LISTANDO SEUS ARQUIVOS ###"
+        ls -R
+        # O 'clean' tenta apagar qualquer lixo de 57s antes de compilar
+        ./gradlew clean :app:assembleDebug --no-daemon --stacktrace --info
 
     - name: Enviar APK
       if: success()
