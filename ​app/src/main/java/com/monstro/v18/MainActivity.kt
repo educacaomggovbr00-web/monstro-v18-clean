@@ -1,6 +1,7 @@
 package com.monstro.v18
 
 import android.Manifest
+import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -36,64 +37,44 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 
-// --- DESIGN SYSTEM & TEMAS ---
-
+// --- CONFIGURAÇÃO VISUAL ---
 val MonstroBg = Color(0xFF020306)
 val MonstroAccent = Color(0xFFa855f7)
 val MonstroPink = Color(0xFFdb2777)
 val EmeraldTurbo = Color(0xFF10b981)
+val DarkGrey = Color(0xFF121214)
 
-@Composable
-fun MonstroV18Theme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = MonstroAccent,
-            background = MonstroBg,
-            surface = MonstroBg,
-            onSurface = Color.White
-        ),
-        content = content
-    )
-}
-
-// --- MODELAGEM ---
-
-sealed class VfxNode {
-    object Shake : VfxNode()
-    object Zoom : VfxNode()
-    object Glitch : VfxNode()
-}
-
+// --- MODELOS DE DADOS ---
 data class MonstroPreset(
-    val id: String,
-    val name: String,
-    val description: String
+    val id: String, 
+    val nome: String, 
+    val descricao: String,
+    val matrixCor: FloatArray? = null // Para filtros reais de cor futuramente
 )
 
 val MonstroLibrary = listOf(
-    MonstroPreset("none", "RAW", "Sem efeitos"),
-    MonstroPreset("neon_punch", "NEON PUNCH", "Impacto Vibrante"),
-    MonstroPreset("trap_lord", "TRAP LORD", "Zoom Agressivo"),
-    MonstroPreset("dark_energy", "DARK ENERGY", "Contraste e Noise")
+    MonstroPreset("raw", "ESTADO RAW", "Sem filtros"),
+    MonstroPreset("neon", "NEON PUNCH", "Brilho e Contraste"),
+    MonstroPreset("trap", "TRAP LORD", "Estilo Videoclipe"),
+    MonstroPreset("dark", "DARK ENERGY", "Cinematográfico")
 )
 
 data class MonstroClip(
-    val uri: Uri,
-    val activePreset: MonstroPreset = MonstroLibrary[0]
+    val uri: Uri, 
+    val presetAtivo: MonstroPreset = MonstroLibrary[0]
 )
 
 data class MonstroProject(
     val clips: List<MonstroClip> = emptyList()
 )
 
-// --- ACTIVITY PRINCIPAL ---
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MonstroV18Theme {
+            MonstroTheme {
                 MonstroIndustrialEditor()
             }
         }
@@ -101,269 +82,229 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+fun MonstroTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = MonstroAccent,
+            background = MonstroBg,
+            surface = DarkGrey
+        ),
+        content = content
+    )
+}
+
+@Composable
 fun MonstroIndustrialEditor() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Estados do Projeto
-    var project by remember { mutableStateOf(MonstroProject()) }
-    var selectedIndex by remember { mutableStateOf(0) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var isExporting by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableStateOf(0) }
+    // Estados de Gerenciamento
+    var projeto by remember { mutableStateOf(MonstroProject()) }
+    var indiceSelecionado by remember { mutableStateOf(0) }
+    var estaExportando by remember { mutableStateOf(false) }
+    var progressoExport by remember { mutableStateOf(0f) }
+    
+    // Inicialização Adiada do Player (Lazy Loading para economizar RAM do A30s)
+    var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
 
-    // 1. GESTÃO DE PERMISSÕES (Android 13+ e Legado)
-    val permissionToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_VIDEO
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
-    }
+    // Gerenciador de Permissões
+    val permissao = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
+        Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (!isGranted) {
-            Toast.makeText(context, "Permissão necessária para carregar vídeos!", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(permissionToRequest)
-    }
-
-    // 2. INICIALIZAÇÃO SEGURA DO EXOPLAYER
-    val exoPlayer = remember(context) {
-        ExoPlayer.Builder(context).build().apply {
-            repeatMode = Player.REPEAT_MODE_ONE
-            addListener(object : Player.Listener {
-                override fun onEvents(player: Player, events: Player.Events) {
-                    if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                        val newIndex = player.currentMediaItemIndex
-                        if (newIndex >= 0) {
-                            selectedIndex = newIndex
-                        }
-                    }
-                }
-            })
-        }
-    }
-
-    // LIBERAÇÃO OBRIGATÓRIA DE MEMÓRIA
-    DisposableEffect(Unit) {
-        onDispose { exoPlayer.release() }
-    }
-
-    // SELETOR DE VÍDEO
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+    val seletorVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
-            val newClip = MonstroClip(uri = it)
-            project = project.copy(clips = project.clips + newClip)
-            exoPlayer.addMediaItem(MediaItem.fromUri(it))
-            exoPlayer.prepare()
-            exoPlayer.playWhenReady = true
+            val novoClip = MonstroClip(uri = it)
+            projeto = projeto.copy(clips = projeto.clips + novoClip)
+            
+            if (exoPlayer == null) {
+                exoPlayer = ExoPlayer.Builder(context).build().apply {
+                    repeatMode = Player.REPEAT_MODE_ONE
+                    addListener(object : Player.Listener {
+                        override fun onEvents(player: Player, events: Player.Events) {
+                            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                                val novoIndice = player.currentMediaItemIndex
+                                if (novoIndice >= 0) indiceSelecionado = novoIndice
+                            }
+                        }
+                    })
+                }
+            }
+            
+            exoPlayer?.apply {
+                addMediaItem(MediaItem.fromUri(it))
+                prepare()
+                playWhenReady = true
+            }
         }
+    }
+
+    val launchPermissao = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) seletorVideo.launch("video/*")
+        else Toast.makeText(context, "Acesso negado!", Toast.LENGTH_SHORT).show()
+    }
+
+    // Cleanup de Hardware ao fechar o app
+    DisposableEffect(Unit) {
+        onDispose { exoPlayer?.release() }
     }
 
     Scaffold(containerColor = MonstroBg) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
             
-            MonstroHeader(isExporting)
-            Spacer(Modifier.height(16.dp))
+            // CABEÇALHO INDUSTRIAL
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(6.dp).background(EmeraldTurbo, RoundedCornerShape(50)))
+                        Spacer(Modifier.width(6.dp))
+                        Text("SISTEMA OTIMIZADO", color = Color.Gray, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(Brush.linearGradient(listOf(MonstroAccent, MonstroPink))))
+            }
 
-            // 3. PREVIEW SEGURO (Handling Empty State)
+            Spacer(Modifier.height(20.dp))
+
+            // ÁREA DE PREVIEW (SÓ CARREGA O PLAYER SE HOUVER CLIP)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.Black)
-                    .clickable(enabled = project.clips.isEmpty()) { picker.launch("video/*") }
+                    .background(DarkGrey)
+                    .border(1.dp, Color.White.copy(0.05f), RoundedCornerShape(16.dp))
             ) {
-                if (project.clips.isEmpty()) {
+                if (projeto.clips.isEmpty()) {
                     Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        Modifier.fillMaxSize().clickable { launchPermissao.launch(permissao) },
+                        verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("IMPORTAR MASTER", color = Color.Gray, fontWeight = FontWeight.Black)
-                        Text("TOQUE PARA COMEÇAR", color = Color.Gray.copy(0.5f), fontSize = 10.sp)
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(32.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("IMPORTAR VÍDEO MASTER", color = Color.Gray, fontWeight = FontWeight.Black, fontSize = 12.sp)
                     }
                 } else {
-                    AndroidView(
-                        factory = { PlayerView(it).apply { player = exoPlayer; useController = false } },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                if (isExporting) MonstroLoadingOverlay()
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // 4. TIMELINE BLINDADA
-            MonstroTimeline(
-                clips = project.clips,
-                selectedIndex = selectedIndex,
-                onSelect = { index ->
-                    if (index in project.clips.indices) {
-                        selectedIndex = index
-                        exoPlayer.seekToDefaultPosition(index)
-                    }
-                },
-                onAdd = { picker.launch("video/*") }
-            )
-
-            Spacer(Modifier.height(16.dp))
-            MonstroTabHeader(selectedTab) { selectedTab = it }
-            Spacer(Modifier.height(12.dp))
-
-            // 5. ACESSO SEGURO AOS PRESETS (getOrNull)
-            Box(modifier = Modifier.weight(1f)) {
-                if (project.clips.isNotEmpty()) {
-                    val currentClip = project.clips.getOrNull(selectedIndex)
-                    
-                    if (selectedTab == 0 && currentClip != null) {
-                        MonstroPresetGrid(
-                            currentPreset = currentClip.activePreset,
-                            onSelect = { preset ->
-                                if (selectedIndex in project.clips.indices) {
-                                    val updated = project.clips.toMutableList()
-                                    updated[selectedIndex] = updated[selectedIndex].copy(activePreset = preset)
-                                    project = project.copy(clips = updated)
-                                    Toast.makeText(context, "${preset.name} ATIVADO", Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                    exoPlayer?.let { player ->
+                        AndroidView(
+                            factory = { PlayerView(it).apply { this.player = player; useController = false } },
+                            modifier = Modifier.fillMaxSize()
                         )
-                    } else {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("ENGINE FX V18 ATIVA", color = Color.Gray, fontSize = 10.sp)
+                    }
+                }
+                
+                if (estaExportando) {
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(0.85f)), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(progress = progressoExport, color = MonstroAccent, strokeWidth = 6.dp)
+                            Spacer(Modifier.height(16.dp))
+                            Text("RENDERIZANDO MP4...", color = Color.White, fontWeight = FontWeight.Black)
+                            Text("${(progressoExport * 100).toInt()}% CONCLUÍDO", color = MonstroAccent, fontSize = 10.sp)
                         }
                     }
                 }
             }
 
-            MonstroRenderButton(enabled = project.clips.isNotEmpty()) {
-                isExporting = true
-                scope.launch {
-                    delay(3000)
-                    isExporting = false
-                    Toast.makeText(context, "PROCESSO INDUSTRIAL COMPLETO", Toast.LENGTH_LONG).show()
+            Spacer(Modifier.height(20.dp))
+
+            // TIMELINE DINÂMICA
+            Text("TIMELINE DE CLIPS", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                itemsIndexed(projeto.clips) { index, clip ->
+                    val ativo = index == indiceSelecionado
+                    Box(
+                        modifier = Modifier
+                            .size(110.dp, 62.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (ativo) MonstroAccent.copy(0.15f) else DarkGrey)
+                            .border(2.dp, if (ativo) MonstroAccent else Color.Transparent, RoundedCornerShape(10.dp))
+                            .clickable { 
+                                indiceSelecionado = index
+                                exoPlayer?.seekToDefaultPosition(index)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("CLIP $index", color = if (ativo) Color.White else Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                item {
+                    Box(
+                        Modifier.size(62.dp).clip(RoundedCornerShape(10.dp)).background(DarkGrey)
+                            .clickable { launchPermissao.launch(permissao) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("+", color = Color.White, fontSize = 24.sp)
+                    }
                 }
             }
-        }
-    }
-}
 
-// --- COMPONENTES DE UI ---
+            Spacer(Modifier.height(20.dp))
 
-@Composable
-fun MonstroHeader(isExporting: Boolean) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column {
-            Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp, letterSpacing = (-1).sp)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(6.dp).background(if (isExporting) Color.Red else EmeraldTurbo, RoundedCornerShape(50)))
-                Spacer(Modifier.width(6.dp))
-                Text(if (isExporting) "RENDERING" else "SISTEMA PRONTO", color = Color.Gray, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(Brush.linearGradient(listOf(MonstroAccent, MonstroPink))))
-    }
-}
-
-@Composable
-fun MonstroTimeline(clips: List<MonstroClip>, selectedIndex: Int, onSelect: (Int) -> Unit, onAdd: () -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        itemsIndexed(clips) { index, _ ->
-            val active = index == selectedIndex
-            Box(
-                modifier = Modifier
-                    .size(90.dp, 50.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (active) MonstroAccent.copy(0.2f) else Color.White.copy(0.05f))
-                    .border(1.dp, if (active) MonstroAccent else Color.Transparent, RoundedCornerShape(10.dp))
-                    .clickable { onSelect(index) },
-                contentAlignment = Alignment.Center
+            // GRADE DE PRESETS (EFEITOS)
+            Text("ESCOLHER ENGINE DE COR", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("CLIP $index", color = if (active) Color.White else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                items(MonstroLibrary) { preset ->
+                    val selecionado = projeto.clips.getOrNull(indiceSelecionado)?.presetAtivo?.id == preset.id
+                    Column(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selecionado) MonstroPink.copy(0.1f) else DarkGrey)
+                            .border(1.dp, if (selecionado) MonstroPink else Color.White.copy(0.05f), RoundedCornerShape(12.dp))
+                            .clickable {
+                                if (indiceSelecionado in projeto.clips.indices) {
+                                    val novaLista = projeto.clips.toMutableList()
+                                    novaLista[indiceSelecionado] = novaLista[indiceSelecionado].copy(presetAtivo = preset)
+                                    projeto = projeto.copy(novaLista.toList())
+                                    
+                                    // Feedback Visual
+                                    Toast.makeText(context, "${preset.nome} ATIVADO", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(14.dp)
+                    ) {
+                        Text(preset.nome, color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                        Text(preset.descricao, color = Color.Gray, fontSize = 8.sp)
+                    }
+                }
             }
-        }
-        item {
-            Box(
-                modifier = Modifier.size(50.dp).clip(RoundedCornerShape(10.dp)).background(Color.White.copy(0.05f)).clickable { onAdd() },
-                contentAlignment = Alignment.Center
+
+            // BOTÃO DE RENDERIZAÇÃO
+            Button(
+                onClick = {
+                    estaExportando = true
+                    scope.launch {
+                        // Simulação de Processamento do Media3 Transformer no A30s
+                        progressoExport = 0f
+                        while (progressoExport < 1f) {
+                            delay(40) // Simula esforço da CPU
+                            progressoExport += 0.01f
+                        }
+                        estaExportando = false
+                        Toast.makeText(context, "VÍDEO EXPORTADO COM SUCESSO!", Toast.LENGTH_LONG).show()
+                    }
+                },
+                enabled = projeto.clips.isNotEmpty() && !estaExportando,
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MonstroAccent)
             ) {
-                Text("+", color = Color.White, fontSize = 20.sp)
+                Text("RENDERIZAR MP4 TURBO", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             }
         }
     }
 }
 
-@Composable
-fun MonstroTabHeader(selected: Int, onSelect: (Int) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().background(Color.White.copy(0.02f), RoundedCornerShape(10.dp))) {
-        listOf("PRESETS", "CHAOS FX").forEachIndexed { index, title ->
-            val active = selected == index
-            Box(
-                modifier = Modifier.weight(1f).clickable { onSelect(index) }.padding(12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(title, color = if (active) Color.White else Color.Gray, fontWeight = FontWeight.Black, fontSize = 10.sp)
-                if (active) Box(Modifier.align(Alignment.BottomCenter).size(15.dp, 2.dp).background(MonstroAccent))
-            }
-        }
-    }
-}
-
-@Composable
-fun MonstroPresetGrid(currentPreset: MonstroPreset, onSelect: (MonstroPreset) -> Unit) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(MonstroLibrary) { preset ->
-            val active = currentPreset.id == preset.id
-            Column(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (active) MonstroPink.copy(0.1f) else Color.White.copy(0.02f))
-                    .border(1.dp, if (active) MonstroPink else Color.White.copy(0.1f), RoundedCornerShape(12.dp))
-                    .clickable { onSelect(preset) }
-                    .padding(12.dp)
-            ) {
-                Text(preset.name, color = Color.White, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                Text(preset.description.uppercase(), color = Color.Gray, fontSize = 7.sp)
-            }
-        }
-    }
-}
-
-@Composable
-fun MonstroRenderButton(enabled: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth().height(60.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, disabledContainerColor = Color.White.copy(0.05f)),
-        contentPadding = PaddingValues()
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(
-                if (enabled) Brush.linearGradient(listOf(MonstroAccent, MonstroPink)) 
-                else Brush.linearGradient(listOf(Color.DarkGray, Color.Black))
-            ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("RENDER TURBO MP4", color = Color.White, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        }
-    }
-}
-
-@Composable
-fun MonstroLoadingOverlay() {
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(0.8f)), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = MonstroAccent)
+// Ícones Genéricos para facilitar o Single-File
+object Icons {
+    object Default {
+        val Add = 0 // Apenas marcador para o exemplo
     }
 }
 
