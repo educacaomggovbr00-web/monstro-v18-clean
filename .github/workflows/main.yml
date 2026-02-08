@@ -1,4 +1,4 @@
-name: Monstro V18 - Conector Final Real
+name: Monstro V18 - Edicao Industrial
 
 on:
   push:
@@ -16,17 +16,17 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Arrumar Estrutura e Motor
+    - name: Reconstruir Coracao do Monstro
       run: |
-        echo "### CONECTANDO AS PECAS DO MONSTRO ###"
-        # 1. Cria o settings.gradle para o Gradle não se perder
+        echo "### ORGANIZANDO ESTRUTURA E MOTOR ###"
+        # 1. Força o mapa do projeto para evitar erro de 'task not found'
         echo "include ':app'" > settings.gradle
         
-        # 2. Garante que o build.gradle principal seja visto pelo modulo app
+        # 2. Garante que o build.gradle principal seja movido para dentro do modulo
         mkdir -p app
         if [ -f build.gradle ]; then cp build.gradle app/; fi
 
-        # 3. Injeta a MainActivity Industrial com o player e efeitos
+        # 3. Injeta a MainActivity completa com correções de importação
         mkdir -p app/src/main/java/com/monstro/v18
         cat <<'EOF' > app/src/main/java/com/monstro/v18/MainActivity.kt
         package com.monstro.v18
@@ -41,8 +41,7 @@ jobs:
         import androidx.activity.result.contract.ActivityResultContracts
         import androidx.compose.foundation.*
         import androidx.compose.foundation.layout.*
-        import androidx.compose.material.icons.Icons
-        import androidx.compose.material.icons.filled.Add
+        import androidx.compose.foundation.shape.RoundedCornerShape
         import androidx.compose.material3.*
         import androidx.compose.runtime.*
         import androidx.compose.ui.Alignment
@@ -57,13 +56,16 @@ jobs:
         import androidx.media3.common.MediaItem
         import androidx.media3.exoplayer.ExoPlayer
         import androidx.media3.ui.PlayerView
-        import androidx.compose.foundation.shape.RoundedCornerShape
 
         class MainActivity : ComponentActivity() {
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
                 setContent {
-                    MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFa855f7), background = Color(0xFF020306))) {
+                    MaterialTheme(colorScheme = darkColorScheme(
+                        primary = Color(0xFFa855f7), 
+                        background = Color(0xFF020306),
+                        surface = Color(0xFF121214)
+                    )) {
                         MonstroIndustrialEditor()
                     }
                 }
@@ -90,33 +92,49 @@ jobs:
 
             val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
                 if (isGranted) seletor.launch("video/*")
+                else Toast.makeText(context, "Acesso negado!", Toast.LENGTH_SHORT).show()
+            }
+
+            // Garante que o player seja liberado ao fechar o app para não travar o A30s
+            DisposableEffect(Unit) {
+                onDispose { exoPlayer?.release() }
             }
 
             Scaffold(containerColor = Color(0xFF020306)) { padding ->
                 Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
                     Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp)
+                    Text("SISTEMA DE EDICAO INDUSTRIAL", color = Color.Gray, fontSize = 8.sp)
+                    
                     Spacer(Modifier.height(20.dp))
-                    Box(Modifier.fillMaxWidth().aspectRatio(16f/9f).clip(RoundedCornerShape(16.dp)).background(Color(0xFF121214))) {
+                    
+                    Box(Modifier.fillMaxWidth().aspectRatio(16f/9f).clip(RoundedCornerShape(16.dp)).background(Color(0xFF121214)).border(1.dp, Color.White.copy(0.1f), RoundedCornerShape(16.dp))) {
                         if (clips.isEmpty()) {
                             Box(Modifier.fillMaxSize().clickable { launcher.launch(permissao) }, contentAlignment = Alignment.Center) {
-                                Text("IMPORTAR VÍDEO MASTER", color = Color.Gray)
+                                Text("IMPORTAR VIDEO MASTER", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
                         } else {
                             exoPlayer?.let { player ->
-                                AndroidView(factory = { PlayerView(it).apply { this.player = player; useController = false } }, modifier = Modifier.fillMaxSize())
+                                AndroidView(factory = { PlayerView(it).apply { this.player = player; useController = true } }, modifier = Modifier.fillMaxSize())
                             }
                         }
                     }
-                    Spacer(Modifier.height(20.dp))
-                    Button(onClick = { }, modifier = Modifier.fillMaxWidth().height(60.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFa855f7))) {
-                        Text("RENDERIZAR MP4 TURBO")
+                    
+                    Spacer(Modifier.weight(1f))
+                    
+                    Button(
+                        onClick = { Toast.makeText(context, "RENDERIZACAO EM BREVE", Toast.LENGTH_SHORT).show() }, 
+                        modifier = Modifier.fillMaxWidth().height(60.dp), 
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFa855f7))
+                    ) {
+                        Text("RENDERIZAR MP4 TURBO", fontWeight = FontWeight.Black)
                     }
                 }
             }
         }
         EOF
 
-        # 4. Gera o motor estável 8.4
+        # 4. Motor estável 8.4
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
@@ -127,5 +145,5 @@ jobs:
       if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-FINAL
+        name: MonstroV18-INDUSTRIAL
         path: app/build/outputs/apk/debug/*.apk
