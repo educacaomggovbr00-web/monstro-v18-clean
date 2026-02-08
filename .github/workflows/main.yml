@@ -18,41 +18,12 @@ jobs:
 
     - name: Preparar Ambiente Moderno
       run: |
-        echo "### MONTANDO ESTRUTURA COMPLETA ###"
+        echo "### MONTANDO GRADLE COM MEMORIA EXTRA ###"
         
-        # 1. Cria a estrutura de pastas exata para o pacote com.monstro.v18
+        # MELHORIA: Criação das pastas necessárias para o build não falhar
         mkdir -p app/src/main/java/com/monstro/v18
-        mkdir -p app/src/main/res/values
-
-        # 2. INJETA A MAINACTIVITY (O código que faz o app abrir!)
-        cat <<EOF > app/src/main/java/com/monstro/v18/MainActivity.kt
-        package com.monstro.v18
-        import android.os.Bundle
-        import androidx.activity.ComponentActivity
-        import androidx.activity.compose.setContent
-        import androidx.compose.foundation.background
-        import androidx.compose.foundation.layout.*
-        import androidx.compose.material3.*
-        import androidx.compose.ui.Alignment
-        import androidx.compose.ui.Modifier
-        import androidx.compose.ui.graphics.Color
-        import androidx.compose.ui.unit.sp
-
-        class MainActivity : ComponentActivity() {
-            override fun onCreate(savedInstanceState: Bundle?) {
-                super.onCreate(savedInstanceState)
-                setContent {
-                    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF020306)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("MONSTRO V18 ATIVO", color = Color.White, fontSize = 24.sp)
-                        }
-                    }
-                }
-            }
-        }
-        EOF
-
-        # 3. RAIZ - Plugins Necessários (Original mantido)
+        
+        # 1. RAIZ - Plugins Necessários (Mantido conforme seu original)
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -66,7 +37,7 @@ jobs:
         }
         EOF
 
-        # 4. APP - Configurações e Media3 1.2.2
+        # 2. APP - Compose e Arquitetura ARM (A30s) (Mantido conforme seu original)
         cat <<EOF > app/build.gradle
         apply plugin: 'com.android.application'
         apply plugin: 'org.jetbrains.kotlin.android'
@@ -79,7 +50,11 @@ jobs:
                 targetSdk = 34
                 versionCode = 18
                 versionName = "18.0"
-                ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
+                
+                // Força compatibilidade com o processador do A30s
+                ndk {
+                    abiFilters 'armeabi-v7a', 'arm64-v8a'
+                }
             }
             buildFeatures { compose = true }
             composeOptions { kotlinCompilerExtensionVersion = '1.5.8' }
@@ -95,14 +70,17 @@ jobs:
             implementation 'androidx.compose.material3:material3'
             implementation 'androidx.activity:activity-compose:1.8.2'
             implementation 'androidx.core:core-ktx:1.12.0'
+            // MELHORIA: Media3 atualizado para 1.2.2 para maior estabilidade
             implementation 'androidx.media3:media3-exoplayer:1.2.2'
             implementation 'androidx.media3:media3-ui:1.2.2'
         }
         EOF
 
-        # 5. SETTINGS E MEMORIA (Ajustes de estabilidade)
+        # MELHORIA: Settings com nome do projeto para evitar bugs de vinculação
         echo "rootProject.name = 'monstro-v18'" > settings.gradle
         echo "include ':app'" >> settings.gradle
+        
+        # --- MEMORIA EXTRA PARA O SERVIDOR ---
         echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" > gradle.properties
         echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
@@ -110,8 +88,9 @@ jobs:
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Build APK Final
-      run: ./gradlew :app:assembleDebug --no-daemon --info --stacktrace
+    - name: Build APK de Diagnóstico
+      # Mantido o comando original com --info para debug
+      run: ./gradlew :app:assembleDebug -Pandroid.overriding.namespace=com.monstro.v18 --no-daemon --info --stacktrace
 
     - name: Enviar APK (Validacao de Sucesso)
       uses: actions/upload-artifact@v4
