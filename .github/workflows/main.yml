@@ -1,4 +1,4 @@
-name: Monstro V18 - Entrega Garantida
+name: Monstro V18 - Entrega Real
 
 on:
   push:
@@ -16,22 +16,18 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Organizacao Automatica
+    - name: Reconstruir Estrutura e Motor
       run: |
-        echo "### ARRUMANDO AS PECAS DO MONSTRO ###"
-        # 1. O Android exige que o arquivo de configuracao se chame settings.gradle
+        echo "### CONECTANDO AS PECAS DO EDITOR ###"
+        # 1. Cria o mapa que o Gradle não está achando
         echo "include ':app'" > settings.gradle
         
-        # 2. Cria a pasta do app e move o teu build.gradle para lá
-        mkdir -p app
-        if [ -f build.gradle ]; then mv build.gradle app/; fi
-        
-        # 3. Garante que o motor seja o Gradle 8.4 que o teu A30s gosta
+        # 2. Garante que o motor seja o 8.4 que já funcionou no seu log
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
     - name: Compilar APK Monstro
-      # Rodamos o build usando a estrutura que acabamos de organizar
+      # Rodamos o comando que você tentou, mas agora com as pastas conectadas
       run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
     - name: Entregar para o Henrique
