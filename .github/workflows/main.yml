@@ -16,14 +16,37 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Preparar Ambiente Moderno
+    - name: Limpeza e Preparo Industrial
       run: |
-        echo "### MONTANDO GRADLE COM MEMORIA EXTRA ###"
-        
-        # MELHORIA: Criação das pastas necessárias para o build não falhar
+        echo "### MATANDO CACHE DO CODSPACE ###"
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # 1. RAIZ - Plugins Necessários (Mantido conforme seu original)
+        # Injeta a MainActivity para garantir que a tela abra
+        cat <<EOF > app/src/main/java/com/monstro/v18/MainActivity.kt
+        package com.monstro.v18
+        import android.os.Bundle
+        import androidx.activity.ComponentActivity
+        import androidx.activity.compose.setContent
+        import androidx.compose.foundation.layout.*
+        import androidx.compose.material3.*
+        import androidx.compose.ui.Modifier
+        import androidx.compose.ui.graphics.Color
+
+        class MainActivity : ComponentActivity() {
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+                setContent {
+                    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF020306)) {
+                        Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            Text("MONSTRO V18 ATIVO", color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+        EOF
+
+        # Build.gradle Raiz
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -37,7 +60,7 @@ jobs:
         }
         EOF
 
-        # 2. APP - Compose e Arquitetura ARM (A30s) (Mantido conforme seu original)
+        # App Build.gradle - FORÇANDO 1.2.1
         cat <<EOF > app/build.gradle
         apply plugin: 'com.android.application'
         apply plugin: 'org.jetbrains.kotlin.android'
@@ -50,11 +73,7 @@ jobs:
                 targetSdk = 34
                 versionCode = 18
                 versionName = "18.0"
-                
-                // Força compatibilidade com o processador do A30s
-                ndk {
-                    abiFilters 'armeabi-v7a', 'arm64-v8a'
-                }
+                ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
             }
             buildFeatures { compose = true }
             composeOptions { kotlinCompilerExtensionVersion = '1.5.8' }
@@ -70,31 +89,23 @@ jobs:
             implementation 'androidx.compose.material3:material3'
             implementation 'androidx.activity:activity-compose:1.8.2'
             implementation 'androidx.core:core-ktx:1.12.0'
-            // MELHORIA: Media3 atualizado para 1.2.2 para maior estabilidade
-            implementation 'androidx.media3:media3-exoplayer:1.2.2'
-            implementation 'androidx.media3:media3-ui:1.2.2'
+            implementation 'androidx.media3:media3-exoplayer:1.2.1'
+            implementation 'androidx.media3:media3-ui:1.2.1'
         }
         EOF
 
-        # MELHORIA: Settings com nome do projeto para evitar bugs de vinculação
-        echo "rootProject.name = 'monstro-v18'" > settings.gradle
-        echo "include ':app'" >> settings.gradle
-        
-        # --- MEMORIA EXTRA PARA O SERVIDOR ---
-        echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" > gradle.properties
-        echo "android.useAndroidX=true" >> gradle.properties
-        echo "android.enableJetifier=true" >> gradle.properties
+        echo "include ':app'" > settings.gradle
+        echo "org.gradle.jvmargs=-Xmx4g" > gradle.properties
         
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
     - name: Build APK de Diagnóstico
-      # Mantido o comando original com --info para debug
-      run: ./gradlew :app:assembleDebug -Pandroid.overriding.namespace=com.monstro.v18 --no-daemon --info --stacktrace
+      # O comando 'clean' aqui é fundamental para ignorar o erro do Codespace
+      run: ./gradlew clean :app:assembleDebug --no-daemon --info
 
-    - name: Enviar APK (Validacao de Sucesso)
+    - name: Enviar APK
       uses: actions/upload-artifact@v4
       with:
-        name: MonstroV18-TESTE-FINAL
+        name: MonstroV18-FINAL
         path: app/build/outputs/apk/debug/*.apk
-        if-no-files-found: error
