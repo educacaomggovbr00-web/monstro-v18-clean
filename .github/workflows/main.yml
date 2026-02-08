@@ -16,43 +16,58 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Formatacao Total (Novo Pendrive)
+    - name: Reset de Fabrica e Estrutura
       run: |
-        echo "### LIMPANDO RASTROS DO CODSPACE ###"
-        # Apaga tudo que o 'Xbox' (GitHub) poderia tentar ler do cache
+        echo "### APAGANDO RASTROS DO CODSPACE ###"
+        # 1. Limpeza total para matar o erro de 'version 69'
         rm -rf .gradle
         rm -rf build
+        rm -rf app/build
+        
+        # 2. Garante que as pastas existam
         mkdir -p app/src/main/java/com/monstro/v18
+        mkdir -p app/src/main/res/values
 
-        # Injeta a MainActivity limpa
+        # 3. Injeta a MainActivity (O coração do app)
         cat <<EOF > app/src/main/java/com/monstro/v18/MainActivity.kt
         package com.monstro.v18
         import android.os.Bundle
         import androidx.activity.ComponentActivity
         import androidx.activity.compose.setContent
+        import androidx.compose.material3.Text
+        import androidx.compose.ui.graphics.Color
         import androidx.compose.foundation.layout.Box
         import androidx.compose.foundation.layout.fillMaxSize
-        import androidx.compose.material3.Surface
-        import androidx.compose.material3.Text
         import androidx.compose.ui.Alignment
         import androidx.compose.ui.Modifier
-        import androidx.compose.ui.graphics.Color
 
         class MainActivity : ComponentActivity() {
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
                 setContent {
-                    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF020306)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("MONSTRO V18 - RESET OK", color = Color.White)
-                        }
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("MONSTRO V18 - SISTEMA OK")
                     }
                 }
             }
         }
         EOF
 
-        # Recria os arquivos de build (O novo kernel)
+        # 4. Injeta o Manifesto (Para o Android saber como abrir o app)
+        cat <<EOF > app/src/main/AndroidManifest.xml
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application android:label="Monstro V18" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                <activity android:name=".MainActivity" android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        # 5. Configurações de Build (Mantendo seu original com melhorias)
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -102,12 +117,14 @@ jobs:
 
         echo "include ':app'" > settings.gradle
         echo "org.gradle.jvmargs=-Xmx4g" > gradle.properties
+        echo "android.useAndroidX=true" >> gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
         
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Build do Novo Sistema
-      # O 'clean' é a nossa formatação final
+    - name: Build do Novo Sistema (Reset Total)
+      # Adicionamos 'clean' para garantir a formatação
       run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
     - name: Entregar APK
