@@ -16,12 +16,18 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Preparar Ambiente Moderno
+    - name: Reset de Fabrica e Estrutura
       run: |
-        # 1. Limpa as pastas para não ter erro de diretório
-        mkdir -p app/src/main/java/com/monstro/v18
+        echo "### APAGANDO TUDO PARA MATAR O ERRO ###"
+        # Deleta a pasta oculta que guarda o cache de builds falhos
+        rm -rf .gradle
+        rm -rf build
+        rm -rf app/build
         
-        # 2. Injeta a MainActivity (O coração do app)
+        # Cria as pastas do zero para garantir o caminho
+        mkdir -p app/src/main/java/com/monstro/v18
+
+        # Injeta a MainActivity de diagnóstico (O coração que não trava)
         cat <<EOF > app/src/main/java/com/monstro/v18/MainActivity.kt
         package com.monstro.v18
         import android.os.Bundle
@@ -49,7 +55,7 @@ jobs:
         }
         EOF
 
-        # 3. Build.gradle Raiz
+        # Recria os arquivos de build sem rastro do Java 21
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -63,7 +69,6 @@ jobs:
         }
         EOF
 
-        # 4. App Build.gradle (Foco total na estabilidade)
         cat <<EOF > app/build.gradle
         apply plugin: 'com.android.application'
         apply plugin: 'org.jetbrains.kotlin.android'
@@ -92,24 +97,22 @@ jobs:
             implementation 'androidx.compose.material3:material3'
             implementation 'androidx.activity:activity-compose:1.8.2'
             implementation 'androidx.core:core-ktx:1.12.0'
-            // Media3 fixa na 1.2.1 que o robô já achou
             implementation 'androidx.media3:media3-exoplayer:1.2.1'
             implementation 'androidx.media3:media3-ui:1.2.1'
         }
         EOF
 
         echo "include ':app'" > settings.gradle
-        # 4GB para o servidor não "desmaiar"
         echo "org.gradle.jvmargs=-Xmx4g" > gradle.properties
         
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Build APK de Diagnóstico
-      # O segredo: 'clean' para matar o lixo do Codespace e '--no-daemon' para poupar RAM
-      run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
+    - name: Build APK Limpo (Reset Total)
+      # Agora o build vai demorar mais de 36s, porque ele vai construir de verdade
+      run: ./gradlew clean :app:assembleDebug --no-daemon --info
 
-    - name: Enviar APK
+    - name: Enviar APK Final
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
