@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Final Real
+name: Monstro V18 - Reset Total
 
 on:
   push:
@@ -16,45 +16,40 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Gerar Motor (Fixo)
+    - name: Motor Estavel
       run: |
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Injetar Codigo Estavel
+    - name: Limpeza e Injeção de Segurança
       run: |
-        echo "### LIMPANDO E REESCREVENDO MAINACTIVITY ###"
-        # Cria a pasta caso ela tenha sumido ou mudado de nome
+        # Deleta as pastas de build antigas que podem estar travando em 1m
+        rm -rf app/build
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # Injeta a versão simplificada mas funcional do editor
+        # Injeta o código que deu 'SISTEMA OK' no seu print
         cat <<EOF > app/src/main/java/com/monstro/v18/MainActivity.kt
         package com.monstro.v18
         import android.os.Bundle
         import androidx.activity.ComponentActivity
         import androidx.activity.compose.setContent
-        import androidx.compose.foundation.layout.*
-        import androidx.compose.material3.*
+        import androidx.compose.material3.Text
         import androidx.compose.ui.Alignment
+        import androidx.compose.foundation.layout.Box
+        import androidx.compose.foundation.layout.fillMaxSize
         import androidx.compose.ui.Modifier
-        import androidx.compose.ui.graphics.Color
-        import androidx.compose.ui.unit.dp
 
         class MainActivity : ComponentActivity() {
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
                 setContent {
-                    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF020306)) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Text("MONSTRO V18", color = Color.White)
-                            Spacer(Modifier.height(20.dp))
-                            Button(onClick = { }) { Text("BUSCAR VÍDEO") }
-                        }
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("MONSTRO V18 - VOLTOU A FUNCIONAR")
                     }
                 }
             }
         }
         EOF
 
-    - name: Compilar APK Final
-      run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
+    - name: Build de Recuperacao
+      run: ./gradlew clean :app:assembleDebug --no-daemon
