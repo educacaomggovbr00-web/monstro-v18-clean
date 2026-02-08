@@ -16,24 +16,29 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # MOTOR FIXO QUE NÃO MEXEMOS
     - name: Gerar Motor (Gradle Wrapper)
       run: |
-        echo "### MOTOR ESTÁVEL 8.4 ###"
+        echo "### MOTOR ESTÁVEL ###"
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Correcao de Versao e Build
+    - name: Localizar e Corrigir Media3
       run: |
-        echo "### FORCANDO MEDIA3 1.2.1 ###"
-        # Esse comando procura o erro '1.2.2' no seu arquivo e troca por '1.2.1' antes de compilar
-        sed -i 's/1.2.2/1.2.1/g' app/build.gradle
+        echo "### BUSCANDO ARQUIVOS DE CONFIGURACAO ###"
+        # Este comando procura todos os build.gradle e troca 1.2.2 por 1.2.1 onde achar
+        find . -name "build.gradle" -exec sed -i 's/1.2.2/1.2.1/g' {} +
         
-        ./gradlew clean :app:assembleDebug --no-daemon --stacktrace --info
+        # Lista onde os arquivos estão para a gente conferir no log
+        find . -name "build.gradle"
+
+    - name: Compilar APK (Forca Bruta)
+      run: |
+        # Tenta compilar o projeto inteiro, independente do nome da pasta
+        ./gradlew assembleDebug --no-daemon --stacktrace --info
 
     - name: Enviar APK
       if: success()
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
-        path: app/build/outputs/apk/debug/*.apk
+        path: "**/build/outputs/apk/debug/*.apk"
