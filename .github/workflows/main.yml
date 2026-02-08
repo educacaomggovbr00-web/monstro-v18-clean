@@ -1,4 +1,4 @@
-name: Monstro V18 - Entrega Real
+name: Monstro V18 - Conector Final Real
 
 on:
   push:
@@ -16,21 +16,114 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Reconstruir Estrutura e Motor
+    - name: Arrumar Estrutura e Motor
       run: |
-        echo "### CONECTANDO AS PECAS DO EDITOR ###"
-        # 1. Cria o mapa que o Gradle não está achando
+        echo "### CONECTANDO AS PECAS DO MONSTRO ###"
+        # 1. Cria o settings.gradle para o Gradle não se perder
         echo "include ':app'" > settings.gradle
         
-        # 2. Garante que o motor seja o 8.4 que já funcionou no seu log
+        # 2. Garante que o build.gradle principal seja visto pelo modulo app
+        mkdir -p app
+        if [ -f build.gradle ]; then cp build.gradle app/; fi
+
+        # 3. Injeta a MainActivity Industrial com o player e efeitos
+        mkdir -p app/src/main/java/com/monstro/v18
+        cat <<'EOF' > app/src/main/java/com/monstro/v18/MainActivity.kt
+        package com.monstro.v18
+        import android.Manifest
+        import android.net.Uri
+        import android.os.Build
+        import android.os.Bundle
+        import android.widget.Toast
+        import androidx.activity.ComponentActivity
+        import androidx.activity.compose.rememberLauncherForActivityResult
+        import androidx.activity.compose.setContent
+        import androidx.activity.result.contract.ActivityResultContracts
+        import androidx.compose.foundation.*
+        import androidx.compose.foundation.layout.*
+        import androidx.compose.material.icons.Icons
+        import androidx.compose.material.icons.filled.Add
+        import androidx.compose.material3.*
+        import androidx.compose.runtime.*
+        import androidx.compose.ui.Alignment
+        import androidx.compose.ui.Modifier
+        import androidx.compose.ui.draw.clip
+        import androidx.compose.ui.graphics.Color
+        import androidx.compose.ui.platform.LocalContext
+        import androidx.compose.ui.text.font.FontWeight
+        import androidx.compose.ui.unit.dp
+        import androidx.compose.ui.unit.sp
+        import androidx.compose.ui.viewinterop.AndroidView
+        import androidx.media3.common.MediaItem
+        import androidx.media3.exoplayer.ExoPlayer
+        import androidx.media3.ui.PlayerView
+        import androidx.compose.foundation.shape.RoundedCornerShape
+
+        class MainActivity : ComponentActivity() {
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+                setContent {
+                    MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFa855f7), background = Color(0xFF020306))) {
+                        MonstroIndustrialEditor()
+                    }
+                }
+            }
+        }
+
+        @Composable
+        fun MonstroIndustrialEditor() {
+            val context = LocalContext.current
+            var clips by remember { mutableStateOf(listOf<Uri>()) }
+            var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
+            val permissao = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
+                Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
+
+            val seletor = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                uri?.let {
+                    clips = clips + it
+                    if (exoPlayer == null) exoPlayer = ExoPlayer.Builder(context).build()
+                    exoPlayer?.addMediaItem(MediaItem.fromUri(it))
+                    exoPlayer?.prepare()
+                    exoPlayer?.play()
+                }
+            }
+
+            val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+                if (isGranted) seletor.launch("video/*")
+            }
+
+            Scaffold(containerColor = Color(0xFF020306)) { padding ->
+                Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
+                    Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp)
+                    Spacer(Modifier.height(20.dp))
+                    Box(Modifier.fillMaxWidth().aspectRatio(16f/9f).clip(RoundedCornerShape(16.dp)).background(Color(0xFF121214))) {
+                        if (clips.isEmpty()) {
+                            Box(Modifier.fillMaxSize().clickable { launcher.launch(permissao) }, contentAlignment = Alignment.Center) {
+                                Text("IMPORTAR VÍDEO MASTER", color = Color.Gray)
+                            }
+                        } else {
+                            exoPlayer?.let { player ->
+                                AndroidView(factory = { PlayerView(it).apply { this.player = player; useController = false } }, modifier = Modifier.fillMaxSize())
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    Button(onClick = { }, modifier = Modifier.fillMaxWidth().height(60.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFa855f7))) {
+                        Text("RENDERIZAR MP4 TURBO")
+                    }
+                }
+            }
+        }
+        EOF
+
+        # 4. Gera o motor estável 8.4
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
     - name: Compilar APK Monstro
-      # Rodamos o comando que você tentou, mas agora com as pastas conectadas
       run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
-    - name: Entregar para o Henrique
+    - name: Enviar APK para o Henrique
       if: success()
       uses: actions/upload-artifact@v4
       with:
