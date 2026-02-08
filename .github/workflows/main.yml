@@ -16,17 +16,16 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Gerar Motor e Limpar Cache
+    # MOTOR FIXO QUE NÃO MEXEMOS MAIS
+    - name: Gerar Motor (Gradle Wrapper)
       run: |
-        echo "### RESETANDO AMBIENTE ###"
+        echo "### MOTOR ESTÁVEL 8.4 ###"
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
-        # Limpa builds antigos que podem estar no seu repositório
-        ./gradlew clean 
 
-    - name: Compilar APK (Modo Detalhado)
-      # Adicionamos --stacktrace e --info para ver o erro real
-      run: ./gradlew :app:assembleDebug --no-daemon --stacktrace --info
+    - name: Compilar APK (Limpeza de Início)
+      # O 'clean' aqui vai tentar destravar esses 4 segundos iniciais
+      run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace --info
 
     - name: Enviar APK
       if: success()
