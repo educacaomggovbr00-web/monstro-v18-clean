@@ -8,90 +8,67 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
+    - name: set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
-      - name: 🛠️ Pendrive 1: Reset e Injeção do Motor
-        run: |
-          echo "### LIMPANDO E MONTANDO ESTRUTURA ###"
-          rm -rf .gradle build app/build
-          
-          mkdir -p app/src/main/java/com/monstro/v18
-          mkdir -p app/src/main/res/values
+    - name: Reset de Fabrica e Injeção do Pendrive
+      run: |
+        echo "### LIMPANDO RASTROS E MONTANDO ESTRUTURA ###"
+        # 1. Limpeza total para evitar erros de versão
+        rm -rf .gradle build app/build
+        
+        # 2. Garante que as pastas industriais existam
+        mkdir -p app/src/main/java/com/monstro/v18
+        mkdir -p app/src/main/res/values
 
-          # Injeta sua MainActivity real do repositório
-          find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
+        # 3. MISTURA: Usa o SEU .kt real do repositório
+        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
 
-          # Injeta o Manifesto Industrial
-          cat <<EOF > app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application android:label="Monstro V18" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
-                  <activity android:name="com.monstro.v18.MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
+        # 4. Injeta o Manifesto Profissional
+        cat <<EOF > app/src/main/AndroidManifest.xml
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application android:label="Monstro V18" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+                <activity android:name="com.monstro.v18.MainActivity" android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
 
-          # [span_0](start_span)[span_1](start_span)Injeta as Receitas do Gradle (O Motor)[span_0](end_span)[span_1](end_span)
-          echo "include ':app'" > settings.gradle
-          echo "org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m" > gradle.properties
-          echo "org.gradle.workers.max=1" >> gradle.properties
-          
-          cat <<EOF > build.gradle
-          buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { 
-                  classpath 'com.android.tools.build:gradle:8.2.2'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
-              }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          EOF
+        # 5. Configurações de Motor
+        echo "include ':app'" > settings.gradle
+        echo "org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m" > gradle.properties
+        echo "org.gradle.workers.max=1" >> gradle.properties
+        echo "android.useAndroidX=true" >> gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
+        
+        gradle wrapper --gradle-version 8.4
+        chmod +x gradlew
 
-          cat <<EOF > app/build.gradle
-          plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
-          android {
-              namespace 'com.monstro.v18'
-              compileSdk 34
-              defaultConfig { applicationId "com.monstro.v18"; minSdk 24; targetSdk 34; versionCode 18; versionName "18.0" }
-              buildFeatures { compose true }; composeOptions { kotlinCompilerExtensionVersion '1.5.8' }
-              compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-              kotlinOptions { jvmTarget = '17' }
-          }
-          dependencies {
-              implementation 'androidx.core:core-ktx:1.12.0'
-              implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
-              implementation 'androidx.activity:activity-compose:1.8.2'
-              implementation platform('androidx.compose:compose-bom:2024.02.00')
-              implementation 'androidx.compose.ui:ui'; implementation 'androidx.compose.material3:material3'
-              implementation 'androidx.media3:media3-exoplayer:1.2.1'; implementation 'androidx.media3:media3-ui:1.2.1'
-          }
-          EOF
-          
-          gradle wrapper --gradle-version 8.4
-          chmod +x gradlew
+    - name: Build do Novo Sistema (Reset Total)
+      # O motor segue firme com seu código injetado
+      run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
-      - name: ⚙️ Processamento (Build do Novo Sistema)
-        run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
+    - name: 🚀 Pendrive 2: Coleta e Entrega
+      # Esta é a mecânica nova que "caça" o APK para não dar erro
+      run: |
+        mkdir -p pacotes_entrega
+        find app/build/outputs/apk/ -name "*.apk" -exec cp {} pacotes_entrega/monstro_v18_final.apk \;
+        if [ ! -f "pacotes_entrega/monstro_v18_final.apk" ]; then
+          echo "✖ ERRO: APK não encontrado na saída do Gradle"
+          exit 1
+        fi
 
-      - name:Pendrive 2: Geração e Entrega
-        run: |
-          mkdir -p pacotes_entrega
-          # Varredura para encontrar o APK gerado pelo motor
-          find app/build/outputs/apk/ -name "*.apk" -exec cp {} pacotes_entrega/monstro_v18_final.apk \;
-          if [ -z "$(ls -A pacotes_entrega)" ]; then exit 1; fi
-
-      - name: Upload Monstro V18
-        uses: actions/upload-artifact@v4
-        with:
-          name: MonstroV18-FINAL
-          path: pacotes_entrega/*.apk
+    - name: Upload Monstro V18
+      uses: actions/upload-artifact@v4
+      with:
+        name: MonstroV18-FINAL
+        path: pacotes_entrega/*.apk
