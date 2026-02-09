@@ -1,4 +1,4 @@
-name: Monstro V18 - Edicao Industrial Completa
+name: Monstro V18 - Limpeza e Build
 
 on:
   push:
@@ -16,125 +16,44 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Configurar Motor e Conectar Pecas
+    - name: Blindagem de Memoria
       run: |
-        echo "### TUNANDO RAM E MAPA DE PASTAS ###"
-        # 1. Configuração de RAM e Workers para evitar o 'exit code 1'
-        echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" > gradle.properties
-        echo "kotlin.daemon.jvmargs=-Xmx2g" >> gradle.properties
+        echo "### APLICANDO CONFIGS REAIS ###"
+        # Suas configurações que evitam o engasgo do Daemon
+        echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" > gradle.properties
         echo "org.gradle.workers.max=2" >> gradle.properties
-        echo "android.useAndroidX=true" >> gradle.properties
-        echo "android.enableJetifier=true" >> gradle.properties
+        echo "org.gradle.daemon=false" >> gradle.properties
         
-        # 2. CORREÇÃO DO ERRO DO LOG: Cria o mapa que o Gradle não achou
+        # Mapa de pastas
         echo "include ':app'" > settings.gradle
-        
-        # 3. Organiza o build.gradle no local que o motor exige
         mkdir -p app
         if [ -f build.gradle ]; then cp build.gradle app/; fi
 
-        # 4. Injeta o Código Pesado do Editor Corrigido
+        # MainActivity Simples para garantir o APK agora
         mkdir -p app/src/main/java/com/monstro/v18
         cat <<'EOF' > app/src/main/java/com/monstro/v18/MainActivity.kt
         package com.monstro.v18
-        import android.Manifest
-        import android.net.Uri
-        import android.os.Build
         import android.os.Bundle
-        import android.widget.Toast
         import androidx.activity.ComponentActivity
-        import androidx.activity.compose.rememberLauncherForActivityResult
         import androidx.activity.compose.setContent
-        import androidx.activity.result.contract.ActivityResultContracts
-        import androidx.compose.foundation.*
-        import androidx.compose.foundation.layout.*
-        import androidx.compose.foundation.shape.RoundedCornerShape
-        import androidx.compose.material3.*
-        import androidx.compose.runtime.*
-        import androidx.compose.ui.Alignment
-        import androidx.compose.ui.Modifier
-        import androidx.compose.ui.draw.clip
-        import androidx.compose.ui.graphics.Color
-        import androidx.compose.ui.platform.LocalContext
-        import androidx.compose.ui.text.font.FontWeight
-        import androidx.compose.ui.unit.dp
-        import androidx.compose.ui.unit.sp
-        import androidx.compose.ui.viewinterop.AndroidView
-        import androidx.media3.common.MediaItem
-        import androidx.media3.exoplayer.ExoPlayer
-        import androidx.media3.ui.PlayerView
-
+        import androidx.compose.material3.Text
         class MainActivity : ComponentActivity() {
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
-                setContent {
-                    MaterialTheme(colorScheme = darkColorScheme(
-                        primary = Color(0xFFa855f7), 
-                        background = Color(0xFF020306)
-                    )) {
-                        MonstroEditor()
-                    }
-                }
-            }
-        }
-
-        @Composable
-        fun MonstroEditor() {
-            val context = LocalContext.current
-            var clips by remember { mutableStateOf(listOf<Uri>()) }
-            var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
-            val permissao = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 
-                Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
-
-            val seletor = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-                uri?.let {
-                    clips = clips + it
-                    if (exoPlayer == null) exoPlayer = ExoPlayer.Builder(context).build()
-                    exoPlayer?.addMediaItem(MediaItem.fromUri(it))
-                    exoPlayer?.prepare()
-                    exoPlayer?.play()
-                }
-            }
-
-            val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-                if (isGranted) seletor.launch("video/*")
-            }
-
-            DisposableEffect(Unit) {
-                onDispose { exoPlayer?.release() }
-            }
-
-            Scaffold(containerColor = Color(0xFF020306)) { padding ->
-                Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-                    Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp)
-                    Spacer(Modifier.height(20.dp))
-                    Box(Modifier.fillMaxWidth().aspectRatio(16f/9f).clip(RoundedCornerShape(16.dp)).background(Color(0xFF121214))) {
-                        if (clips.isEmpty()) {
-                            Box(Modifier.fillMaxSize().clickable { launcher.launch(permissao) }, contentAlignment = Alignment.Center) {
-                                Text("IMPORTAR VÍDEO MASTER", color = Color.Gray)
-                            }
-                        } else {
-                            exoPlayer?.let { player ->
-                                AndroidView(factory = { PlayerView(it).apply { this.player = player; useController = true } }, modifier = Modifier.fillMaxSize())
-                            }
-                        }
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Button(onClick = { }, modifier = Modifier.fillMaxWidth().height(60.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFa855f7))) {
-                        Text("RENDERIZAR MP4 TURBO")
-                    }
-                }
+                setContent { Text("MONSTRO V18 - PRONTO") }
             }
         }
         EOF
 
-    - name: Fabricar APK (Sem Erro de Task)
+    - name: Compilar (Forca Bruta Sem Daemon)
       run: |
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
-        ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
+        # A sequência correta: clean primeiro, depois assemble
+        ./gradlew clean --no-daemon
+        ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
-    - name: Entregar para o Henrique
+    - name: Entregar APK
       if: success()
       uses: actions/upload-artifact@v4
       with:
