@@ -1,4 +1,4 @@
-name: Monstro V18 - Conector Final Real
+name: Monstro V18 - Edicao Industrial Completa
 
 on:
   push:
@@ -16,17 +16,24 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Arrumar Estrutura e Motor
+    - name: Configurar Motor e Conectar Pecas
       run: |
-        echo "### CONECTANDO AS PECAS DO MONSTRO ###"
-        # 1. Cria o settings.gradle correto
+        echo "### TUNANDO RAM E MAPA DE PASTAS ###"
+        # 1. Configuração de RAM e Workers para evitar o 'exit code 1'
+        echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" > gradle.properties
+        echo "kotlin.daemon.jvmargs=-Xmx2g" >> gradle.properties
+        echo "org.gradle.workers.max=2" >> gradle.properties
+        echo "android.useAndroidX=true" >> gradle.properties
+        echo "android.enableJetifier=true" >> gradle.properties
+        
+        # 2. CORREÇÃO DO ERRO DO LOG: Cria o mapa que o Gradle não achou
         echo "include ':app'" > settings.gradle
         
-        # 2. Move o build.gradle da raiz para a pasta app
+        # 3. Organiza o build.gradle no local que o motor exige
         mkdir -p app
         if [ -f build.gradle ]; then cp build.gradle app/; fi
 
-        # 3. Injeta a MainActivity Industrial corrigida
+        # 4. Injeta o Código Pesado do Editor Corrigido
         mkdir -p app/src/main/java/com/monstro/v18
         cat <<'EOF' > app/src/main/java/com/monstro/v18/MainActivity.kt
         package com.monstro.v18
@@ -34,6 +41,7 @@ jobs:
         import android.net.Uri
         import android.os.Build
         import android.os.Bundle
+        import android.widget.Toast
         import androidx.activity.ComponentActivity
         import androidx.activity.compose.rememberLauncherForActivityResult
         import androidx.activity.compose.setContent
@@ -60,15 +68,18 @@ jobs:
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
                 setContent {
-                    MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFa855f7), background = Color(0xFF020306))) {
-                        MonstroIndustrialEditor()
+                    MaterialTheme(colorScheme = darkColorScheme(
+                        primary = Color(0xFFa855f7), 
+                        background = Color(0xFF020306)
+                    )) {
+                        MonstroEditor()
                     }
                 }
             }
         }
 
         @Composable
-        fun MonstroIndustrialEditor() {
+        fun MonstroEditor() {
             val context = LocalContext.current
             var clips by remember { mutableStateOf(listOf<Uri>()) }
             var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
@@ -89,6 +100,10 @@ jobs:
                 if (isGranted) seletor.launch("video/*")
             }
 
+            DisposableEffect(Unit) {
+                onDispose { exoPlayer?.release() }
+            }
+
             Scaffold(containerColor = Color(0xFF020306)) { padding ->
                 Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
                     Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp)
@@ -104,7 +119,7 @@ jobs:
                             }
                         }
                     }
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.weight(1f))
                     Button(onClick = { }, modifier = Modifier.fillMaxWidth().height(60.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFa855f7))) {
                         Text("RENDERIZAR MP4 TURBO")
                     }
@@ -113,14 +128,13 @@ jobs:
         }
         EOF
 
-        # 4. Gera o motor estável 8.4
+    - name: Fabricar APK (Sem Erro de Task)
+      run: |
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
+        ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
-    - name: Compilar APK Monstro
-      run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
-
-    - name: Enviar APK para o Henrique
+    - name: Entregar para o Henrique
       if: success()
       uses: actions/upload-artifact@v4
       with:
