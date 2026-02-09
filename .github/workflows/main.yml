@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Final Real
+name: Monstro V18 - Build com Auto-Retry
 
 on:
   push:
@@ -16,146 +16,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Reset e Construção do Código Real
+    - name: Preparar Estrutura Industrial
       run: |
-        echo "### PREPARANDO MOTOR INDUSTRIAL ###"
-        # 1. Limpeza total de builds antigos
+        echo "### MONTANDO O ESQUELETO ###"
         rm -rf .gradle build app/build
-        
-        # 2. Configuração de RAM estável (2GB para não travar o runner)
         echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g" > gradle.properties
         echo "org.gradle.workers.max=2" >> gradle.properties
         echo "include ':app'" > settings.gradle
-
-        # 3. Cria as pastas do sistema
+        
         mkdir -p app/src/main/java/com/monstro/v18
-        mkdir -p app/src/main/res/values
+        # Localiza seu KT real
+        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
 
-        # 4. [span_7](start_span)[span_8](start_span)Injeta a sua MainActivity.kt ORIGINAL com correções de import[span_7](end_span)[span_8](end_span)
-        cat <<'EOF' > app/src/main/java/com/monstro/v18/MainActivity.kt
-        package com.monstro.v18
-        import android.Manifest
-        import android.net.Uri
-        import android.os.Build
-        import android.os.Bundle
-        import android.widget.Toast
-        import androidx.activity.ComponentActivity
-        import androidx.activity.compose.rememberLauncherForActivityResult
-        import androidx.activity.compose.setContent
-        import androidx.activity.result.contract.ActivityResultContracts
-        import androidx.compose.foundation.*
-        import androidx.compose.foundation.layout.*
-        import androidx.compose.foundation.lazy.LazyRow
-        import androidx.compose.foundation.lazy.grid.*
-        import androidx.compose.foundation.lazy.itemsIndexed
-        import androidx.compose.foundation.shape.RoundedCornerShape
-        import androidx.compose.material.icons.Icons
-        import androidx.compose.material.icons.filled.Add
-        import androidx.compose.material3.*
-        import androidx.compose.runtime.*
-        import androidx.compose.ui.Alignment
-        import androidx.compose.ui.Modifier
-        import androidx.compose.ui.draw.clip
-        import androidx.compose.ui.graphics.*
-        import androidx.compose.ui.platform.LocalContext
-        import androidx.compose.ui.text.font.FontWeight
-        import androidx.compose.ui.unit.dp
-        import androidx.compose.ui.unit.sp
-        import androidx.compose.ui.viewinterop.AndroidView
-        import androidx.media3.common.*
-        import androidx.media3.exoplayer.ExoPlayer
-        import androidx.media3.ui.PlayerView
-        import kotlinx.coroutines.*
-
-        val MonstroBg = Color(0xFF020306)
-        val MonstroAccent = Color(0xFFa855f7)
-        val MonstroPink = Color(0xFFdb2777)
-        val EmeraldTurbo = Color(0xFF10b981)
-        val DarkGrey = Color(0xFF121214)
-
-        data class MonstroPreset(val id: String, val nome: String, val descricao: String, val matrixCor: FloatArray? = null)
-        val MonstroLibrary = listOf(
-            MonstroPreset("raw", "ESTADO RAW", "Sem filtros"),
-            MonstroPreset("neon", "NEON PUNCH", "Brilho e Contraste"),
-            MonstroPreset("trap", "TRAP LORD", "Estilo Videoclipe"),
-            MonstroPreset("dark", "DARK ENERGY", "Cinematográfico")
-        )
-        data class MonstroClip(val uri: Uri, val presetAtivo: MonstroPreset = MonstroLibrary[0])
-        data class MonstroProject(val clips: List<MonstroClip> = emptyList())
-
-        class MainActivity : ComponentActivity() {
-            override fun onCreate(savedInstanceState: Bundle?) {
-                super.onCreate(savedInstanceState)
-                setContent {
-                    MaterialTheme(colorScheme = darkColorScheme(primary = MonstroAccent, background = MonstroBg, surface = DarkGrey)) {
-                        MonstroIndustrialEditor()
-                    }
-                }
-            }
-        }
-
-        @Composable
-        fun MonstroIndustrialEditor() {
-            val context = LocalContext.current
-            val scope = rememberCoroutineScope()
-            var projeto by remember { mutableStateOf(MonstroProject()) }
-            var indiceSelecionado by remember { mutableStateOf(0) }
-            var estaExportando by remember { mutableStateOf(false) }
-            var progressoExport by remember { mutableStateOf(0f) }
-            var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
-            val permissao = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
-
-            val seletorVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-                uri?.let {
-                    projeto = projeto.copy(clips = projeto.clips + MonstroClip(it))
-                    if (exoPlayer == null) {
-                        exoPlayer = ExoPlayer.Builder(context).build().apply {
-                            repeatMode = Player.REPEAT_MODE_ONE
-                        }
-                    }
-                    exoPlayer?.addMediaItem(MediaItem.fromUri(it))
-                    exoPlayer?.prepare()
-                    exoPlayer?.play()
-                }
-            }
-
-            val launchPermissao = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { if (it) seletorVideo.launch("video/*") }
-
-            Scaffold(containerColor = MonstroBg) { padding ->
-                Column(Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-                    Text("MONSTRO V18", color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp)
-                    Spacer(Modifier.height(20.dp))
-                    Box(Modifier.fillMaxWidth().aspectRatio(16f/9f).clip(RoundedCornerShape(16.dp)).background(DarkGrey)) {
-                        if (projeto.clips.isEmpty()) {
-                            Column(Modifier.fillMaxSize().clickable { launchPermissao.launch(permissao) }, Arrangement.Center, Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Add, null, tint = Color.Gray)
-                                Text("IMPORTAR VÍDEO MASTER", color = Color.Gray, fontSize = 12.sp)
-                            }
-                        } else {
-                            exoPlayer?.let { AndroidView(factory = { PlayerView(it).apply { this.player = it; useController = false } }, Modifier.fillMaxSize()) }
-                        }
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        itemsIndexed(projeto.clips) { index, _ ->
-                            Button(onClick = { indiceSelecionado = index; exoPlayer?.seekToDefaultPosition(index) }) { Text("CLIP $index") }
-                        }
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Button(onClick = { 
-                        estaExportando = true
-                        scope.launch {
-                            while(progressoExport < 1f) { delay(40); progressoExport += 0.01f }
-                            estaExportando = false
-                            Toast.makeText(context, "VÍDEO EXPORTADO!", Toast.LENGTH_LONG).show()
-                        }
-                    }, Modifier.fillMaxWidth().height(60.dp)) { Text("RENDERIZAR MP4 TURBO") }
-                }
-            }
-        }
-        EOF
-
-        # 5. Injeta o Manifesto e as Receitas
+        # Injeta as receitas estáveis que você validou
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -177,22 +50,33 @@ jobs:
             kotlinOptions { jvmTarget = '17' }
         }
         dependencies {
+            implementation 'androidx.core:core-ktx:1.12.0'
+            implementation 'androidx.activity:activity-compose:1.8.2'
             implementation platform('androidx.compose:compose-bom:2024.02.00')
             implementation 'androidx.compose.ui:ui'; implementation 'androidx.compose.material3:material3'
-            implementation 'androidx.activity:activity-compose:1.8.2'; implementation 'androidx.core:core-ktx:1.12.0'
             implementation 'androidx.media3:media3-exoplayer:1.2.1'; implementation 'androidx.media3:media3-ui:1.2.1'
         }
         EOF
 
-        echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="Monstro V18"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
-
+        echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="Monstro V18"><activity android:name="com.monstro.v18.MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
+        
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Compilação Industrial (Seu Código Real)
-      run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
+    - name: Fabricar APK (Com 3 Tentativas)
+      # Aqui está a 'IA' de insistência: se falhar, ele espera 10s e tenta de novo
+      run: |
+        n=0
+        until [ $n -ge 3 ]
+        do
+           ./gradlew clean :app:assembleDebug --no-daemon --stacktrace && break
+           n=$[$n+1]
+           echo "Build falhou. Tentativa $n de 3... limpando e tentando novamente em 10s"
+           rm -rf .gradle
+           sleep 10
+        done
 
-    - name: Entregar APK
+    - name: Entregar APK Monstro
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
