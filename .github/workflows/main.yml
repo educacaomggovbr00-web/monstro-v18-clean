@@ -18,17 +18,18 @@ jobs:
 
     - name: Preparar Estrutura e Localizar KT
       run: |
+        echo "### LIMPANDO E ORGANIZANDO ###"
         rm -rf .gradle build app/build
+        # Configuração estável de RAM para o A30s
         echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g" > gradle.properties
         echo "include ':app'" > settings.gradle
         mkdir -p app/src/main/java/com/monstro/v18
         
-        # Busca seu código original e injeta na pasta certa
+        # Busca seu código original e coloca na gaveta certa
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
 
     - name: Injetar Receitas Industriais
       run: |
-        # Build.gradle raiz e do app sincronizados
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -65,19 +66,29 @@ jobs:
         chmod +x gradlew
 
     - name: Fabricar APK (Com Auto-Retry)
-      # Tenta até 3 vezes para vencer o 'Tigrinho' do cache
+      # Tenta 3 vezes para vencer oscilações de memória
       run: |
         n=0
         until [ $n -ge 3 ]; do
            ./gradlew clean :app:assembleDebug --no-daemon --stacktrace && break
            n=$[$n+1]
-           echo "Falha na tentativa $n... limpando e tentando de novo."
+           echo "Tentativa $n falhou. Limpando cache e tentando de novo..."
            rm -rf .gradle
-           sleep 5
+           sleep 10
         done
 
-    - name: Entregar APK Monstro
+    - name: Coleta Global de APKs
+      # Procura qualquer APK gerado e coloca em uma pasta segura
+      run: |
+        mkdir -p pacotes_entrega
+        find . -name "*.apk" -exec cp {} pacotes_entrega/ \;
+        if [ -z "$(ls -A pacotes_entrega)" ]; then
+          echo "✖ ERRO: Nenhum APK foi encontrado em nenhuma pasta!"
+          exit 1
+        fi
+
+    - name: Entregar Artefatos Encontrados
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
-        path: app/build/outputs/apk/debug/*.apk
+        path: pacotes_entrega/*.apk
