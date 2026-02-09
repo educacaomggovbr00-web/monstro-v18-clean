@@ -1,8 +1,8 @@
-name: Monstro V18 - Estabilidade Total
+name: Monstro V18 - Motor de Estabilidade Total
 
 on:
   push:
-    branches: [ "principal", "main" ]
+    branches: [ "main", "principal" ]
 
 jobs:
   build:
@@ -15,75 +15,25 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
+        cache: 'gradle'
 
-    - name: Preparar Estrutura Industrial
-      run: |
-        echo "### LIMPANDO E ORGANIZANDO ###"
-        rm -rf .gradle build app/build
-        
-        # Limite rigoroso de memória para evitar que o processo seja morto
-        echo "org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m" > gradle.properties
-        echo "org.gradle.workers.max=1" >> gradle.properties
-        echo "kotlin.daemon.jvmargs=-Xmx1024m" >> gradle.properties
-        
-        echo "include ':app'" > settings.gradle
-        mkdir -p app/src/main/java/com/monstro/v18
-        
-        # Localiza seu arquivo real e injeta na pasta correta
-        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
+    - name: Configurar Permissões
+      run: chmod +x gradlew
 
-    - name: Injetar Receitas Corrigidas
-      run: |
-        cat <<EOF > build.gradle
-        buildscript {
-            repositories { google(); mavenCentral() }
-            dependencies { 
-                classpath 'com.android.tools.build:gradle:8.2.2'
-                classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
-            }
-        }
-        allprojects { repositories { google(); mavenCentral() } }
-        EOF
-
-        cat <<EOF > app/build.gradle
-        plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
-        android {
-            namespace 'com.monstro.v18'
-            compileSdk 34
-            defaultConfig { applicationId "com.monstro.v18"; minSdk 24; targetSdk 34; versionCode 18; versionName "18.0" }
-            buildFeatures { compose true }; composeOptions { kotlinCompilerExtensionVersion '1.5.8' }
-            compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-            kotlinOptions { jvmTarget = '17' }
-        }
-        dependencies {
-            implementation 'androidx.core:core-ktx:1.12.0'
-            implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
-            implementation 'androidx.activity:activity-compose:1.8.2'
-            implementation platform('androidx.compose:compose-bom:2024.02.00')
-            implementation 'androidx.compose.ui:ui'; implementation 'androidx.compose.material3:material3'
-            implementation 'androidx.media3:media3-exoplayer:1.2.1'; implementation 'androidx.media3:media3-ui:1.2.1'
-        }
-        EOF
-
-        echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="Monstro V18"><activity android:name="com.monstro.v18.MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
-        
-        gradle wrapper --gradle-version 8.4
-        chmod +x gradlew
-
-    - name: Fabricar APK (Modo Econômico)
-      # Rodando com workers=1 e no-daemon para garantir que o APK seja gerado
+    - name: Fabricar APK (Modo Industrial)
+      # Usa as configurações de RAM do seu gradle.properties para não crashar
       run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
-    - name: Coleta e Entrega
+    - name: Coleta de Segurança
       run: |
         mkdir -p pacotes_entrega
-        find . -name "*.apk" -exec cp {} pacotes_entrega/ \;
+        find app/build/outputs/apk/debug/ -name "*.apk" -exec cp {} pacotes_entrega/ \;
         if [ -z "$(ls -A pacotes_entrega)" ]; then
-          echo "✖ ERRO: O compilador falhou antes de gerar o arquivo."
+          echo "✖ ERRO: O APK não foi geratedo. Verifique os logs do Gradle acima."
           exit 1
         fi
 
-    - name: Upload Monstro
+    - name: Upload Monstro V18
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
