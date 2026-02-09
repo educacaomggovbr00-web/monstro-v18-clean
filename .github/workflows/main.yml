@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Real Misturado
+name: Monstro V18 - Dois Pendrives (Otimizado)
 
 on:
   push:
@@ -15,51 +15,47 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
+        cache: 'gradle'
 
-    - name: Reset de Fabrica e Injeção do Pendrive
+    - name: 🛠️ Pendrive 1: Injeção de Segurança
       run: |
-        echo "### LIMPANDO RASTROS E MONTANDO ESTRUTURA ###"
-        # 1. Limpeza total para evitar erros de versão
-        rm -rf .gradle build app/build
+        echo "### PREPARANDO MOTOR ###"
+        # Limpeza focada sem destruir o ambiente
+        rm -rf app/build pacotes_monstro
         
-        # 2. Garante que as pastas industriais existam
+        # Garante as pastas
         mkdir -p app/src/main/java/com/monstro/v18
-        mkdir -p app/src/main/res/values
-
-        # 3. MISTURA: Em vez de criar um código fake, ele usa o SEU .kt
-        # Ele procura seu arquivo real e coloca na gaveta certa
-        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
-
-        # 4. Injeta o Manifesto Profissional
-        cat <<EOF > app/src/main/AndroidManifest.xml
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application android:label="Monstro V18" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
-                <activity android:name="com.monstro.v18.MainActivity" android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        EOF
-
-        # 5. [span_0](start_span)[span_1](start_span)Configurações de Motor (As receitas que você revisou)[span_0](end_span)[span_1](end_span)
-        echo "include ':app'" > settings.gradle
-        echo "org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m" > gradle.properties
-        echo "org.gradle.workers.max=1" >> gradle.properties
-        echo "android.useAndroidX=true" >> gradle.properties
-        echo "android.enableJetifier=true" >> gradle.properties
         
-        gradle wrapper --gradle-version 8.4
+        # O 'Pendrive' busca seu código real e injeta
+        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
+        
+        # Check inteligente do Wrapper (Só recria se não existir)
+        [ -f gradlew ] || gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Build do Novo Sistema (Reset Total)
-      # Aqui o motor segue firme com o seu código injetado
+    - name: ⚙️ Processamento (Build Industrial)
+      # Uso do clean para garantir que o APK seja 100% novo
       run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
-    - name: Entregar APK
+    - name: 🚀 Pendrive 2: Coleta Blindada
+      run: |
+        mkdir -p pacotes_monstro
+        # Caminho direto para evitar sobrescrita de lixo
+        if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+          cp app/build/outputs/apk/debug/app-debug.apk pacotes_monstro/monstro_v18_final.apk
+        else
+          # Fallback de busca caso o nome mude
+          find app/build/outputs/apk/ -name "*.apk" -exec cp {} pacotes_monstro/monstro_v18_final.apk \;
+        fi
+        
+        # Validação de saída
+        if [ ! -f "pacotes_monstro/monstro_v18_final.apk" ]; then
+          echo "✖ ERRO CRÍTICO: APK NÃO GERADO"
+          exit 1
+        fi
+
+    - name: Upload para o Henrique
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
-        path: app/build/outputs/apk/debug/*.apk
+        path: pacotes_monstro/*.apk
