@@ -1,4 +1,4 @@
-name: Monstro V18 - Build com Auto-Retry
+name: Monstro V18 - Destravando o Build
 
 on:
   push:
@@ -16,19 +16,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Preparar Estrutura Industrial
+    - name: Preparar Estrutura e Localizar KT
       run: |
-        echo "### MONTANDO O ESQUELETO ###"
         rm -rf .gradle build app/build
         echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g" > gradle.properties
-        echo "org.gradle.workers.max=2" >> gradle.properties
         echo "include ':app'" > settings.gradle
-        
         mkdir -p app/src/main/java/com/monstro/v18
-        # Localiza seu KT real
+        
+        # Busca seu código original e injeta na pasta certa
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
 
-        # Injeta as receitas estáveis que você validou
+    - name: Injetar Receitas Industriais
+      run: |
+        # Build.gradle raiz e do app sincronizados
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -43,7 +43,8 @@ jobs:
         cat <<EOF > app/build.gradle
         plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
         android {
-            namespace 'com.monstro.v18'; compileSdk 34
+            namespace 'com.monstro.v18'
+            compileSdk 34
             defaultConfig { applicationId "com.monstro.v18"; minSdk 24; targetSdk 34; versionCode 18; versionName "18.0" }
             buildFeatures { compose true }; composeOptions { kotlinCompilerExtensionVersion '1.5.8' }
             compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -63,17 +64,16 @@ jobs:
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Fabricar APK (Com 3 Tentativas)
-      # Aqui está a 'IA' de insistência: se falhar, ele espera 10s e tenta de novo
+    - name: Fabricar APK (Com Auto-Retry)
+      # Tenta até 3 vezes para vencer o 'Tigrinho' do cache
       run: |
         n=0
-        until [ $n -ge 3 ]
-        do
+        until [ $n -ge 3 ]; do
            ./gradlew clean :app:assembleDebug --no-daemon --stacktrace && break
            n=$[$n+1]
-           echo "Build falhou. Tentativa $n de 3... limpando e tentando novamente em 10s"
+           echo "Falha na tentativa $n... limpando e tentando de novo."
            rm -rf .gradle
-           sleep 10
+           sleep 5
         done
 
     - name: Entregar APK Monstro
