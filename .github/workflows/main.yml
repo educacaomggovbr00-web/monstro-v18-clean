@@ -16,25 +16,36 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Reset e Construção baseada no Repositório
+    - name: Reset e Construção Real baseada no KT
       run: |
-        echo "### LIMPANDO E CONECTANDO AO SEU CÓDIGO ###"
-        # 1. Reset agressivo para evitar erro de 'exit code 1'
+        echo "### LIMPANDO E LOCALIZANDO SEU CODIGO ###"
+        # 1. Limpeza profunda para evitar o erro de cache
         rm -rf .gradle build app/build
         
-        # 2. Configura RAM e Workers estáveis (2GB é o segredo do GitHub)
+        # 2. Configura RAM estável e o Mapa do projeto
         echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g" > gradle.properties
         echo "org.gradle.workers.max=2" >> gradle.properties
         echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
+        echo "include ':app'" > settings.gradle
 
         # 3. Cria a estrutura de pastas necessária
         mkdir -p app/src/main/java/com/monstro/v18
         mkdir -p app/src/main/res/values
 
-        # 4. Injeta o Mapa e as Receitas
-        echo "include ':app'" > settings.gradle
+        # 4. O PULO DO GATO: Procura o SEU arquivo .kt original e injeta na pasta certa
+        # Isso resolve o erro 'No such file' da sua Screenshot
+        find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
         
+        # Verifica se o arquivo foi realmente encontrado antes de seguir
+        if [ -f app/src/main/java/com/monstro/v18/MainActivity.kt ]; then
+          echo "✔ CODIGO REAL LOCALIZADO COM SUCESSO!"
+        else
+          echo "✖ ERRO: MainActivity.kt não foi encontrado no seu repositório!"
+          exit 1
+        fi
+
+        # 5. Injeta as Receitas de Build (build.gradle)
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -83,11 +94,6 @@ jobs:
         }
         EOF
 
-        # 5. O GRANDE PULO: Copia o SEU arquivo .kt do repositório para o build
-        # Isso garante que o app tenha o player e as funções que VOCÊ escreveu
-        cp app/src/main/java/com/monstro/v18/MainActivity.kt app/src/main/java/com/monstro/v18/MainActivity_temp.kt || echo "Arquivo não encontrado no local padrão"
-        mv app/src/main/java/com/monstro/v18/MainActivity_temp.kt app/src/main/java/com/monstro/v18/MainActivity.kt
-
         # 6. Manifesto Industrial
         cat <<EOF > app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -105,7 +111,8 @@ jobs:
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Compilação Real do Seu Código
+    - name: Compilação do Codigo Real (Henrique)
+      # Limpa tudo antes de compilar o seu código pesado
       run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
     - name: Entregar APK Monstro
