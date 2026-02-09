@@ -16,20 +16,18 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Reset de Fabrica e Injeção do Pendrive
+    - name: Reset de Fabrica e Injecao do Pendrive
       run: |
         echo "### LIMPANDO RASTROS E MONTANDO ESTRUTURA ###"
-        # 1. Limpeza total para evitar erros de versão
         rm -rf .gradle build app/build
         
-        # 2. Garante que as pastas industriais existam
         mkdir -p app/src/main/java/com/monstro/v18
         mkdir -p app/src/main/res/values
 
-        # 3. MISTURA: Usa o SEU .kt real do repositório
+        # MISTURA: Puxa o seu arquivo real do repositorio
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
 
-        # 4. Injeta o Manifesto Profissional
+        # Injeta o Manifesto Industrial
         cat <<EOF > app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application android:label="Monstro V18" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
@@ -43,7 +41,7 @@ jobs:
         </manifest>
         EOF
 
-        # 5. Configurações de Motor
+        # Configuracoes de Motor e Receitas
         echo "include ':app'" > settings.gradle
         echo "org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m" > gradle.properties
         echo "org.gradle.workers.max=1" >> gradle.properties
@@ -53,17 +51,16 @@ jobs:
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Build do Novo Sistema (Reset Total)
-      # O motor segue firme com seu código injetado
+    - name: Processamento (Build do Novo Sistema)
       run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
-    - name: 🚀 Pendrive 2: Coleta e Entrega
-      # Esta é a mecânica nova que "caça" o APK para não dar erro
+    - name: Pendrive 2: Geracao e Entrega
       run: |
         mkdir -p pacotes_entrega
+        # Varredura para encontrar o APK gerado pelo motor
         find app/build/outputs/apk/ -name "*.apk" -exec cp {} pacotes_entrega/monstro_v18_final.apk \;
         if [ ! -f "pacotes_entrega/monstro_v18_final.apk" ]; then
-          echo "✖ ERRO: APK não encontrado na saída do Gradle"
+          echo "ERRO: APK nao gerado!"
           exit 1
         fi
 
