@@ -1,4 +1,4 @@
-name: Monstro V18 - Build Real Compose
+name: Monstro V18 - Build Real Industrial
 
 on:
   push:
@@ -16,25 +16,25 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Reset de Fabrica e Estrutura
+    - name: Reset e Construção baseada no Repositório
       run: |
-        echo "### APAGANDO RASTROS E RESETANDO ###"
-        # Limpeza profunda para matar erros de cache
+        echo "### LIMPANDO E CONECTANDO AO SEU CÓDIGO ###"
+        # 1. Reset agressivo para evitar erro de 'exit code 1'
         rm -rf .gradle build app/build
         
-        # Criação da estrutura industrial
-        mkdir -p app/src/main/java/com/monstro/v18
-        mkdir -p app/src/main/res/values
-
-        # 1. Injeta o Mapa (settings.gradle)
-        echo "include ':app'" > settings.gradle
-        
-        # 2. Injeta as Propriedades de RAM
-        echo "org.gradle.jvmargs=-Xmx4g" > gradle.properties
+        # 2. Configura RAM e Workers estáveis (2GB é o segredo do GitHub)
+        echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g" > gradle.properties
+        echo "org.gradle.workers.max=2" >> gradle.properties
         echo "android.useAndroidX=true" >> gradle.properties
         echo "android.enableJetifier=true" >> gradle.properties
 
-        # 3. Injeta a Receita Principal (build.gradle raiz)
+        # 3. Cria a estrutura de pastas necessária
+        mkdir -p app/src/main/java/com/monstro/v18
+        mkdir -p app/src/main/res/values
+
+        # 4. Injeta o Mapa e as Receitas
+        echo "include ':app'" > settings.gradle
+        
         cat <<EOF > build.gradle
         buildscript {
             repositories { google(); mavenCentral() }
@@ -48,7 +48,6 @@ jobs:
         }
         EOF
 
-        # 4. Injeta a Receita do App (app/build.gradle)
         cat <<EOF > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -84,7 +83,12 @@ jobs:
         }
         EOF
 
-        # 5. Injeta o Manifesto
+        # 5. O GRANDE PULO: Copia o SEU arquivo .kt do repositório para o build
+        # Isso garante que o app tenha o player e as funções que VOCÊ escreveu
+        cp app/src/main/java/com/monstro/v18/MainActivity.kt app/src/main/java/com/monstro/v18/MainActivity_temp.kt || echo "Arquivo não encontrado no local padrão"
+        mv app/src/main/java/com/monstro/v18/MainActivity_temp.kt app/src/main/java/com/monstro/v18/MainActivity.kt
+
+        # 6. Manifesto Industrial
         cat <<EOF > app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application android:label="Monstro V18" android:theme="@android:style/Theme.Material.NoActionBar">
@@ -98,41 +102,13 @@ jobs:
         </manifest>
         EOF
 
-        # 6. Injeta sua MainActivity Real
-        cat <<EOF > app/src/main/java/com/monstro/v18/MainActivity.kt
-        package com.monstro.v18
-        import android.os.Bundle
-        import androidx.activity.ComponentActivity
-        import androidx.activity.compose.setContent
-        import androidx.compose.foundation.layout.*
-        import androidx.compose.material3.*
-        import androidx.compose.ui.Modifier
-        import androidx.compose.ui.graphics.Color
-        import androidx.compose.ui.Alignment
-
-        class MainActivity : ComponentActivity() {
-            override fun onCreate(savedInstanceState: Bundle?) {
-                super.onCreate(savedInstanceState)
-                setContent {
-                    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF020306)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("MONSTRO V18 - SISTEMA ONLINE", color = Color.White)
-                        }
-                    }
-                }
-            }
-        }
-        EOF
-
-        # Motor de partida
         gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: Build Industrial (Clean)
-      # Limpeza total antes de compilar
+    - name: Compilação Real do Seu Código
       run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
-    - name: Entregar APK
+    - name: Entregar APK Monstro
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
