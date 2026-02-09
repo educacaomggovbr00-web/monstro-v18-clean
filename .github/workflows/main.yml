@@ -1,4 +1,4 @@
-name: Monstro V18 - Dois Pendrives (Otimizado)
+name: Monstro V18 - Sistema de Dois Pendrives
 
 on:
   push:
@@ -15,46 +15,54 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: 'gradle'
 
-    - name: 🛠️ Pendrive 1: Injeção de Segurança
+    - name: 🛠️ Pendrive 1: Injeção e Reset
       run: |
-        echo "### PREPARANDO MOTOR ###"
-        # Limpeza focada sem destruir o ambiente
-        rm -rf app/build pacotes_monstro
-        
-        # Garante as pastas
+        echo "### LIMPANDO E MONTANDO ESTRUTURA COM SEU CÓDIGO ###"
+        rm -rf .gradle build app/build
         mkdir -p app/src/main/java/com/monstro/v18
-        
-        # O 'Pendrive' busca seu código real e injeta
+        mkdir -p app/src/main/res/values
+
+        # Busca seu arquivo real no repositório e injeta no motor
         find . -name "MainActivity.kt" -exec cp {} app/src/main/java/com/monstro/v18/MainActivity.kt \;
+
+        # Injeta o seu Manifesto Industrial
+        cat <<EOF > app/src/main/AndroidManifest.xml
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application android:label="Monstro V18" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+                <activity android:name="com.monstro.v18.MainActivity" android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        # Configura as travas de memória para não travar nos 3 minutos
+        [span_0](start_span)echo "include ':app'" > settings.gradle[span_0](end_span)
+        echo "org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m" > gradle.properties
+        echo "org.gradle.workers.max=1" >> gradle.properties
         
-        # Check inteligente do Wrapper (Só recria se não existir)
-        [ -f gradlew ] || gradle wrapper --gradle-version 8.4
+        gradle wrapper --gradle-version 8.4
         chmod +x gradlew
 
-    - name: ⚙️ Processamento (Build Industrial)
-      # Uso do clean para garantir que o APK seja 100% novo
+    - name: ⚙️ Processamento do Motor
       run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace
 
-    - name: 🚀 Pendrive 2: Coleta Blindada
+    - name: 🚀 Pendrive 2: Geração e Entrega
       run: |
         mkdir -p pacotes_monstro
-        # Caminho direto para evitar sobrescrita de lixo
-        if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
-          cp app/build/outputs/apk/debug/app-debug.apk pacotes_monstro/monstro_v18_final.apk
-        else
-          # Fallback de busca caso o nome mude
-          find app/build/outputs/apk/ -name "*.apk" -exec cp {} pacotes_monstro/monstro_v18_final.apk \;
-        fi
+        # Varredura para encontrar o APK gerado com o seu código
+        find app/build/outputs/apk/ -name "*.apk" -exec cp {} pacotes_monstro/monstro_v18_final.apk \;
         
-        # Validação de saída
         if [ ! -f "pacotes_monstro/monstro_v18_final.apk" ]; then
-          echo "✖ ERRO CRÍTICO: APK NÃO GERADO"
+          echo "### ERRO: O APK NÃO FOI ENCONTRADO NA SAÍDA ###"
           exit 1
         fi
 
-    - name: Upload para o Henrique
+    - name: Enviar APK para o Henrique
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
