@@ -1,8 +1,8 @@
-name: Monstro V18 - Motor de Estabilidade Total
+name: Monstro V18 - Estabilidade Total (Motor Fixo)
 
 on:
   push:
-    branches: [ "main", "principal" ]
+    branches: [ "principal", "main" ]
 
 jobs:
   build:
@@ -17,23 +17,35 @@ jobs:
         distribution: 'temurin'
         cache: 'gradle'
 
-    - name: Configurar Permissões
-      run: chmod +x gradlew
-
-    - name: Fabricar APK (Modo Industrial)
-      # Usa as configurações de RAM do seu gradle.properties para não crashar
-      run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
-
-    - name: Coleta de Segurança
+    - name: Preparar Estrutura Industrial
       run: |
-        mkdir -p pacotes_entrega
-        find app/build/outputs/apk/debug/ -name "*.apk" -exec cp {} pacotes_entrega/ \;
-        if [ -z "$(ls -A pacotes_entrega)" ]; then
-          echo "✖ ERRO: O APK não foi geratedo. Verifique os logs do Gradle acima."
+        echo "### LIMPANDO AMBIENTE ###"
+        rm -rf .gradle build app/build
+        
+        # Garante as permissões do motor
+        chmod +x gradlew
+        
+        # O motor agora apenas valida se os arquivos que você criou estão lá
+        if [ ! -f "app/src/main/AndroidManifest.xml" ]; then
+          echo "✖ ERRO: Estrutura física não encontrada!"
           exit 1
         fi
 
-    - name: Upload Monstro V18
+    - name: Fabricar APK (Modo Industrial)
+      # Aqui o motor segue firme usando o seu gradle.properties real
+      run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+    - name: Coleta e Entrega
+      run: |
+        mkdir -p pacotes_entrega
+        # Busca o APK gerado na estrutura profissional
+        find app/build/outputs/apk/debug/ -name "*.apk" -exec cp {} pacotes_entrega/ \;
+        if [ -z "$(ls -A pacotes_entrega)" ]; then
+          echo "✖ ERRO: O compilador falhou antes de gerar o arquivo."
+          exit 1
+        fi
+
+    - name: Upload Monstro
       uses: actions/upload-artifact@v4
       with:
         name: MonstroV18-FINAL
