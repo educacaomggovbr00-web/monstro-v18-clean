@@ -73,11 +73,15 @@ fun EditorScreen(model: EditorModel) {
                 }
             } else {
                 Text("Prévia do clipe ${model.selected + 1}", style = MaterialTheme.typography.labelLarge)
-                AndroidView(
-                    factory = { context -> EditorPlayerView(context).apply { useController = true } },
-                    update = { it.bind(model.player, !model.compatibilityPreview && previewEffects(model.current!!).isNotEmpty()) },
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)
-                )
+                // Give each decoder its own Surface. A surface previously owned by the GPU
+                // effect processor cannot reliably be reused by a direct MediaCodec decoder.
+                key(model.player) {
+                    AndroidView(
+                        factory = { context -> EditorPlayerView(context).apply { useController = true } },
+                        update = { it.bind(model.player, !model.compatibilityPreview && previewEffects(model.current!!).isNotEmpty()) },
+                        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)
+                    )
+                }
             }
             if (model.current != null) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
