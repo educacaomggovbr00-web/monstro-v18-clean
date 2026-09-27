@@ -13,7 +13,7 @@ class AutoCaptionsTest {
  @Test(timeout=240000) fun recognizesFileAudioWithWordTimes()=runBlocking {
     val i=InstrumentationRegistry.getInstrumentation();val context=i.targetContext;val speech=AutoCaptions(context)
     speech.install {};assertTrue(speech.ready)
-    val file=File(context.cacheDir,"speech-fixture.wav");i.context.assets.open("voice.wav").use {s->file.outputStream().use {s.copyTo(it)}}
+    val file=File(context.cacheDir,"speech-fixture.mp4");i.context.assets.open("voice.mp4").use {s->file.outputStream().use {s.copyTo(it)}}
     val r=MediaMetadataRetriever();val duration=try{r.setDataSource(file.absolutePath);r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()}finally{r.release()}
     val result=speech.transcribe(listOf(VideoClip(uri=file.toURI().toString(),name="Speech",duration=duration)),StudioProject()){}
     assertTrue(result.cues.isNotEmpty());assertTrue(result.cues.all {it.wordTimes.size==it.words.size && it.wordTimes.all {w->w.end>w.start}})

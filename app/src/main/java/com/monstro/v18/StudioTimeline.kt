@@ -47,6 +47,10 @@ class StudioTimeline(context:Context):View(context) {
         m.studio.texts.forEach {block(it.start,it.end,2,it.text,0xff71501b.toInt(),m.focusedId==it.id)}
         m.lyrics?.cues?.forEachIndexed {i,it->block(it.startMs,it.endMs,3,it.text,0xff433880.toInt(),m.inspector=="Legenda" && m.focusedId==i.toString())}
         m.studio.fx.forEach {block(it.start,it.end,4,FxCatalog.get(it.presetId)?.name ?: "FX",0xff752b62.toInt(),m.focusedId==it.id)}
+        fun diamond(time:Long,lane:Int){val cx=x(time);val cy=ruler+lane*row+5*density;paint.color=0xffffd23f.toInt();val path=Path().apply{moveTo(cx,cy-4*density);lineTo(cx+4*density,cy);lineTo(cx,cy+4*density);lineTo(cx-4*density,cy);close()};c.drawPath(path,paint)}
+        offset=0L;m.clips.forEach {clip->val map=m.speedMap(clip);m.studio.motions[clip.id]?.let {motion->motion.zoom.forEach {diamond(offset+it.time,0)};motion.speed.forEach {diamond(offset+map.toOutput(it.time),0)}};offset+=map.outputDuration}
+        m.studio.fx.forEach {layer->layer.keys.forEach {diamond(layer.start+it.time,4)}}
+        m.studio.texts.forEach {layer->(layer.style.xKeys+layer.style.yKeys+layer.style.scaleKeys).map {it.time}.distinct().forEach {diamond(layer.start+it,2)}}
         val play=x(m.playhead);paint.color=Color.WHITE;paint.strokeWidth=2*density;c.drawLine(play,0f,play,height.toFloat(),paint);c.drawCircle(play,5*density,4*density,paint)
         c.restore();paint.color=0xff161720.toInt();c.drawRect(0f,0f,labelWidth,height.toFloat(),paint)
         listOf("VÍDEO","ÁUDIO","TEXTO","SRT","FX").forEachIndexed {i,label->paint.color=0xffb1aabd.toInt();paint.textSize=9*density;c.drawText(label,5*density,ruler+i*row+21*density,paint)}

@@ -33,6 +33,7 @@ class StudioPainter {
         val pop=if(simple || s.animation!="Pop") 1f else .7f+.3f*(1-(1-phase).pow(3))+.1f*sin(phase*PI.toFloat())
         val scale=pop
         if(s.animation=="Fade")paint.alpha=(paint.alpha*phase).toInt()
+        val alpha=paint.alpha
         val visible=if(s.animation=="Digitar") text.take((age/45+1).toInt().coerceAtMost(text.length)) else text
         var layout:StaticLayout
         do {
@@ -41,8 +42,8 @@ class StudioPainter {
             paint.textSize*=.85f
         }while(true)
         c.save();c.translate(x-w*.45f,y-layout.height*.5f);c.scale(scale,scale,w*.45f,layout.height*.5f)
-        if(s.stroke>0){paint.style=Paint.Style.STROKE;paint.strokeJoin=Paint.Join.ROUND;paint.strokeWidth=s.stroke*unit;paint.color=Color.BLACK;layout.draw(c)}
-        paint.style=Paint.Style.FILL;paint.color=s.color
+        if(s.stroke>0){paint.style=Paint.Style.STROKE;paint.strokeJoin=Paint.Join.ROUND;paint.strokeWidth=s.stroke*unit;paint.color=Color.BLACK;paint.alpha=alpha;layout.draw(c)}
+        paint.style=Paint.Style.FILL;paint.color=s.color;paint.alpha=alpha
         if(!simple && s.glow>0) {paint.setShadowLayer(s.glow*unit,0f,0f,s.color);layout.draw(c)}
         paint.clearShadowLayer()
         if(s.shadow>0)paint.setShadowLayer(s.shadow*unit,0f,unit*.004f,Color.BLACK)

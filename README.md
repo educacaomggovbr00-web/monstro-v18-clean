@@ -1,67 +1,58 @@
-# Monstro V18 — editor Android
+# Monstro V18 Studio
 
-Versão **18.2-FX** construída sobre a 18.1 testada pelo usuário. Agora inclui Motion Blur temporal, Auto Retention, Digital Glitch, RGB Split, Impact Shake, Psycho Strobe, Hue Shift, Focus Edge, Master Zoom e Blockbuster, além de todas as funções de edição anteriores.
+Editor Android nativo em Kotlin/Compose, Media3 e OpenGL ES. Versão 18.5-Studio.
 
-Os oito efeitos podem ser combinados por clipe, ficam salvos no projeto e são aplicados pelo mesmo shader na prévia e na exportação. O strobe inicia desligado e pede confirmação antes de ativar flashes de 2 Hz. O modo leve reduz a resolução para 854 × 480, limita a taxa a cerca de 30 fps e solicita 2,5 Mbps. O modo normal usa 1280 × 720, até 60 fps e 5 Mbps; não cria quadros ausentes na fonte. O codec pode ajustar o bitrate solicitado.
+## Edição no celular
 
-**Instalação de teste:** esta edição usa o nome Monstro V18 FX e o pacote `com.monstro.v18.fx`, permitindo manter a 18.1 instalada. Os projetos do aplicativo anterior permanecem nele; importe novamente seus vídeos no FX. O APK utiliza assinatura de teste gerada pelo Android durante o build.
+- Uma prévia principal integrada à timeline; reprodução passa pelos clipes em ordem.
+- Cinco faixas: montagem de vídeo com thumbnails, áudio, textos, legendas e FX. Toque num bloco para abrir seu inspector. Arraste a régua/playhead para buscar; arraste a faixa para rolar; use dois dedos para ampliar a escala de tempo.
+- Importação, corte, divisão, reordenação e remoção de clipes; projeto salvo no aparelho.
+- Áudios adicionais com posição, corte e volume, ou áudio original desligado. Faixas sonoras são misturadas no MP4.
+- Texto e legenda com fonte, tamanho, cor HEX/paleta, stroke, sombra, glow, posição, opacidade e animações Pop/Fade/Digitar. Toque no elemento na prévia ou timeline para selecionar.
+- Keyframes lineares de zoom, posição/escala do texto e intensidade de FX. Crie pontos nos tempos desejados e ajuste os valores. Limpar remove a curva daquela propriedade.
+- Velocity: velocidade constante de 0,25× a 4×, presets Montanha/Hero/Bullet e pontos editáveis. A curva é amostrada em segmentos constantes de pelo menos 200 ms, até 120 segmentos por clipe. A mesma tabela mapeia a prévia, tempos da fala e exportação; o áudio original muda de duração preservando pitch.
+- Motion Blur temporal após os efeitos espaciais, sem acumular recursivamente flashes ou ganho de cor.
 
-Versão 18.1: importa vídeos, reproduz o clipe selecionado, corta início/fim,
-divide na posição da prévia, remove e reordena clipes, aplica quatro presets de cor
-e exporta a sequência em MP4 real usando Media3 Transformer.
+## Legendas
 
-## Usar
+**SRT:** mantém importação UTF-8/UTF-16. Os tempos são da timeline final; SRT comum não fornece tempos por palavra, então Word Sync usa divisão aproximada. Frases podem ser corrigidas e reposicionadas pelo inspector.
 
-1. Instale o APK de teste gerado em **Actions → Android - testar e gerar APK → Artifacts → MonstroV18-APK**. Extraia o ZIP e abra `app-debug.apk` no Android 7 ou superior.
-2. Toque em **Importar vídeos** e escolha um ou mais arquivos locais no seletor do Android.
-3. Toque num clipe para ver a prévia com controles de reprodução. Ajuste as duas pontas da barra de corte. Para dividir, pause no ponto desejado e toque em **Dividir na posição**.
-4. Use **Mover**, **Excluir** e os presets para montar a sequência. O áudio pode ser removido de todo o projeto.
-5. Toque em **Exportar projeto em MP4** e mantenha o aplicativo aberto. Após concluir, use **Salvar último MP4 exportado** para escolher uma pasta.
+**Automáticas:** na aba Legenda, baixe uma vez o modelo de português (31 MB), depois toque em **Legendar fala**. Vosk reconhece o áudio dos vídeos selecionados localmente, com tempos por palavra; não grava o microfone nem envia áudio. Requer internet somente para baixar o modelo. A qualidade depende da dicção, música e ruído; revise as frases antes de exportar. O modelo pequeno prioriza uso móvel, não precisão de modelos grandes. Cancelar preserva as legendas anteriores.
 
-O projeto é salvo automaticamente no aparelho. Os vídeos originais não são copiados nem alterados; mantenha-os disponíveis no local de origem. A saída anterior fica disponível até outra exportação concluir. Cancelar ou falhar não apaga a última saída concluída.
+Trap Lyrics apresenta a frase completa pequena e a palavra atual em destaque neon. Pausas entre palavras reconhecidas permanecem sem destaque. A opção **Legenda leve** reduz a textura e desativa glow/pop. Textos e legendas usam o mesmo painter na prévia e no MP4.
 
-## Limites desta versão
+## Biblioteca Chaos
 
-- Prévia de um clipe por vez; exportação junta os clipes na ordem da lista.
-- Saída H.264/AAC com proporção preservada; 480p no modo leve ou 720p no modo normal.
-- Presets de cor Original, Neon, Trap Lord, Dark Energy e Blockbuster; efeitos visuais combináveis. Não inclui efeitos de áudio.
-- Ainda não há trilha musical separada, textos, transições, desfazer ou múltiplos projetos.
-- A exportação depende dos codecs do aparelho. Arquivos protegidos, corrompidos ou formatos incompatíveis podem falhar, com mensagem de erro.
-- Não há serviço de exportação em segundo plano: mantenha o aplicativo aberto. Encerrar o processo interrompe a renderização, mas conserva o projeto.
+1.000 presets: **20 algoritmos × 5 receitas espaciais × 10 envelopes temporais**. Não são 1.000 engines independentes. Categorias Glitch, RGB, Shake, Trap, Motion, Distortion, Anime, Retro, VHS, Cinematic, Light e Blur. Pesquisa, favoritos e recentes persistidos, intensidade e velocidade; direção nos algoritmos direcionais. Os oito Chaos FX anteriores continuam disponíveis por clipe.
 
-## Compilar e verificar
+Motores: fragmentação por faixas, separação RGB, shake, zoom, rotação, onda, ondulação radial, vórtice, espelho polar, mosaico, retícula, posterização, scanlines, tracking VHS, grão, duotone, light leak, prisma radial, blur direcional e túnel. O teste EGL renderiza quatro instantes de cada receita e exige **1.000 assinaturas visuais diferentes**, além de verificar que não são identidades.
 
-JDK 17, Gradle 8.4 e Android SDK 34. Abra no Android Studio ou execute:
+## Exportação e cores
+
+H.264/AAC, 9:16 ou 16:9, imagem inteira com fundo ampliado/desfocado. Leve: 540×960 / 960×540, 30 fps, 2,5 Mbps solicitados. Alta qualidade: 1080×1920 / 1920×1080, 30 fps, 10 Mbps solicitados. O codec pode ajustar bitrate. Não há interpolação óptica: slow motion prolonga os quadros disponíveis.
+
+YUV/faixa/transferência são convertidos pelo input sampler Media3 usando ColorInfo antes dos presets RGB. Matrizes Neon/Trap/Dark/Blockbuster não aplicam uma segunda conversão YUV. HDR é convertido para SDR na exportação. A recuperação de erro da GPU preserva o projeto e usa reprodução sem FX se o aparelho rejeitar o processador; a mensagem informa essa diferença e o MP4 mantém os efeitos. Não existe painel de prévia separado.
+
+## Instalar
+
+Actions → **Android - testar e gerar APK** → artefato **MonstroV18-APK**, extraia e instale `app-debug.apk`. Android 7+. Esta edição usa `com.monstro.v18.studio`: instala ao lado das edições anteriores, sem apagar seus projetos. Importe as mídias novamente na nova edição. APK de desenvolvimento assinado pelo build; não é versão publicada em loja.
+
+Mantenha os arquivos originais acessíveis. Os tempos de textos, legendas, músicas e FX são absolutos na timeline; mudanças posteriores na montagem podem exigir reposicioná-los ou gerar novamente as legendas. Há uma faixa principal de vídeo sequencial, não composição de vários vídeos simultâneos/PiP. Não inclui desfazer, transições entre clipes, múltiplos projetos ou renderização em serviço de segundo plano. Mantenha o aplicativo aberto durante reconhecimento/exportação. Cancelar/falhar conserva o último MP4 concluído.
+
+## Compilar e testar
+
+JDK 17, Gradle 8.4, SDK Android 34:
 
 ```sh
 gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+python tools/check_shaders.py
 ```
 
-O workflow instala a versão fixa do Gradle e compila os arquivos do repositório sem reescrevê-los.
-Os testes unitários cobrem intervalos de corte e divisão relativa à prévia já cortada.
+Testes unitários: trims, SRT, word timing, color presets, catálogo, keyframes e mapeamento das velocidades. Instrumentados: prévia e recuperação da GPU, exportação dos oito FX, legendas/fundo/cores/1080p, velocidade com áudio adicional e FX/textos, reconhecimento de uma fala sintética em português. O workflow gera uma fala AAC/MP4 com eSpeak NG e FFmpeg antes dos testes de reconhecimento; o primeiro teste baixa o modelo oficial Vosk. Relatórios e captura da tela são publicados como artefatos. Testes em emulador não substituem a verificação dos codecs/GPU no Samsung A30s.
 
-## Teste no aparelho antes de considerar a versão pronta
+## Referências e licenças
 
-- Importar dois vídeos, incluindo um sem áudio; reproduzir, pausar e buscar.
-- Cortar um clipe que começa após 0, dividir e conferir a ordem das partes.
-- Reordenar, remover, mudar o preset e fechar/reabrir para conferir o projeto.
-- Exportar e abrir o MP4 salvo em outro reprodutor: conferir duração, ordem, cor e áudio.
-- Cancelar a exportação e cancelar o seletor de salvamento; tentar novamente.
-- Testar vídeo vertical, falta de espaço e arquivo removido da origem.
-
-## Verificação dos efeitos
-
-O teste Android `ChaosExportTest` exporta uma sequência cortada com os oito efeitos, zoom e áudio; verifica o arquivo gerado, duração, presença de áudio e imagem não vazia. O vídeo sintético de teste foi gerado com FFmpeg testsrc2 e sine. Os testes unitários verificam também os IDs persistidos e a preservação dos efeitos ao dividir clipes.
-
-
-## 18.4 — Trap Lyrics FX
-
-Importe um SRT UTF-8 ou UTF-16 com o botão **+ Importar Legenda (.srt)**. As frases usam o tempo da linha do tempo final (após cortes e ordem dos clipes), são salvas no projeto e gravadas no MP4. O SRT não contém tempos por palavra: o destaque é distribuído igualmente dentro da duração da frase. Ajuste o SRT se alterar a montagem. Suporta frases multilinha, BOM, CRLF, vírgula/ponto nos milissegundos e ignora blocos inválidos com aviso; limite 2 MB / 5.000 frases.
-
-Roxo/vermelho neon, frase completa, palavra em destaque e pop-in/glow. **Compatibilidade de legenda** reduz a textura para 360 px de largura, desativa glow/pop e reduz atualizações; mantém palavras e texto no MP4. A prévia usa Canvas separado do processador de vídeo, inclusive em modo de compatibilidade da prévia. A exportação reutiliza bitmap e textura para limitar alocações.
-
-Exportação 9:16 ou 16:9, com imagem inteira sobre fundo ampliado/desfocado. Modo leve: 540×960 / 960×540, até 30 fps, 2,5 Mbps. Alta qualidade: 1080×1920 / 1920×1080, até 30 fps, 10 Mbps solicitados. O encoder pode reduzir parâmetros quando o hardware não os suporta. A prévia do clipe mantém seu enquadramento anterior; o formato de saída é aplicado na exportação.
-
-Presets agora usam matrizes RGB diagonais positivas no domínio linear documentado do Media3. A conversão YUV/faixa/transferência segue os metadados ColorInfo do vídeo no input sampler padrão; os presets não reconvertem RGB como YUV e não impõem BT.601/709. HDR é convertido para SDR na exportação. Isso evita matrizes duplicadas ou inversão dos canais, mas vídeos com metadados incorretos e particularidades de codecs físicos ainda precisam de teste no aparelho.
-
-Testes adicionados: parser/bordas/overlap/tempos das palavras, proporções e matrizes de cor; exportação instrumentada 9:16 em modo leve e 1080p, áudio, fundo e legendas antes/depois de uma junção. Testes anteriores de reprodução e recuperação continuam ativos. Pacote de teste independente `com.monstro.v18.lyrics`.
+- [Media3 Transformer](https://developer.android.com/media/media3/transformer) — API Android, Apache 2.0.
+- [Vosk Android](https://alphacephei.com/vosk/android) e [modelos](https://alphacephei.com/vosk/models). `vosk-model-small-pt-0.3`, Apache 2.0, atribuição Alpha Cephei/contribuidores. Modelo baixado separado, não embutido no APK.
+- Vosk Android 0.3.45; JNA 5.13.0 (licenciamento LGPL 2.1/Apache 2.0). Licenças de dependências preservadas no empacotamento.
+- [SpeedChangeEffect](https://developer.android.com/reference/androidx/media3/effect/SpeedChangeEffect): a implementação 1.2.1 divide timestamps absolutos. Studio normaliza cada segmento no próprio shader para preservar junções na timeline.

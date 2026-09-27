@@ -37,8 +37,8 @@ class MainActivity : ComponentActivity() {
                 primary = Color(0xFFA855F7), background = Color(0xFF020306), surface = Color(0xFF121214)
             )) {
                 val model: EditorModel = viewModel()
-                DisposableEffect(model.exporting) {
-                    if (model.exporting) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                DisposableEffect(model.exporting,model.speechBusy) {
+                    if (model.exporting || model.speechBusy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
                 }
                 StudioScreen(model)

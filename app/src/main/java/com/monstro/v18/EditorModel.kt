@@ -143,8 +143,11 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         val result=withContext(Dispatchers.IO){runCatching {context.contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);val r=MediaMetadataRetriever();val duration=try{r.setDataSource(context,uri);r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()}finally{r.release()};require(duration>0);val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {if(it.moveToFirst())it.getString(0)else null} ?: "Áudio";AudioLayer(uri=uri.toString(),name=name,duration=duration,start=playhead,trimEnd=minOf(duration,(totalDuration-playhead).coerceAtLeast(1)))}}
         importing=false;result.onSuccess {updateStudio(studio.copy(audio=studio.audio+it),false);focus("Áudio",it.id)}.onFailure {message="Não foi possível importar o áudio: ${it.localizedMessage}"}
     }}
-    fun updateCue(index:Int,text:String,start:Long,end:Long){val old=lyrics ?: return;if(index !in old.cues.indices || text.isBlank() || start<0 || end<=start)return
-        val cue=old.cues[index];lyrics=SrtTrack(old.cues.toMutableList().also {it[index]=SrtCue(start,end,text,if(cue.text==text && cue.startMs==start && cue.endMs==end)cue.wordTimes else emptyList())}.sortedBy {it.startMs });persistCues()
+    fun updateCue(index:Int,text:String,start:Long,end:Long){if(busy)return;val old=lyrics ?: return;if(index !in old.cues.indices || text.isBlank() || start<0 || end<=start)return
+        val cue=old.cues[index];val replacement=SrtCue(start,end,text,if(cue.text==text && cue.startMs==start && cue.endMs==end)cue.wordTimes else emptyList())
+        val sorted=old.cues.mapIndexed {i,c->i to if(i==index)replacement else c}.sortedBy {it.second.startMs}
+        lyrics=SrtTrack(sorted.map {it.second});focusedId=sorted.indexOfFirst {it.first==index}.toString()
+        updateStudio(studio.copy(captionStyles=sorted.mapIndexedNotNull {newIndex,pair->studio.captionStyles[pair.first]?.let {newIndex to it}}.toMap()),false);persistCues()
     }
     private fun persistCues(){val cues=lyrics?.cues ?: emptyList();val array=JSONArray();cues.forEach {c->array.put(JSONObject().put("start",c.startMs).put("end",c.endMs).put("text",c.text).put("words",JSONArray().also {a->c.wordTimes.forEach {a.put(JSONArray().put(it.start).put(it.end))}}))};File(context.filesDir,"captions.json").writeText(array.toString())}
     private fun restoreCues(){val f=File(context.filesDir,"captions.json");if(!f.isFile)return;runCatching {val a=JSONArray(f.readText());lyrics=if(a.length()==0)null else SrtTrack((0 until a.length()).map {val c=a.getJSONObject(it);val w=c.optJSONArray("words");SrtCue(c.getLong("start"),c.getLong("end"),c.getString("text"),if(w==null)emptyList()else(0 until w.length()).map {j->val pair=w.getJSONArray(j);WordTime(pair.getLong(0),pair.getLong(1))})})}}
@@ -153,7 +156,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         catch(e:Exception){speechStatus="Download interrompido. Tente novamente."}finally{speechBusy=false}
     }}
     fun autoCaption(){if(busy || clips.isEmpty())return;if(!modelReady){message="Toque em Baixar português (31 MB) primeiro.";return};pauseAll();speechBusy=true;speechStatus="Reconhecendo fala…";val inputs=clips;val project=studio;speechJob=viewModelScope.launch {
-        try{val track=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechStatus="Reconhecendo fala: $percent%"}}};lyrics=track;lyricsName="Legendas automáticas · português";persistCues();speechStatus="${track.cues.size} frases. Toque nas legendas para revisar.";focus("Legenda")}
+        try{val track=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechStatus="Reconhecendo fala: $percent%"}}};lyrics=track;studio=studio.copy(captionStyles=emptyMap());prefs.edit().putString("studio",StudioCodec.encode(studio)).apply();lyricsName="Legendas automáticas · português";persistCues();speechStatus="${track.cues.size} frases. Toque nas legendas para revisar.";focus("Legenda")}
         catch(e:Exception){speechStatus=if(e is kotlinx.coroutines.CancellationException)"Reconhecimento cancelado" else "Não foi possível legendar: ${e.localizedMessage}"}finally{speechBusy=false}
     }}
     fun cancelSpeech(){speechJob?.cancel()}
@@ -392,7 +395,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             } }
             importing = false
             result.onSuccess { (parsed,name,_) ->
-                lyrics = parsed.track; persistCues(); lyricsName = name; prefs.edit().putString("lyricsName",name).apply()
+                lyrics = parsed.track; updateStudio(studio.copy(captionStyles=emptyMap()),false); persistCues(); lyricsName = name; prefs.edit().putString("lyricsName",name).apply()
                 message = "${parsed.track.cues.size} frases importadas." + if(parsed.skipped > 0) " ${parsed.skipped} blocos inválidos ignorados." else ""
             }.onFailure { message = "Não foi possível importar a legenda: ${it.localizedMessage}" }
         }

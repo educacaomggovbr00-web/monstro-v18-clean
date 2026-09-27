@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -98,10 +100,15 @@ private fun VideoInspector(m:EditorModel){val clip=m.current ?: return
     Timing(clip.trim.start,clip.trim.end,clip.duration){a,b->m.edit(trim=TrimRange(a,b))}
     Choices(listOf("raw","neon","trap","dark","cinema"),clip.preset){m.edit(preset=it)}
     val motion=m.studio.motions[clip.id] ?: ClipMotion();val local=m.playhead-m.timelineOffset
-    Adjust("Zoom",animated(motion.zoom,local,clip.chaos.zoom),1f..3f,"×"){m.edit(chaos=clip.chaos.copy(zoom=it))}
-    Row{TextButton(onClick={m.setMotion(motion.copy(zoom=putKey(motion.zoom,local,clip.chaos.zoom)))}){Text("◇ Keyframe zoom")};TextButton(onClick={m.setMotion(motion.copy(zoom=emptyList()))}){Text("Limpar")}}
+    Adjust("Zoom",animated(motion.zoom,local,clip.chaos.zoom),1f..3f,"×"){if(motion.zoom.isEmpty())m.edit(chaos=clip.chaos.copy(zoom=it))else m.setMotion(motion.copy(zoom=putKey(motion.zoom,local,it)))}
+    Row{TextButton(onClick={m.setMotion(motion.copy(zoom=putKey(motion.zoom,local,animated(motion.zoom,local,clip.chaos.zoom))))}){Text("◇ Keyframe zoom")};TextButton(onClick={m.setMotion(motion.copy(zoom=emptyList()))}){Text("Limpar")}}
     Text("Velocity · curva de velocidade",fontWeight=FontWeight.Bold)
     Choices(listOf("Normal","Montanha","Hero","Bullet"),""){name->val d=clip.trim.duration;m.setMotion(motion.copy(speed=when(name){"Montanha"->listOf(KeyPoint(0,.5f),KeyPoint(d/2,3f),KeyPoint(d,.5f));"Hero"->listOf(KeyPoint(0,2f),KeyPoint(d/3,.35f),KeyPoint(d*2/3,.35f),KeyPoint(d,2f));"Bullet"->listOf(KeyPoint(0,1f),KeyPoint(d/3,4f),KeyPoint(d/2,.25f),KeyPoint(d,1f));else->emptyList()}))}
+    Canvas(Modifier.fillMaxWidth().height(64.dp).background(Color(0xff15131e),RoundedCornerShape(8.dp))){
+        var previous:Offset?=null
+        for(i in 0..100){val value=animated(motion.speed,clip.trim.duration*i/100,1f);val point=Offset(size.width*i/100,size.height*(1-(value-.25f)/3.75f));previous?.let {drawLine(Color(0xffbf79ff),it,point,3f)};previous=point}
+        motion.speed.forEach {drawCircle(Color.White,4f,Offset(size.width*it.time/clip.trim.duration,size.height*(1-(it.value-.25f)/3.75f)))}
+    }
     var speed by remember(clip.id){mutableStateOf(1f)}
     Adjust("Velocidade",speed,.25f..4f,"×"){speed=it}
     Row{TextButton(onClick={m.setMotion(motion.copy(speed=listOf(KeyPoint(0,speed))))}){Text("Constante")};TextButton(onClick={m.setMotion(motion.copy(speed=putKey(motion.speed,m.player.currentPosition,speed)))}){Text("◇ Ponto na curva")}}
@@ -144,10 +151,12 @@ private fun CaptionInspector(m:EditorModel,import:()->Unit){
 @Composable
 private fun StyleInspector(s:TextStyle,time:Long,change:(TextStyle)->Unit){
     Choices(listOf("sans-serif-condensed","sans-serif","serif","monospace"),s.font){change(s.copy(font=it))}
-    Adjust("Tamanho",s.size,.02f..0.25f){change(s.copy(size=it))}
+    Adjust("Tamanho",s.size,.02f..0.25f){change(s.copy(size=it,scaleKeys=if(s.scaleKeys.isEmpty())emptyList()else putKey(s.scaleKeys,time.coerceAtLeast(0),it)))}
     LazyRow(horizontalArrangement=Arrangement.spacedBy(10.dp)){items(listOf(0xffc250ff.toInt(),0xffff2355.toInt(),0xffffffff.toInt(),0xffffd23f.toInt(),0xff32f5ca.toInt(),0xff000000.toInt())){color->Box(Modifier.size(42.dp).background(Color(color),RoundedCornerShape(20.dp)).border(if(s.color==color)3.dp else 1.dp,Color.LightGray,RoundedCornerShape(20.dp)).clickable {change(s.copy(color=color))})}}
+    var hex by remember(s.color){mutableStateOf(String.format("%06X",s.color and 0xffffff))}
+    Row(verticalAlignment=Alignment.CenterVertically){OutlinedTextField(value=hex,onValueChange={hex=it.removePrefix("#").take(6)},label={Text("Cor HEX")},singleLine=true,modifier=Modifier.weight(1f));TextButton(onClick={hex.toLongOrNull(16)?.takeIf {hex.length==6}?.let {change(s.copy(color=(it or 0xff000000L).toInt()))}}){Text("Aplicar")}}
     Adjust("Stroke",s.stroke,0f..0.025f){change(s.copy(stroke=it))};Adjust("Sombra",s.shadow,0f..0.04f){change(s.copy(shadow=it))};Adjust("Glow",s.glow,0f..0.06f){change(s.copy(glow=it))}
-    Adjust("Horizontal",s.x,.05f..0.95f){change(s.copy(x=it))};Adjust("Vertical",s.y,.05f..0.95f){change(s.copy(y=it))};Adjust("Opacidade",s.opacity,.1f..1f){change(s.copy(opacity=it))}
+    Adjust("Horizontal",s.x,.05f..0.95f){change(s.copy(x=it,xKeys=if(s.xKeys.isEmpty())emptyList()else putKey(s.xKeys,time.coerceAtLeast(0),it)))};Adjust("Vertical",s.y,.05f..0.95f){change(s.copy(y=it,yKeys=if(s.yKeys.isEmpty())emptyList()else putKey(s.yKeys,time.coerceAtLeast(0),it)))};Adjust("Opacidade",s.opacity,.1f..1f){change(s.copy(opacity=it))}
     Choices(listOf("Nenhuma","Pop","Fade","Digitar"),s.animation){change(s.copy(animation=it))}
     Row{TextButton(onClick={change(s.copy(xKeys=putKey(s.xKeys,time.coerceAtLeast(0),s.x),yKeys=putKey(s.yKeys,time.coerceAtLeast(0),s.y),scaleKeys=putKey(s.scaleKeys,time.coerceAtLeast(0),s.size)))}){Text("◇ Keyframe posição / escala")};TextButton(onClick={change(s.copy(xKeys=emptyList(),yKeys=emptyList(),scaleKeys=emptyList()))}){Text("Limpar")}}
 }
@@ -155,7 +164,7 @@ private fun StyleInspector(s:TextStyle,time:Long,change:(TextStyle)->Unit){
 private fun FxInspector(m:EditorModel,library:()->Unit){OutlinedButton(onClick=library,modifier=Modifier.fillMaxWidth()){Text("+ Biblioteca · ${FxCatalog.all.size} FX")};val layer=m.studio.fx.find {it.id==m.focusedId} ?: return
     Text(FxCatalog.get(layer.presetId)?.name ?: "FX",fontWeight=FontWeight.Bold)
     fun update(next:FxLayer){m.updateStudio(m.studio.copy(fx=m.studio.fx.map {if(it.id==layer.id)next else it}))}
-    Adjust("Intensidade",layer.intensity,0f..2f){update(layer.copy(intensity=it))};Adjust("Velocidade",layer.speed,.1f..4f){update(layer.copy(speed=it))};Adjust("Direção",layer.direction,0f..360f,"°"){update(layer.copy(direction=it))}
+    Adjust("Intensidade",layer.intensity,0f..2f){update(layer.copy(intensity=it,keys=if(layer.keys.isEmpty())emptyList()else putKey(layer.keys,(m.playhead-layer.start).coerceAtLeast(0),it)))};Adjust("Velocidade",layer.speed,.1f..4f){update(layer.copy(speed=it))};if(FxCatalog.get(layer.presetId)?.engine in listOf(1,5,18))Adjust("Direção",layer.direction,0f..360f,"°"){update(layer.copy(direction=it))}
     Timing(layer.start,layer.end,m.totalDuration){a,b->update(layer.copy(start=a,end=b))}
     Row{TextButton(onClick={update(layer.copy(keys=putKey(layer.keys,(m.playhead-layer.start).coerceAtLeast(0),layer.intensity)))}){Text("◇ Keyframe intensidade")};TextButton(onClick={update(layer.copy(keys=emptyList()))}){Text("Limpar")}}
     TextButton(onClick={m.updateStudio(m.studio.copy(fx=m.studio.fx-layer))}){Text("Excluir FX")}
