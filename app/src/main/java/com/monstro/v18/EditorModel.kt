@@ -155,10 +155,26 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         try{withContext(Dispatchers.IO){AutoCaptions(context).install {percent->viewModelScope.launch {speechStatus="Preparando português: $percent%"}}};modelReady=true;speechStatus="Português pronto — reconhecimento no aparelho"}
         catch(e:Exception){speechStatus="Download interrompido. Tente novamente."}finally{speechBusy=false}
     }}
-    fun autoCaption(){if(busy || clips.isEmpty())return;if(!modelReady){message="Toque em Baixar português (31 MB) primeiro.";return};pauseAll();speechBusy=true;speechStatus="Reconhecendo fala…";val inputs=clips;val project=studio;speechJob=viewModelScope.launch {
-        try{val track=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechStatus="Reconhecendo fala: $percent%"}}};lyrics=track;studio=studio.copy(captionStyles=emptyMap());prefs.edit().putString("studio",StudioCodec.encode(studio)).apply();lyricsName="Legendas automáticas · português";persistCues();speechStatus="${track.cues.size} frases. Toque nas legendas para revisar.";focus("Legenda")}
-        catch(e:Exception){speechStatus=if(e is kotlinx.coroutines.CancellationException)"Reconhecimento cancelado" else "Não foi possível legendar: ${e.localizedMessage}"}finally{speechBusy=false}
-    }}
+    fun autoCaption() { recognizeCaptions(clips,studio,0) }
+    fun autoCaptionAudio(id:String) {
+        val layer=studio.audio.find {it.id==id} ?: return
+        val end=if(totalDuration>layer.start)minOf(layer.trimEnd,layer.trimStart+totalDuration-layer.start)else layer.trimEnd
+        recognizeCaptions(listOf(VideoClip(uri=layer.uri,name=layer.name,duration=layer.duration,trim=TrimRange(layer.trimStart,end))),StudioProject(),layer.start)
+    }
+    private fun recognizeCaptions(inputs:List<VideoClip>,project:StudioProject,offset:Long) {
+        if(busy || inputs.isEmpty())return
+        if(!modelReady){message="Na aba Legenda, toque em Baixar português (31 MB) primeiro.";return}
+        pauseAll();speechBusy=true;speechStatus="Reconhecendo fala…"
+        speechJob=viewModelScope.launch {
+            try {
+                val result=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechStatus="Reconhecendo fala: $percent%"}}}
+                val track=if(offset==0L)result else SrtTrack(result.cues.map {cue->cue.copy(startMs=cue.startMs+offset,endMs=cue.endMs+offset,wordTimes=cue.wordTimes.map {WordTime(it.start+offset,it.end+offset)})})
+                lyrics=track;studio=studio.copy(captionStyles=emptyMap());prefs.edit().putString("studio",StudioCodec.encode(studio)).apply()
+                lyricsName="Legendas automáticas · português";persistCues();speechStatus="${track.cues.size} frases. Toque nas legendas para revisar.";focus("Legenda")
+            } catch(e:Exception) {speechStatus=if(e is kotlinx.coroutines.CancellationException)"Reconhecimento cancelado" else "Não foi possível legendar: ${e.localizedMessage}"}
+            finally {speechBusy=false}
+        }
+    }
     fun cancelSpeech(){speechJob?.cancel()}
     private fun studioPreviewEffects(clip:VideoClip):List<Effect>{
         val clock=FrameClock(preview={shaderPlayhead});val zoom=studio.motions[clip.id]?.zoom ?: emptyList()

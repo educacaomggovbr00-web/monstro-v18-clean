@@ -119,6 +119,7 @@ private fun VideoInspector(m:EditorModel){val clip=m.current ?: return
 }
 @UnstableApi @Composable
 private fun AudioInspector(m:EditorModel,import:()->Unit){OutlinedButton(onClick=import){Text("+ Importar áudio")};val layer=m.studio.audio.find {it.id==m.focusedId} ?: return
+    TextButton(onClick={m.autoCaptionAudio(layer.id)}){Text("Legendar este áudio")}
     Text(layer.name);Adjust("Volume",layer.volume,0f..1f){v->m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)it.copy(volume=v)else it}),false)}
     Adjust("Posição na timeline",layer.start/1000f,0f..maxOf(.01f,m.totalDuration/1000f),"s"){v->m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)it.copy(start=(v*1000).toLong())else it}),false)}
     Timing(layer.trimStart,layer.trimEnd,layer.duration){a,b->m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)it.copy(trimStart=a,trimEnd=b)else it}),false)}
@@ -171,7 +172,7 @@ private fun FxInspector(m:EditorModel,library:()->Unit){OutlinedButton(onClick=l
 }
 @UnstableApi @Composable
 private fun FxLibrary(m:EditorModel,close:()->Unit){var query by remember{mutableStateOf("")};var category by remember{mutableStateOf("Todos")}
-    val results=remember(query,category,m.studio.favorites,m.studio.recent){FxCatalog.search(query,category.takeIf {it !in listOf("Todos","Favoritos","Recentes")}).filter {when(category){"Favoritos"->it.id in m.studio.favorites;"Recentes"->it.id in m.studio.recent;else->true}}}
+    val results=remember(query,category,m.studio.favorites,m.studio.recent){FxCatalog.search(query,category.takeIf {it !in listOf("Todos","Favoritos","Recentes")}).filter {when(category){"Favoritos"->it.id in m.studio.favorites;"Recentes"->it.id in m.studio.recent;else->true}}.let {if(category=="Recentes")it.sortedBy {p->m.studio.recent.indexOf(p.id)}else it}}
     Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false)){Surface(Modifier.fillMaxSize().systemBarsPadding(),color=Color(0xff101017)){Column(Modifier.padding(16.dp)){
         Row(verticalAlignment=Alignment.CenterVertically){Text("CHAOS LIBRARY",fontWeight=FontWeight.Black,modifier=Modifier.weight(1f));TextButton(onClick=close){Text("Fechar")}}
         Text("20 motores · 1.000 receitas animadas",fontSize=12.sp,color=Color.Gray)

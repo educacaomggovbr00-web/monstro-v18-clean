@@ -17,7 +17,7 @@ Editor Android nativo em Kotlin/Compose, Media3 e OpenGL ES. Versão 18.5-Studio
 
 **SRT:** mantém importação UTF-8/UTF-16. Os tempos são da timeline final; SRT comum não fornece tempos por palavra, então Word Sync usa divisão aproximada. Frases podem ser corrigidas e reposicionadas pelo inspector.
 
-**Automáticas:** na aba Legenda, baixe uma vez o modelo de português (31 MB), depois toque em **Legendar fala**. Vosk reconhece o áudio dos vídeos selecionados localmente, com tempos por palavra; não grava o microfone nem envia áudio. Requer internet somente para baixar o modelo. A qualidade depende da dicção, música e ruído; revise as frases antes de exportar. O modelo pequeno prioriza uso móvel, não precisão de modelos grandes. Cancelar preserva as legendas anteriores.
+**Automáticas:** na aba Legenda, baixe uma vez o modelo de português (31 MB), depois toque em **Legendar fala**. Na aba Áudio, **Legendar este áudio** reconhece também uma faixa importada, respeitando seu corte e posição. Vosk reconhece o áudio localmente, com tempos por palavra; não grava o microfone nem envia áudio. Requer internet somente para baixar o modelo. A qualidade depende da dicção, música e ruído; revise as frases antes de exportar. O modelo pequeno prioriza uso móvel, não precisão de modelos grandes. Cancelar preserva as legendas anteriores.
 
 Trap Lyrics apresenta a frase completa pequena e a palavra atual em destaque neon. Pausas entre palavras reconhecidas permanecem sem destaque. A opção **Legenda leve** reduz a textura e desativa glow/pop. Textos e legendas usam o mesmo painter na prévia e no MP4.
 
@@ -48,7 +48,7 @@ gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 python tools/check_shaders.py
 ```
 
-Testes unitários: trims, SRT, word timing, color presets, catálogo, keyframes e mapeamento das velocidades. Instrumentados: prévia e recuperação da GPU, exportação dos oito FX, legendas/fundo/cores/1080p, velocidade com áudio adicional e FX/textos, reconhecimento de uma fala sintética em português. O workflow gera uma fala AAC/MP4 com eSpeak NG e FFmpeg antes dos testes de reconhecimento; o primeiro teste baixa o modelo oficial Vosk. Relatórios e captura da tela são publicados como artefatos. Testes em emulador não substituem a verificação dos codecs/GPU no Samsung A30s.
+Testes unitários: trims, SRT, word timing, color presets, catálogo, keyframes e mapeamento das velocidades. Instrumentados: prévia e recuperação da GPU, exportação dos oito FX, legendas/fundo/cores/1080p, velocidade com áudio adicional e FX/textos, reconhecimento de uma fala sintética em português. O workflow gera uma fala AAC/MP4 com eSpeak NG e FFmpeg antes dos testes de reconhecimento; o primeiro teste baixa o modelo oficial Vosk. Relatórios e captura da tela são publicados como artefatos. Testes em emulador não substituem a verificação dos codecs/GPU no aparelho físico.
 
 ## Referências e licenças
 

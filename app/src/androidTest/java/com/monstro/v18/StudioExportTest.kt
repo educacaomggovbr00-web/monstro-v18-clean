@@ -36,6 +36,15 @@ class StudioExportTest {
       }catch(e:Throwable){failure.set(e);done.countDown()}}
       assertTrue("Studio export timeout",done.await(160,TimeUnit.SECONDS));failure.get()?.let {throw AssertionError("Studio export failed",it)}
       val r=MediaMetadataRetriever();try{r.setDataSource(output.absolutePath);val duration=r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong();assertTrue("Speed duration expected 2500ms, got $duration",duration in 2350..2700);assertEquals("yes",r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO));for(t in listOf(250000L,900000L,2100000L)){val b=r.getFrameAtTime(t,MediaMetadataRetriever.OPTION_CLOSEST)!!;val colors=(1..8).map {b.getPixel(b.width*it/10,b.height/2)};assertTrue(colors.toSet().size>2);b.recycle()}}finally{r.release()}
+      val extractor=android.media.MediaExtractor()
+      try {
+        extractor.setDataSource(output.absolutePath)
+        val ends=mutableListOf<Long>()
+        for(track in 0 until extractor.trackCount){extractor.selectTrack(track);extractor.seekTo(0,android.media.MediaExtractor.SEEK_TO_CLOSEST_SYNC);var last=0L;while(extractor.sampleTime>=0){last=extractor.sampleTime;if(!extractor.advance())break};extractor.unselectTrack(track);ends+=last}
+        assertEquals(2,ends.size)
+        assertTrue("Audio/video must both reach the slowed final clip: $ends",ends.all {it in 2350000L..2700000L})
+        assertTrue("Audio/video drift: $ends",kotlin.math.abs(ends[0]-ends[1])<150000L)
+      } finally {extractor.release()}
     }finally{instrumentation.runOnMainSync {transformer?.cancel();model?.player?.release()};prefs.edit().putString("clips",previous).putString("studio",oldStudio).apply();output.delete()}
  }
 }
