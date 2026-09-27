@@ -74,8 +74,8 @@ fun EditorScreen(model: EditorModel) {
             } else {
                 Text("Prévia do clipe ${model.selected + 1}", style = MaterialTheme.typography.labelLarge)
                 AndroidView(
-                    factory = { context -> PlayerView(context).apply { player = model.player; useController = true } },
-                    update = { it.player = model.player },
+                    factory = { context -> EditorPlayerView(context).apply { useController = true } },
+                    update = { it.bind(model.player, !model.compatibilityPreview && previewEffects(model.current!!).isNotEmpty()) },
                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)
                 )
             }

@@ -21,6 +21,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.FileInputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -76,7 +77,14 @@ class PreviewTest {
                     PixelCopy.request(surface, bitmap, { result -> copyResult.set(result); copied.countDown() }, Handler(Looper.getMainLooper()))
                 }
                 assertTrue("Surface capture timed out", copied.await(5, TimeUnit.SECONDS))
-                assertEquals("Surface has no displayed video", PixelCopy.SUCCESS, copyResult.get())
+                if (copyResult.get() != PixelCopy.SUCCESS) {
+                    val diagnostic = instrumentation.uiAutomation.executeShellCommand("logcat -d -t 600").use { fd ->
+                        FileInputStream(fd.fileDescriptor).bufferedReader().use { reader ->
+                            reader.readLines().filter { it.contains("Exo") || it.contains("GL") || it.contains("Video") }.takeLast(70).joinToString("\n")
+                        }
+                    }
+                    fail("Surface has no displayed video: ${copyResult.get()}\n$diagnostic")
+                }
                 val bitmap = pixels.get()!!
                 val colors = (1..18).flatMap { x -> (1..18).map { y -> bitmap.getPixel(bitmap.width*x/20, bitmap.height*y/20) } }.toSet()
                 bitmap.recycle()
