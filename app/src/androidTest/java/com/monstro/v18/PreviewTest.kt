@@ -1,5 +1,13 @@
 package com.monstro.v18
 
+import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
+import android.view.SurfaceView
+import android.view.View
+import android.view.ViewGroup
+import androidx.media3.ui.PlayerView
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -34,21 +42,42 @@ class PreviewTest {
         try {
             fun play(edit: (EditorModel) -> Unit) {
                 val ended = CountDownLatch(1)
-                val rendered = CountDownLatch(1)
                 val failure = AtomicReference<Throwable?>()
                 scenario.onActivity { activity ->
                     val model = ViewModelProvider(activity)[EditorModel::class.java]
                     edit(model)
                     model.player.addListener(object : Player.Listener {
-                        override fun onRenderedFirstFrame() { rendered.countDown() }
                         override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_ENDED) ended.countDown() }
-                        override fun onPlayerError(error: PlaybackException) { failure.set(error); ended.countDown(); rendered.countDown() }
+                        override fun onPlayerError(error: PlaybackException) { failure.set(error); ended.countDown() }
                     })
                     model.player.play()
                 }
                 assertTrue("Preview never finished", ended.await(30, TimeUnit.SECONDS))
                 failure.get()?.let { throw AssertionError("Preview failed", it) }
-                assertTrue("Preview never rendered to PlayerView", rendered.await(5, TimeUnit.SECONDS))
+                // Media3 effect playback may omit onRenderedFirstFrame. Inspect the actual
+                // video surface, excluding all UI overlays, rather than relying on that event.
+                val copied = CountDownLatch(1)
+                val pixels = AtomicReference<Bitmap?>()
+                val copyResult = AtomicReference<Int>()
+                scenario.onActivity { activity ->
+                    fun findPlayer(view: View): PlayerView? {
+                        if (view is PlayerView) return view
+                        if (view is ViewGroup) for (i in 0 until view.childCount) {
+                            findPlayer(view.getChildAt(i))?.let { return it }
+                        }
+                        return null
+                    }
+                    val surface = findPlayer(activity.window.decorView)!!.videoSurfaceView as SurfaceView
+                    val bitmap = Bitmap.createBitmap(surface.width, surface.height, Bitmap.Config.ARGB_8888)
+                    pixels.set(bitmap)
+                    PixelCopy.request(surface, bitmap, { result -> copyResult.set(result); copied.countDown() }, Handler(Looper.getMainLooper()))
+                }
+                assertTrue("Surface capture timed out", copied.await(5, TimeUnit.SECONDS))
+                assertEquals("Surface has no displayed video", PixelCopy.SUCCESS, copyResult.get())
+                val bitmap = pixels.get()!!
+                val colors = (1..18).flatMap { x -> (1..18).map { y -> bitmap.getPixel(bitmap.width*x/20, bitmap.height*y/20) } }.toSet()
+                bitmap.recycle()
+                assertTrue("Preview surface is blank: ${colors.size} colors", colors.size > 15)
             }
             play { it.select(0) }
             play { it.edit(preset = "cinema", chaos = allFx) }
