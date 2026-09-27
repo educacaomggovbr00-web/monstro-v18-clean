@@ -62,6 +62,7 @@ class LyricsOverlay(private val track: SrtTrack, private val simple: Boolean, pr
     private val painter = LyricsPainter()
     override fun configure(videoSize: Size) {
         release(); this.videoSize = videoSize
+        android.util.Log.i("MonstroLyrics", "configure ${videoSize.width}x${videoSize.height}")
         val ratio = min(1f, (if (simple) 360f else 720f)/videoSize.width)
         bitmap = Bitmap.createBitmap(max(1,(videoSize.width*ratio).toInt()),max(1,(videoSize.height*ratio).toInt()),Bitmap.Config.ARGB_8888)
         texture = GlUtil.createTexture(bitmap!!.width,bitmap!!.height,false)
@@ -69,6 +70,7 @@ class LyricsOverlay(private val track: SrtTrack, private val simple: Boolean, pr
     }
     override fun getTextureId(presentationTimeUs: Long): Int {
         val now = presentationTimeUs/1000
+        if(tick == Long.MIN_VALUE || now % 500L < 34L) android.util.Log.i("MonstroLyrics", "time=$now cue=${track.at(now)?.startMs}")
         val next = now / (if (simple) 66 else 33)
         if (tick != next) {
             val b = bitmap!!; b.eraseColor(Color.TRANSPARENT)
