@@ -29,7 +29,7 @@ class StudioTimeline(context:Context):View(context) {
     private fun x(ms:Long)=labelWidth+ms/1000f*pixelsPerSecond-scroll
     private fun time(x:Float)=((x-labelWidth+scroll)/pixelsPerSecond*1000).toLong().coerceAtLeast(0)
     override fun onDraw(c:Canvas){super.onDraw(c);val m=model ?: return
-        c.drawColor(Color.rgb(14,15,22));paint.typeface=Typeface.create("sans-serif",Typeface.NORMAL);paint.textSize=10*density
+        paint.color=Color.rgb(14,15,22);c.drawRect(0f,0f,width.toFloat(),height.toFloat(),paint);paint.typeface=Typeface.create("sans-serif",Typeface.NORMAL);paint.textSize=10*density
         val step=if(pixelsPerSecond<20*density)10 else if(pixelsPerSecond<50*density)5 else 1
         val start=(time(labelWidth)/1000/step*step).toInt()
         c.save();c.clipRect(labelWidth,0f,width.toFloat(),height.toFloat())
