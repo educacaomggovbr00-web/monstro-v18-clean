@@ -16,6 +16,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Brightness
 import androidx.media3.effect.Contrast
+import androidx.media3.effect.FrameDropEffect
+import androidx.media3.effect.HslAdjustment
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbAdjustment
 import androidx.media3.exoplayer.ExoPlayer
@@ -47,7 +49,8 @@ data class VideoClip(
     val name: String,
     val duration: Long,
     val trim: TrimRange = TrimRange(0, duration),
-    val preset: String = "raw"
+    val preset: String = "raw",
+    val chaos: ChaosSettings = ChaosSettings()
 )
 
 @UnstableApi
@@ -55,8 +58,16 @@ fun videoEffects(preset: String): List<Effect> = when (preset) {
     "neon" -> listOf(Contrast(0.25f), RgbAdjustment.Builder().setRedScale(1.1f).setBlueScale(1.2f).build())
     "trap" -> listOf(Contrast(0.15f), RgbAdjustment.Builder().setRedScale(1.15f).setGreenScale(0.9f).build())
     "dark" -> listOf(Brightness(-0.15f), Contrast(0.2f))
+    "cinema" -> listOf(Contrast(0.05f), HslAdjustment.Builder().adjustSaturation(10f).build())
     else -> emptyList()
 }
+
+// Shared by preview, export and the on-device integration test.
+@UnstableApi
+fun buildClipEffects(clip: VideoClip, safeMode: Boolean): List<Effect> = listOf(
+    FrameDropEffect.createDefaultFrameDropEffect(if (safeMode) 30f else 60f),
+    Presentation.createForHeight(if (safeMode) 480 else 720)
+) + videoEffects(clip.preset) + if (clip.chaos.isIdentity) emptyList() else listOf(ChaosEffect(clip.chaos))
 
 @UnstableApi
 fun VideoClip.mediaItem(): MediaItem = MediaItem.Builder().setUri(uri)
@@ -71,6 +82,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var clips by mutableStateOf<List<VideoClip>>(emptyList()); private set
     var selected by mutableStateOf(0); private set
     var mute by mutableStateOf(false); private set
+    var safeMode by mutableStateOf(true); private set
     var importing by mutableStateOf(false); private set
     var exporting by mutableStateOf(false); private set
     var saving by mutableStateOf(false); private set
@@ -97,9 +109,12 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             clips = (0 until data.length()).map { i ->
                 val c = data.getJSONObject(i)
                 VideoClip(c.getString("id"), c.getString("uri"), c.getString("name"),
-                    c.getLong("duration"), TrimRange(c.getLong("start"), c.getLong("end")), c.getString("preset"))
+                    c.getLong("duration"), TrimRange(c.getLong("start"), c.getLong("end")), c.getString("preset"),
+                    ChaosSettings.restore(c.optJSONArray("fx")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
+                        c.optDouble("zoom", 1.0).toFloat()))
             }
             mute = prefs.getBoolean("mute", false)
+            safeMode = prefs.getBoolean("safeMode", true)
             output = prefs.getString("output", null)?.let { File(it) }?.takeIf { it.isFile && it.length() > 0 }
             preview()
         }.onFailure { clips = emptyList(); message = "Não foi possível restaurar o projeto. Importe os vídeos novamente." }
@@ -109,18 +124,20 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         val data = JSONArray()
         clips.forEach { c -> data.put(JSONObject().put("id", c.id).put("uri", c.uri)
             .put("name", c.name).put("duration", c.duration).put("start", c.trim.start)
-            .put("end", c.trim.end).put("preset", c.preset)) }
-        prefs.edit().putString("clips", data.toString()).putBoolean("mute", mute).apply()
+            .put("end", c.trim.end).put("preset", c.preset)
+            .put("fx", JSONArray(c.chaos.enabled.toList())).put("zoom", c.chaos.zoom.toDouble())) }
+        prefs.edit().putString("clips", data.toString()).putBoolean("mute", mute).putBoolean("safeMode", safeMode).apply()
     }
 
-    private fun preview() {
+    private fun preview(position: Long = 0, resume: Boolean = false) {
         player.stop()
         player.clearMediaItems()
         current?.let {
-            player.setVideoEffects(videoEffects(it.preset))
+            player.setVideoEffects(buildClipEffects(it, safeMode))
             player.volume = if (mute) 0f else 1f
-            player.setMediaItem(it.mediaItem())
+            player.setMediaItem(it.mediaItem(), position.coerceIn(0, it.trim.duration - 1))
             player.prepare()
+            player.playWhenReady = resume
         }
     }
 
@@ -160,12 +177,27 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun edit(trim: TrimRange? = null, preset: String? = null) {
+    fun toggleSafeMode() {
+        if (busy) return
+        val position = player.currentPosition
+        val playing = player.playWhenReady
+        safeMode = !safeMode
+        persist(); preview(position, playing)
+    }
+
+    fun toggleFx(fx: ChaosFx) {
+        val clip = current ?: return
+        edit(chaos = clip.chaos.toggle(fx))
+    }
+
+    fun edit(trim: TrimRange? = null, preset: String? = null, chaos: ChaosSettings? = null) {
         if (busy) return
         val old = current ?: return
         if (trim != null && trim.end > old.duration) return
-        clips = clips.toMutableList().also { it[selected] = old.copy(trim = trim ?: old.trim, preset = preset ?: old.preset) }
-        persist(); preview()
+        val position = if (trim == null) player.currentPosition else 0L
+        val playing = player.playWhenReady
+        clips = clips.toMutableList().also { it[selected] = old.copy(trim = trim ?: old.trim, preset = preset ?: old.preset, chaos = chaos ?: old.chaos) }
+        persist(); preview(position, playing)
     }
 
     fun move(delta: Int) {
@@ -215,15 +247,20 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         try {
             val items = clips.map { clip ->
                 EditedMediaItem.Builder(clip.mediaItem()).setRemoveAudio(mute)
-                    .setEffects(Effects(emptyList(), videoEffects(clip.preset) +
-                        Presentation.createForWidthAndHeight(1280, 720, Presentation.LAYOUT_SCALE_TO_FIT)))
+                    .setEffects(Effects(emptyList(), buildClipEffects(clip, safeMode) +
+                        Presentation.createForWidthAndHeight(if (safeMode) 854 else 1280, if (safeMode) 480 else 720, Presentation.LAYOUT_SCALE_TO_FIT)))
                     .build()
             }
             val composition = Composition.Builder(EditedMediaItemSequence(items))
                 .experimentalSetForceAudioTrack(!mute)
                 .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
                 .build()
+            val encoderFactory = DefaultEncoderFactory.Builder(context)
+                .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder()
+                    .setBitrate(if (safeMode) 2_500_000 else 5_000_000).build())
+                .setEnableFallback(true).build()
             val job = Transformer.Builder(context)
+                .setEncoderFactory(encoderFactory)
                 .setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC)
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {

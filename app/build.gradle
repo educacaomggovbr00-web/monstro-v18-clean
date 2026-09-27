@@ -8,11 +8,12 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.monstro.v18"
+        applicationId "com.monstro.v18.fx"
         minSdk 24
         targetSdk 34
-        versionCode 19
-        versionName "18.1"
+        versionCode 20
+        versionName "18.2-FX"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         
         ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
     }
@@ -40,4 +41,6 @@ dependencies {
     implementation 'androidx.media3:media3-transformer:1.2.1'
     implementation 'androidx.media3:media3-effect:1.2.1'
     testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
 }

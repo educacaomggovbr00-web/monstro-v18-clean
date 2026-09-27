@@ -55,6 +55,7 @@ fun timeLabel(ms: Long): String = String.format(Locale.US, "%02d:%02d.%01d", ms 
 fun EditorScreen(model: EditorModel) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), model::importVideos)
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"), model::saveOutput)
+    var confirmStrobe by remember { mutableStateOf(false) }
     val owner = LocalLifecycleOwner.current
     DisposableEffect(owner, model) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) model.player.pause() }
@@ -64,7 +65,7 @@ fun EditorScreen(model: EditorModel) {
     Scaffold { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("MONSTRO V18", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+            Text("MONSTRO V18 · CHAOS FX", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
             Text("Seu projeto é salvo automaticamente neste aparelho.", style = MaterialTheme.typography.bodySmall)
             if (model.current == null) {
                 Surface(Modifier.fillMaxWidth().height(190.dp), shape = MaterialTheme.shapes.large) {
@@ -113,10 +114,35 @@ fun EditorScreen(model: EditorModel) {
                     TextButton(onClick = { model.edit(trim = TrimRange(0, clip.duration)) }, enabled = !model.busy) { Text("Restaurar corte") }
                 }
                 Text("Pause a prévia no ponto desejado para dividir.", style = MaterialTheme.typography.bodySmall)
-                Text("Cor", style = MaterialTheme.typography.titleMedium)
+                Text("Chaos FX", style = MaterialTheme.typography.titleMedium)
+                Text("Combine os efeitos deste clipe. Eles também entram no MP4.", style = MaterialTheme.typography.bodySmall)
+                ChaosFx.values().toList().chunked(2).forEach { pair ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { fx ->
+                            FilterChip(modifier = Modifier.weight(1f), selected = clip.chaos.has(fx),
+                                enabled = !model.busy, onClick = {
+                                    if (fx == ChaosFx.STROBE && !clip.chaos.has(fx)) confirmStrobe = true
+                                    else model.toggleFx(fx)
+                                }, label = {
+                                    Column(Modifier.padding(vertical = 6.dp)) {
+                                        Text(fx.label, style = MaterialTheme.typography.labelLarge)
+                                        Text(fx.description, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                })
+                        }
+                    }
+                }
+                var zoom by remember(clip.id, clip.chaos.zoom) { mutableStateOf(clip.chaos.zoom) }
+                Text("Master Zoom: " + String.format(Locale.US, "%.2fx", zoom))
+                Slider(value = zoom, onValueChange = { zoom = it }, valueRange = 1f..3f, enabled = !model.busy,
+                    onValueChangeFinished = { model.edit(chaos = clip.chaos.copy(zoom = zoom)) })
+                TextButton(onClick = { model.edit(preset = "raw", chaos = ChaosSettings()) }, enabled = !model.busy) {
+                    Text("Limpar efeitos e zoom deste clipe")
+                }
+                Text("Presets de cor", style = MaterialTheme.typography.titleMedium)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("raw" to "Original", "neon" to "Neon", "trap" to "Trap", "dark" to "Escuro").forEach { (id, label) ->
+                        listOf("raw" to "Original", "neon" to "Neon", "trap" to "Trap Lord", "dark" to "Dark Energy", "cinema" to "Blockbuster").forEach { (id, label) ->
                             FilterChip(selected = clip.preset == id, onClick = { model.edit(preset = id) }, enabled = !model.busy,
                                 label = { Text(label) })
                         }
@@ -125,6 +151,14 @@ fun EditorScreen(model: EditorModel) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = model.mute, onCheckedChange = { model.toggleMute() }, enabled = !model.busy)
                     Spacer(Modifier.width(8.dp)); Text("Remover áudio de todo o projeto")
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = model.safeMode, onCheckedChange = { model.toggleSafeMode() }, enabled = !model.busy)
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text("Modo leve")
+                    Text("480p · até 30 fps · 2,5 Mbps", style = MaterialTheme.typography.bodySmall)
                 }
             }
             if (model.exporting) {
@@ -138,13 +172,19 @@ fun EditorScreen(model: EditorModel) {
             Button(onClick = model::export, enabled = !model.busy && model.clips.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
                 Text("Exportar projeto em MP4")
             }
-            Text("Saída: 1280 × 720, H.264. Vídeos verticais mantêm a proporção com barras laterais.", style = MaterialTheme.typography.bodySmall)
+            Text(if (model.safeMode) "Saída: 854 × 480, até 30 fps, 2,5 Mbps. Proporção preservada com barras." else "Saída: 1280 × 720, até 60 fps, 5 Mbps. Proporção preservada com barras.", style = MaterialTheme.typography.bodySmall)
             if (model.output != null) {
                 OutlinedButton(onClick = { saver.launch(model.output!!.name) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) {
                     Text(if (model.saving) "Salvando…" else "Salvar último MP4 exportado")
                 }
             }
         }
+    }
+    if (confirmStrobe) {
+        AlertDialog(onDismissRequest = { confirmStrobe = false }, title = { Text("Ativar Psycho Strobe?") },
+            text = { Text("Este efeito gera flashes de luz. Evite usar se você ou quem assistir tiver sensibilidade a flashes.") },
+            confirmButton = { TextButton(onClick = { confirmStrobe = false; model.toggleFx(ChaosFx.STROBE) }) { Text("Ativar") } },
+            dismissButton = { TextButton(onClick = { confirmStrobe = false }) { Text("Cancelar") } })
     }
     model.message?.let {
         AlertDialog(onDismissRequest = model::clearMessage, title = { Text("Monstro V18") }, text = { Text(it) },
