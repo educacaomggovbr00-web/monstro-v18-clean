@@ -31,7 +31,7 @@ jobs:
       - name: Preparar fala sintética para testar legendas automáticas
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y espeak-ng
+          sudo apt-get install -y espeak-ng ffmpeg
           espeak-ng -v pt-br -s 130 -w /tmp/voice.wav 'Olá mundo. Este é um vídeo de teste. Vamos fazer uma legenda com palavras e música. O editor de vídeo está funcionando.'
           ffmpeg -y -f lavfi -i color=c=black:s=160x90:r=15 -i /tmp/voice.wav -c:v libx264 -c:a aac -shortest app/src/androidTest/assets/voice.mp4
       - name: Testar e compilar o código do repositório

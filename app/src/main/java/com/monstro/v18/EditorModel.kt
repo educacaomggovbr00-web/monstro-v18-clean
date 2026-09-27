@@ -163,8 +163,8 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     private fun studioPreviewEffects(clip:VideoClip):List<Effect>{
         val clock=FrameClock(preview={shaderPlayhead});val zoom=studio.motions[clip.id]?.zoom ?: emptyList()
         val base=clip.copy(chaos=clip.chaos.copy(enabled=clip.chaos.enabled-ChaosFx.MOTION_BLUR.id,zoom=if(zoom.isEmpty())clip.chaos.zoom else 1f))
-        return previewEffects(base)+(if(zoom.isEmpty())emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset)))+
-            studio.fx.map {StudioEffect(it,emptyList(),clock)}+
+        return listOf(Presentation.createForHeight(480))+previewEffects(base)+(if(zoom.isEmpty())emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset)))+
+            studio.fx.filter {it.end>timelineOffset && it.start<timelineOffset+speedMap(clip).outputDuration}.map {StudioEffect(it,emptyList(),clock)}+
             (if(clip.chaos.has(ChaosFx.MOTION_BLUR))listOf(ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id))))else emptyList())+
             AspectBackgroundEffect(ExportFormat(vertical,true))
     }
@@ -341,9 +341,16 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         val ranges = clip.trim.split(player.currentPosition) ?: run {
             message = "Pause no ponto de corte, entre o início e o fim do clipe."; return
         }
+        val rightId=UUID.randomUUID().toString()
+        val motion=studio.motions[clip.id]
+        if(motion!=null){val sourceCut=player.currentPosition;val outputCut=speedMap(clip).toOutput(sourceCut)
+            val left=ClipMotion(splitCurve(motion.speed,sourceCut,false),splitCurve(motion.zoom,outputCut,false))
+            val right=ClipMotion(splitCurve(motion.speed,sourceCut,true),splitCurve(motion.zoom,outputCut,true))
+            studio=studio.copy(motions=studio.motions+(clip.id to left)+(rightId to right));prefs.edit().putString("studio",StudioCodec.encode(studio)).apply()
+        }
         clips = clips.toMutableList().also {
             it[selected] = clip.copy(trim = ranges.first)
-            it.add(selected + 1, clip.copy(id = UUID.randomUUID().toString(), trim = ranges.second))
+            it.add(selected + 1, clip.copy(id = rightId, trim = ranges.second))
         }
         persist(); preview()
     }

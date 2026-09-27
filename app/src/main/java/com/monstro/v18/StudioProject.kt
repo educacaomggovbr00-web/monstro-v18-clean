@@ -18,6 +18,12 @@ fun animated(keys: List<KeyPoint>, time: Long, fallback: Float): Float {
 }
 fun putKey(keys: List<KeyPoint>, time: Long, value: Float) = (keys.filter { abs(it.time-time)>30 } + KeyPoint(time,value)).sortedBy { it.time }
 
+fun splitCurve(keys:List<KeyPoint>,cut:Long,right:Boolean):List<KeyPoint> {
+    if(keys.isEmpty())return emptyList()
+    val value=animated(keys,cut,1f)
+    return if(right)listOf(KeyPoint(0,value))+keys.filter {it.time>cut}.map {it.copy(time=it.time-cut)} else keys.filter {it.time<cut}+KeyPoint(cut,value)
+}
+
 data class SpeedSlice(val sourceStart: Long, val sourceEnd: Long, val speed: Float, val outputStart: Long) {
     val outputDuration get() = ((sourceEnd-sourceStart)/speed).roundToLong().coerceAtLeast(1)
 }
