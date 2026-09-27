@@ -2,6 +2,7 @@ package com.monstro.v18
 
 import android.content.Context
 import android.view.SurfaceView
+import android.view.SurfaceHolder
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -32,6 +33,11 @@ class EditorPlayerView(context: Context) : PlayerView(context) {
         listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) { refreshSurface() }
         }.also { target.addListener(it) }
+        (videoSurfaceView as? SurfaceView)?.holder?.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) { refreshSurface() }
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) { refreshSurface() }
+            override fun surfaceDestroyed(holder: SurfaceHolder) { }
+        })
         refreshSurface()
     }
 }
