@@ -50,6 +50,9 @@ class PreviewTest {
                         override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_ENDED) ended.countDown() }
                         override fun onPlayerError(error: PlaybackException) { failure.set(error); ended.countDown() }
                     })
+                    // Edits preserve position. The previous variant finished at the end of
+                    // this short clip, so rewind before verifying the next effect variant.
+                    model.player.seekTo(0)
                     model.player.play()
                 }
                 assertTrue("Preview never finished", ended.await(30, TimeUnit.SECONDS))
