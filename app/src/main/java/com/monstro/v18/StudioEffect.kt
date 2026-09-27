@@ -6,10 +6,10 @@ import androidx.media3.common.util.*
 import androidx.media3.effect.*
 
 /** Export timestamps are normalized per item. Preview supplies its authoritative playhead. */
-class FrameClock(private val start:Long=0,private val speed:Float=1f,private val preview:(()->Long)?=null) {
-    private var first:Long?=null
+class FrameClock(private val start:Long=0,private val speed:Float=1f,private val preview:(()->Long)?=null,private val sourceStart:Long?=null) {
+    private var first:Long?=sourceStart?.times(1000)
     fun at(us:Long):Long { preview?.let { return it() }; if(first==null) first=us; return start+((us-first!!)/1000.0/speed).toLong() }
-    fun reset(){first=null}
+    fun reset(){first=sourceStart?.times(1000)}
 }
 @UnstableApi
 class StudioEffect(private val layer:FxLayer?,private val zoom:List<KeyPoint>,private val clock:FrameClock,private val clipStart:Long=0):GlEffect {
