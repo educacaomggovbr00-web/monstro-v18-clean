@@ -17,7 +17,8 @@ import kotlin.math.*
 /** Recognizes decoded file audio, never the microphone. Audio never leaves the device. */
 class AutoCaptions(private val context:Context) {
     val modelDirectory get()=File(context.filesDir,"speech/vosk-model-small-pt-0.3")
-    val ready get()=File(modelDirectory,"am/final.mdl").isFile
+    private fun validModel(root:File)=(File(root,"am/final.mdl").isFile && File(root,"conf/model.conf").isFile) || (File(root,"final.mdl").isFile && File(root,"mfcc.conf").isFile)
+    val ready get()=validModel(modelDirectory)
     suspend fun install(progress:(Int)->Unit) {
         if(ready)return
         val temporary=File(context.filesDir,"speech-download").apply {deleteRecursively();mkdirs()}
@@ -33,7 +34,7 @@ class AutoCaptions(private val context:Context) {
                     }}
                 }
             }}
-            require(File(temporary,"vosk-model-small-pt-0.3/am/final.mdl").isFile){"Download incompleto"}
+            require(validModel(File(temporary,"vosk-model-small-pt-0.3"))){"Download incompleto"}
             val destination=File(context.filesDir,"speech");destination.deleteRecursively();check(temporary.renameTo(destination));progress(100)
         } finally {temporary.deleteRecursively()}
     }

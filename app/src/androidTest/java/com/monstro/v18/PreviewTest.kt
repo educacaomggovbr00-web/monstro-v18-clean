@@ -93,7 +93,9 @@ class PreviewTest {
             play { it.select(0) }
             play { it.edit(preset = "cinema", chaos = allFx) }
             instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
-                File(context.filesDir,"studio-ui.png").outputStream().use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
+                val values=android.content.ContentValues().apply {put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"studio-ui.png");put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png");put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/MonstroTests")}
+                val uri=context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)!!
+                context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
             }
             play { it.edit(preset = "raw", chaos = ChaosSettings()) }

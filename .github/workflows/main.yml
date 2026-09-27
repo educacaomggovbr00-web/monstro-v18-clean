@@ -31,9 +31,11 @@ jobs:
       - name: Preparar fala sintética para testar legendas automáticas
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y espeak-ng ffmpeg
+          sudo apt-get install -y espeak-ng ffmpeg libegl1 libgl1 libgl1-mesa-dri
           espeak-ng -v pt-br -s 130 -w /tmp/voice.wav 'Olá mundo. Este é um vídeo de teste. Vamos fazer uma legenda com palavras e música. O editor de vídeo está funcionando.'
           ffmpeg -y -f lavfi -i color=c=black:s=160x90:r=15 -i /tmp/voice.wav -c:v libx264 -c:a aac -shortest app/src/androidTest/assets/voice.mp4
+      - name: Verificar pixels dos 1000 presets OpenGL
+        run: python3 tools/check_shaders.py
       - name: Testar e compilar o código do repositório
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --stacktrace
       - name: Habilitar emulador Android
@@ -50,7 +52,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            bash -c 'gradle :app:connectedDebugAndroidTest --no-daemon --stacktrace; result=$?; mkdir -p app/build/reports/lyrics-debug; adb pull /sdcard/Download/monstro-lyrics-debug.mp4 app/build/reports/lyrics-debug/; adb exec-out run-as com.monstro.v18.studio cat files/studio-ui.png > app/build/reports/lyrics-debug/studio-ui.png; adb logcat -d -s MonstroLyrics:I > app/build/reports/lyrics-debug/timing.txt; exit "$result"' 
+            bash -c 'gradle :app:connectedDebugAndroidTest --no-daemon --stacktrace; result=$?; mkdir -p app/build/reports/lyrics-debug; adb pull /sdcard/Download/monstro-lyrics-debug.mp4 app/build/reports/lyrics-debug/; adb pull /sdcard/Pictures/MonstroTests/studio-ui.png app/build/reports/lyrics-debug/studio-ui.png; adb logcat -d -s MonstroLyrics:I > app/build/reports/lyrics-debug/timing.txt; exit "$result"' 
       - uses: actions/upload-artifact@v4
         with:
           name: MonstroV18-APK

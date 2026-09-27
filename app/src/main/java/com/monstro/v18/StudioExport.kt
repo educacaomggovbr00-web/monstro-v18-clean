@@ -24,9 +24,9 @@ fun EditorModel.studioComposition():Composition {
             visual+=AspectBackgroundEffect(exportFormat)
             if(lyrics!=null || studio.texts.isNotEmpty())visual+=OverlayEffect(ImmutableList.of<TextureOverlay>(StudioOverlay(studio,lyrics,simpleLyrics,clock)))
             visual+=TimelineSpeedEffect(slice.speed,clipOffset+slice.outputStart)
-            val sonic=SonicAudioProcessor().apply {setSpeed(slice.speed);setPitch(1f)}
+            
             EditedMediaItem.Builder(clip.copy(trim=TrimRange(clip.trim.start+slice.sourceStart,clip.trim.start+slice.sourceEnd)).mediaItem())
-                .setRemoveAudio(mute).setEffects(Effects(if(slice.speed==1f) emptyList() else listOf(sonic),visual)).build()
+                .setRemoveAudio(mute).setEffects(Effects(canonicalAudio(slice.speed),visual)).build()
         }
         offset+=map.outputDuration;parts
     }
@@ -34,10 +34,10 @@ fun EditorModel.studioComposition():Composition {
     val context=getApplication<Application>()
     studio.audio.filter {it.start<totalDuration}.forEach {layer->
         val audio=mutableListOf<EditedMediaItem>()
-        if(layer.start>0)audio+=EditedMediaItem.Builder(MediaItem.fromUri(silenceFile(context.cacheDir,layer.start).toURI().toString())).setRemoveVideo(true).build()
+        if(layer.start>0)audio+=EditedMediaItem.Builder(MediaItem.fromUri(silenceFile(context.cacheDir,layer.start).toURI().toString())).setRemoveVideo(true).setEffects(Effects(canonicalAudio(),emptyList())).build()
         val end=minOf(layer.trimEnd,layer.trimStart+totalDuration-layer.start)
         val item=MediaItem.Builder().setUri(layer.uri).setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionMs(layer.trimStart).setEndPositionMs(end).build()).build()
-        audio+=EditedMediaItem.Builder(item).setRemoveVideo(true).setEffects(Effects(listOf(VolumeProcessor(layer.volume)),emptyList())).build()
+        audio+=EditedMediaItem.Builder(item).setRemoveVideo(true).setEffects(Effects(canonicalAudio(volume=layer.volume),emptyList())).build()
         sequences+=EditedMediaItemSequence(audio)
     }
     return Composition.Builder(sequences).experimentalSetForceAudioTrack(!mute || studio.audio.isNotEmpty())
