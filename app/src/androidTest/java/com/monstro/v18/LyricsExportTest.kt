@@ -57,11 +57,17 @@ class LyricsExportTest {
                     val retriever = MediaMetadataRetriever()
                     try {
                         retriever.setDataSource(output.absolutePath)
-                        assertEquals(format.width.toString(),retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH))
-                        assertEquals(format.height.toString(),retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT))
+                        val encodedWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)!!.toInt()
+                        val encodedHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)!!.toInt()
+                        val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toInt() ?: 0
+                        // Media3 may encode portrait as landscape + MP4 rotation metadata.
+                        assertEquals(format.width,if(rotation%180==0) encodedWidth else encodedHeight)
+                        assertEquals(format.height,if(rotation%180==0) encodedHeight else encodedWidth)
                         assertEquals("yes",retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO))
                         fun redPixels(time: Long): Int {
                             val frame = retriever.getFrameAtTime(time,MediaMetadataRetriever.OPTION_CLOSEST)!!
+                            assertEquals(format.width,frame.width)
+                            assertEquals(format.height,frame.height)
                             var red = 0
                             for(y in (frame.height*.66).toInt() until (frame.height*.80).toInt() step 2)
                                 for(x in frame.width/10 until frame.width*9/10 step 2) {
