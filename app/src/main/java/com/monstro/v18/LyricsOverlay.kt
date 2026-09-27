@@ -92,3 +92,11 @@ class LyricsOverlay(private val track: SrtTrack, private val simple: Boolean, pr
         bitmap?.recycle(); bitmap = null
     }
 }
+
+// Media3 1.2.1's single-input graph only honors Presentation as a composition
+// effect. Overlays belong to each item's effect chain; the processor supplies
+// cumulative output timestamps across the sequence via FrameInfo offsets.
+@UnstableApi
+fun lyricsEffects(track: SrtTrack?, simple: Boolean, purple: Boolean): List<androidx.media3.common.Effect> =
+    if (track == null) emptyList() else listOf(androidx.media3.effect.OverlayEffect(
+        com.google.common.collect.ImmutableList.of<TextureOverlay>(LyricsOverlay(track,simple,purple))))

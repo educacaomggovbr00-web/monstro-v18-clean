@@ -37,10 +37,9 @@ class LyricsExportTest {
                         // Two cuts: overlay timing must follow the complete output timeline.
                         val clips = listOf(TrimRange(200,1000),TrimRange(1000,1800)).mapIndexed { i,trim ->
                             val clip = VideoClip(uri=input.toURI().toString(),name="lyrics",duration=2000,trim=trim,preset=if(i==0) "neon" else "cinema")
-                            EditedMediaItem.Builder(clip.mediaItem()).setEffects(Effects(emptyList(),videoEffects(clip.preset)+AspectBackgroundEffect(format))).build()
+                            EditedMediaItem.Builder(clip.mediaItem()).setEffects(Effects(emptyList(),videoEffects(clip.preset)+AspectBackgroundEffect(format)+lyricsEffects(track,!light,false))).build()
                         }
                         val composition = Composition.Builder(EditedMediaItemSequence(clips))
-                            .setEffects(Effects(emptyList(),listOf(OverlayEffect(com.google.common.collect.ImmutableList.of<androidx.media3.effect.TextureOverlay>(LyricsOverlay(track,!light,false))))))
                             .experimentalSetForceAudioTrack(true)
                             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL).build()
                         transformer = Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC)
