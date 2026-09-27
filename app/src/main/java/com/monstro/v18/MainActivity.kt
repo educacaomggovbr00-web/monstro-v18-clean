@@ -205,12 +205,11 @@ fun EditorScreen(model: EditorModel) {
                 OutlinedButton(onClick = model::cancelExport) { Text("Cancelar exportação") }
             }
             Text("Exportação rápida", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = model.vertical, onClick = { model.setExportFormat(true) }, enabled = !model.busy, label = { Text("Vertical 9:16") })
-                FilterChip(selected = !model.vertical, onClick = { model.setExportFormat(false) }, enabled = !model.busy, label = { Text("Horizontal 16:9") })
+            Button(onClick = { model.setExportFormat(true); model.export() }, enabled = !model.busy && model.clips.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+                Text("Exportar 9:16 · Reels / TikTok")
             }
-            Button(onClick = model::export, enabled = !model.busy && model.clips.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-                Text(if(model.vertical) "Exportar 9:16 · Reels / TikTok" else "Exportar 16:9 · MP4")
+            OutlinedButton(onClick = { model.setExportFormat(false); model.export() }, enabled = !model.busy && model.clips.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+                Text("Exportar 16:9 · MP4")
             }
             Text("Saída: ${model.exportFormat.width} × ${model.exportFormat.height}. Vídeo inteiro com fundo desfocado quando as proporções diferem. Legendas gravadas no MP4.", style = MaterialTheme.typography.bodySmall)
             if (model.output != null) {

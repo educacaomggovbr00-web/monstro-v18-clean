@@ -40,7 +40,7 @@ class LyricsExportTest {
                             EditedMediaItem.Builder(clip.mediaItem()).setEffects(Effects(emptyList(),videoEffects(clip.preset)+AspectBackgroundEffect(format))).build()
                         }
                         val composition = Composition.Builder(EditedMediaItemSequence(clips))
-                            .setEffects(Effects(emptyList(),listOf(OverlayEffect(listOf(LyricsOverlay(track,!light,false))))))
+                            .setEffects(Effects(emptyList(),listOf(OverlayEffect(com.google.common.collect.ImmutableList.of<androidx.media3.effect.TextureOverlay>(LyricsOverlay(track,!light,false))))))
                             .experimentalSetForceAudioTrack(true)
                             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL).build()
                         transformer = Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC)
@@ -78,6 +78,29 @@ class LyricsExportTest {
                         assertTrue("Blur background must fill letterbox",background.any { Color.red(it)+Color.green(it)+Color.blue(it)>30 })
                         assertTrue("Background must retain image variation",background.toSet().size>2)
                         frame.recycle()
+                        // Decode input/output swatches through the real YUV pipeline. A preset
+                        // must keep strongly red/green/blue pixels in the same RGB channel.
+                        val sourceReader = MediaMetadataRetriever()
+                        try {
+                            sourceReader.setDataSource(input.absolutePath)
+                            val source = sourceReader.getFrameAtTime(666666,MediaMetadataRetriever.OPTION_CLOSEST)!!
+                            val colored = retriever.getFrameAtTime(466666,MediaMetadataRetriever.OPTION_CLOSEST)!!
+                            val fitHeight = colored.width.toFloat()*source.height/source.width
+                            var eligible = 0; var matching = 0
+                            fun channels(c: Int) = listOf(Color.red(c),Color.green(c),Color.blue(c))
+                            for(x in 2..18) for(y in 2..18) {
+                                val original = channels(source.getPixel(source.width*x/20,source.height*y/20))
+                                val sorted = original.sortedDescending()
+                                if(sorted[0]-sorted[1] > 80 && sorted[0]>140) {
+                                    eligible++
+                                    val actual = channels(colored.getPixel(colored.width*x/20,((colored.height-fitHeight)/2+fitHeight*y/20).toInt()))
+                                    if(original.indexOf(original.maxOrNull()) == actual.indexOf(actual.maxOrNull())) matching++
+                                }
+                            }
+                            assertTrue("Need color swatches",eligible>15)
+                            assertTrue("RGB channels swapped: $matching/$eligible",matching >= eligible*.8)
+                            source.recycle(); colored.recycle()
+                        } finally { sourceReader.release() }
                     } finally { retriever.release() }
                 } finally { instrumentation.runOnMainSync { transformer?.cancel() }; output.delete() }
             }

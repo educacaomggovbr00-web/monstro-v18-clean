@@ -349,7 +349,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             }
             val composition = Composition.Builder(EditedMediaItemSequence(items))
                 .experimentalSetForceAudioTrack(!mute)
-                .setEffects(Effects(emptyList(), lyrics?.let { listOf(OverlayEffect(listOf(LyricsOverlay(it,simpleLyrics,purpleLyrics)))) } ?: emptyList()))
+                .setEffects(Effects(emptyList(), lyrics?.let { listOf(OverlayEffect(com.google.common.collect.ImmutableList.of<androidx.media3.effect.TextureOverlay>(LyricsOverlay(it,simpleLyrics,purpleLyrics)))) } ?: emptyList()))
                 .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
                 .build()
             val encoderFactory = DefaultEncoderFactory.Builder(context)
