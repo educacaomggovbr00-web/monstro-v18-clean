@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
@@ -45,7 +46,7 @@ fun StudioScreen(m:EditorModel){
             TextButton(onClick={videos.launch(arrayOf("video/*"))},enabled=!m.busy){Text("+ Mídia")}
             Button(onClick={exportDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy,contentPadding=PaddingValues(horizontal=12.dp)){Text("Exportar")}
         }
-        Box(Modifier.fillMaxWidth().heightIn(min=140.dp,max=240.dp).weight(.8f).background(Color.Black),contentAlignment=Alignment.Center){
+        Box(Modifier.fillMaxWidth().heightIn(min=140.dp,max=240.dp).weight(.8f).clipToBounds().background(Color.Black),contentAlignment=Alignment.Center){
             if(m.current==null)Column(horizontalAlignment=Alignment.CenterHorizontally){Text("Seu próximo edit começa aqui",fontWeight=FontWeight.Bold);TextButton(onClick={videos.launch(arrayOf("video/*"))}){Text("+ Importar vídeos")}}
             else Box(Modifier.fillMaxHeight().aspectRatio(if(m.vertical)9f/16 else 16f/9)){
                 key(m.player){AndroidView(factory={EditorPlayerView(it).apply {useController=false;resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT}},update={it.bind(m.player,!m.compatibilityPreview)},modifier=Modifier.fillMaxSize())}

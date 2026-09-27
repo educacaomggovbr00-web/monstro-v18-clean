@@ -92,14 +92,15 @@ class PreviewTest {
             }
             play { it.select(0) }
             play { it.edit(preset = "cinema", chaos = allFx) }
+            play { it.edit(preset = "raw", chaos = ChaosSettings()) }
+            instrumentation.waitForIdleSync()
+            android.os.SystemClock.sleep(250)
             instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
                 val values=android.content.ContentValues().apply {put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,"studio-ui.png");put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png");put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/MonstroTests")}
                 val uri=context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)!!
                 context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
             }
-            play { it.edit(preset = "raw", chaos = ChaosSettings()) }
-
             // Exercise recovery with the exact reported error and retain all saved edits.
             scenario.onActivity { activity ->
                 val model = ViewModelProvider(activity)[EditorModel::class.java]

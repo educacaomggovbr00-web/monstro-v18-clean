@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
                     if (model.exporting || model.speechBusy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
                 }
-                StudioScreen(model)
+                Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background,contentColor=MaterialTheme.colorScheme.onBackground) { StudioScreen(model) }
             }
         }
     }
