@@ -69,3 +69,28 @@ for name in names[1:]:
 all_fx=render(**{**dict.fromkeys(names[2:-1],1),'uTime':1.9,'uZoom':1.7,'uBlurWeight':0.3})
 assert len(set(all_fx))>20
 print('GLSL compiled, identity preserved, all eight FX + zoom change pixels; combined render passes.')
+
+# Exercise every Studio preset using actual rendered pixels, not just unique IDs.
+import hashlib
+p=program()
+for file,kind in [('chaos.vert',0x8B31),('studio.frag',0x8B30)]:
+    s=shader(kind); src=C.c_char_p((root/file).read_bytes()); source(s,1,C.byref(src),None); compile_(s)
+    ok=I(); shaderiv(s,0x8B81,C.byref(ok))
+    if not ok.value:
+        msg=C.create_string_buffer(8192); shaderlog(s,8192,None,msg); raise AssertionError(msg.value)
+    attach(p,s)
+link(p); ok=I(); programiv(p,0x8B82,C.byref(ok)); assert ok.value
+use(p); uniformi(location(p,b'uInput'),0)
+a=attrib(p,b'aPosition');enable(a);vertex(a,4,0x1406,0,0,verts)
+names=['uTime','uZoom','uEngine','uRecipe','uEnvelope','uIntensity','uDirection']
+raw=render();assert max(abs(a-b) for a,b in zip(raw,pixels))<=1
+signatures={}
+for engine in range(20):
+    for recipe in range(5):
+        for envelope in range(10):
+            frames=[render(uEngine=engine,uRecipe=recipe,uEnvelope=envelope,uIntensity=.8,uTime=t,uDirection=.7) for t in [.173,.419,.937,1.231]]
+            assert any(sum(abs(a-b) for a,b in zip(raw,f))/len(raw)>.4 for f in frames),(engine,recipe,envelope,'invisible')
+            sig=hashlib.sha256(b''.join(frames)).hexdigest()
+            assert sig not in signatures,('Duplicate rendered presets',signatures.get(sig),(engine,recipe,envelope))
+            signatures[sig]=(engine,recipe,envelope)
+print('Studio: 1000 rendered presets have distinct multi-frame pixel signatures.')

@@ -157,8 +157,14 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         catch(e:Exception){speechStatus=if(e is kotlinx.coroutines.CancellationException)"Reconhecimento cancelado" else "Não foi possível legendar: ${e.localizedMessage}"}finally{speechBusy=false}
     }}
     fun cancelSpeech(){speechJob?.cancel()}
-    private fun studioPreviewEffects(clip:VideoClip):List<Effect>{val clock=FrameClock(preview={shaderPlayhead});val zoom=studio.motions[clip.id]?.zoom ?: emptyList();return previewEffects(clip)+
-        (if(zoom.isEmpty())emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset)))+studio.fx.map {StudioEffect(it,emptyList(),clock)}+AspectBackgroundEffect(exportFormat)}
+    private fun studioPreviewEffects(clip:VideoClip):List<Effect>{
+        val clock=FrameClock(preview={shaderPlayhead});val zoom=studio.motions[clip.id]?.zoom ?: emptyList()
+        val base=clip.copy(chaos=clip.chaos.copy(enabled=clip.chaos.enabled-ChaosFx.MOTION_BLUR.id,zoom=if(zoom.isEmpty())clip.chaos.zoom else 1f))
+        return previewEffects(base)+(if(zoom.isEmpty())emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset)))+
+            studio.fx.map {StudioEffect(it,emptyList(),clock)}+
+            (if(clip.chaos.has(ChaosFx.MOTION_BLUR))listOf(ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id))))else emptyList())+
+            AspectBackgroundEffect(ExportFormat(vertical,true))
+    }
 
     private fun createPlayer(): ExoPlayer {
         val instance = ExoPlayer.Builder(context).build()

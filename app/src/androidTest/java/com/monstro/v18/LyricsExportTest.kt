@@ -54,7 +54,7 @@ class LyricsExportTest {
                     assertTrue("Lyrics export timed out",done.await(150,TimeUnit.SECONDS))
                     failure.get()?.let { throw AssertionError("Lyrics export failed",it) }
                     output.copyTo(File(context.filesDir,"lyrics-debug.mp4"),overwrite=true)
-                    instrumentation.uiAutomation.executeShellCommand("run-as com.monstro.v18.lyrics cat files/lyrics-debug.mp4 > /sdcard/Download/monstro-lyrics-debug.mp4").use { fd ->
+                    instrumentation.uiAutomation.executeShellCommand("run-as com.monstro.v18.studio cat files/lyrics-debug.mp4 > /sdcard/Download/monstro-lyrics-debug.mp4").use { fd ->
                         java.io.FileInputStream(fd.fileDescriptor).readBytes()
                     }
                     val retriever = MediaMetadataRetriever()

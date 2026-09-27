@@ -16,13 +16,14 @@ fun EditorModel.studioComposition():Composition {
         val parts=map.slices.map {slice->
             val clock=FrameClock(clipOffset+slice.outputStart,slice.speed)
             val visual=mutableListOf<Effect>(FrameDropEffect.createDefaultFrameDropEffect(30f))
-            visual+=previewEffects(clip)
             val zoom=studio.motions[clip.id]?.zoom ?: emptyList()
+            visual+=previewEffects(clip.copy(chaos=clip.chaos.copy(enabled=clip.chaos.enabled-ChaosFx.MOTION_BLUR.id,zoom=if(zoom.isEmpty())clip.chaos.zoom else 1f)))
             if(zoom.isNotEmpty())visual+=StudioEffect(null,zoom,clock,clipOffset)
             visual+=studio.fx.filter {it.end>clipOffset+slice.outputStart && it.start<clipOffset+slice.outputStart+slice.outputDuration}.map {StudioEffect(it,emptyList(),clock)}
+            if(clip.chaos.has(ChaosFx.MOTION_BLUR))visual+=ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id)))
             visual+=AspectBackgroundEffect(exportFormat)
             if(lyrics!=null || studio.texts.isNotEmpty())visual+=OverlayEffect(ImmutableList.of<TextureOverlay>(StudioOverlay(studio,lyrics,simpleLyrics,clock)))
-            if(slice.speed!=1f)visual+=SpeedChangeEffect(slice.speed)
+            visual+=TimelineSpeedEffect(slice.speed,clipOffset+slice.outputStart)
             val sonic=SonicAudioProcessor().apply {setSpeed(slice.speed);setPitch(1f)}
             EditedMediaItem.Builder(clip.copy(trim=TrimRange(clip.trim.start+slice.sourceStart,clip.trim.start+slice.sourceEnd)).mediaItem())
                 .setRemoveAudio(mute).setEffects(Effects(if(slice.speed==1f) emptyList() else listOf(sonic),visual)).build()

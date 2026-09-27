@@ -92,6 +92,10 @@ class PreviewTest {
             }
             play { it.select(0) }
             play { it.edit(preset = "cinema", chaos = allFx) }
+            instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+                File(context.filesDir,"studio-ui.png").outputStream().use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
+                bitmap.recycle()
+            }
             play { it.edit(preset = "raw", chaos = ChaosSettings()) }
 
             // Exercise recovery with the exact reported error and retain all saved edits.
