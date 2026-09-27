@@ -20,6 +20,7 @@ import androidx.media3.effect.FrameDropEffect
 import androidx.media3.effect.HslAdjustment
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbAdjustment
+import androidx.media3.effect.OverlayEffect
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.transformer.*
 import androidx.media3.transformer.Composition
@@ -55,13 +56,7 @@ data class VideoClip(
 )
 
 @UnstableApi
-fun videoEffects(preset: String): List<Effect> = when (preset) {
-    "neon" -> listOf(Contrast(0.25f), RgbAdjustment.Builder().setRedScale(1.1f).setBlueScale(1.2f).build())
-    "trap" -> listOf(Contrast(0.15f), RgbAdjustment.Builder().setRedScale(1.15f).setGreenScale(0.9f).build())
-    "dark" -> listOf(Brightness(-0.15f), Contrast(0.2f))
-    "cinema" -> listOf(Contrast(0.05f), HslAdjustment.Builder().adjustSaturation(10f).build())
-    else -> emptyList()
-}
+fun videoEffects(preset: String): List<Effect> = if (preset == "raw") emptyList() else listOf(ColorPreset(preset))
 
 // Preview only applies visual effects. Frame dropping and output sizing belong to export.
 @UnstableApi
@@ -88,6 +83,14 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var selected by mutableStateOf(0); private set
     var mute by mutableStateOf(false); private set
     var safeMode by mutableStateOf(true); private set
+    var vertical by mutableStateOf(true); private set
+    var lyrics by mutableStateOf<SrtTrack?>(null); private set
+    var lyricsName by mutableStateOf(""); private set
+    var simpleLyrics by mutableStateOf(false); private set
+    var purpleLyrics by mutableStateOf(true); private set
+    val exportFormat get() = ExportFormat(vertical, safeMode)
+    val timelineOffset get() = clips.take(selected).sumOf { it.trim.duration }
+
     var importing by mutableStateOf(false); private set
     var exporting by mutableStateOf(false); private set
     var saving by mutableStateOf(false); private set
@@ -156,6 +159,12 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             mute = prefs.getBoolean("mute", false)
             safeMode = prefs.getBoolean("safeMode", true)
             output = prefs.getString("output", null)?.let { File(it) }?.takeIf { it.isFile && it.length() > 0 }
+            vertical = prefs.getBoolean("vertical", true)
+            simpleLyrics = prefs.getBoolean("simpleLyrics", false)
+            purpleLyrics = prefs.getBoolean("purpleLyrics", true)
+            lyricsName = prefs.getString("lyricsName", "") ?: ""
+            val subtitleFile = File(context.filesDir, "lyrics.srt")
+            if (subtitleFile.isFile) runCatching { lyrics = SrtParser.parse(subtitleFile.readText()).track }
             preview()
         }.onFailure { clips = emptyList(); message = "Não foi possível restaurar o projeto. Importe os vídeos novamente." }
     }
@@ -277,6 +286,52 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         persist()
     }
 
+    fun setExportFormat(isVertical: Boolean) {
+        if (busy) return
+        vertical = isVertical; prefs.edit().putBoolean("vertical", vertical).apply()
+    }
+    fun toggleSimpleLyrics() {
+        if (busy) return
+        simpleLyrics = !simpleLyrics; prefs.edit().putBoolean("simpleLyrics", simpleLyrics).apply()
+    }
+    fun toggleLyricsColor() {
+        if (busy) return
+        purpleLyrics = !purpleLyrics; prefs.edit().putBoolean("purpleLyrics", purpleLyrics).apply()
+    }
+    fun removeLyrics() {
+        if (busy) return
+        lyrics = null; lyricsName = ""; File(context.filesDir,"lyrics.srt").delete()
+        prefs.edit().remove("lyricsName").apply()
+    }
+    fun importLyrics(uri: Uri?) {
+        if (uri == null || busy) return
+        importing = true
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytesLimited(2_000_000) } ?: error("Arquivo indisponível")
+                val charset = when {
+                    bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte() -> Charsets.UTF_16LE
+                    bytes.size >= 2 && bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte() -> Charsets.UTF_16BE
+                    else -> Charsets.UTF_8
+                }
+                val source = bytes.toString(charset)
+                val parsed = SrtParser.parse(source)
+                val destination = File(context.filesDir,"lyrics.srt")
+                val temporary = File(context.filesDir,"lyrics.tmp")
+                temporary.writeText(source)
+                check(temporary.renameTo(destination)) { "Não foi possível salvar a legenda." }
+                val name = context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)
+                    ?.use { if(it.moveToFirst()) it.getString(0) else null } ?: "Legenda SRT"
+                Triple(parsed,name,source)
+            } }
+            importing = false
+            result.onSuccess { (parsed,name,_) ->
+                lyrics = parsed.track; lyricsName = name; prefs.edit().putString("lyricsName",name).apply()
+                message = "${parsed.track.cues.size} frases importadas." + if(parsed.skipped > 0) " ${parsed.skipped} blocos inválidos ignorados." else ""
+            }.onFailure { message = "Não foi possível importar a legenda: ${it.localizedMessage}" }
+        }
+    }
+
     fun clearMessage() { message = null }
 
     fun export() {
@@ -289,17 +344,17 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         try {
             val items = clips.map { clip ->
                 EditedMediaItem.Builder(clip.mediaItem()).setRemoveAudio(mute)
-                    .setEffects(Effects(emptyList(), buildClipEffects(clip, safeMode) +
-                        Presentation.createForWidthAndHeight(if (safeMode) 854 else 1280, if (safeMode) 480 else 720, Presentation.LAYOUT_SCALE_TO_FIT)))
+                    .setEffects(Effects(emptyList(), listOf(FrameDropEffect.createDefaultFrameDropEffect(30f)) + previewEffects(clip) + AspectBackgroundEffect(exportFormat)))
                     .build()
             }
             val composition = Composition.Builder(EditedMediaItemSequence(items))
                 .experimentalSetForceAudioTrack(!mute)
+                .setEffects(Effects(emptyList(), lyrics?.let { listOf(OverlayEffect(listOf(LyricsOverlay(it,simpleLyrics,purpleLyrics)))) } ?: emptyList()))
                 .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
                 .build()
             val encoderFactory = DefaultEncoderFactory.Builder(context)
                 .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder()
-                    .setBitrate(if (safeMode) 2_500_000 else 5_000_000).build())
+                    .setBitrate(exportFormat.bitrate).build())
                 .setEnableFallback(true).build()
             val job = Transformer.Builder(context)
                 .setEncoderFactory(encoderFactory)
@@ -366,4 +421,15 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
         super.onCleared()
     }
+}
+
+private fun java.io.InputStream.readBytesLimited(limit: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    while (true) {
+        val n = read(buffer); if (n < 0) break
+        require(output.size()+n <= limit) { "SRT muito grande (máximo 2 MB)." }
+        output.write(buffer,0,n)
+    }
+    return output.toByteArray()
 }

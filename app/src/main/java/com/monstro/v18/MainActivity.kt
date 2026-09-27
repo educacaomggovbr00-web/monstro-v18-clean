@@ -54,6 +54,7 @@ fun timeLabel(ms: Long): String = String.format(Locale.US, "%02d:%02d.%01d", ms 
 @Composable
 fun EditorScreen(model: EditorModel) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), model::importVideos)
+    val srtPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), model::importLyrics)
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"), model::saveOutput)
     var confirmStrobe by remember { mutableStateOf(false) }
     val owner = LocalLifecycleOwner.current
@@ -75,12 +76,16 @@ fun EditorScreen(model: EditorModel) {
                 Text("Prévia do clipe ${model.selected + 1}", style = MaterialTheme.typography.labelLarge)
                 // Give each decoder its own Surface. A surface previously owned by the GPU
                 // effect processor cannot reliably be reused by a direct MediaCodec decoder.
-                key(model.player) {
-                    AndroidView(
-                        factory = { context -> EditorPlayerView(context).apply { useController = true } },
-                        update = { it.bind(model.player, !model.compatibilityPreview && previewEffects(model.current!!).isNotEmpty()) },
-                        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)
-                    )
+                Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)) {
+                    key(model.player) {
+                        AndroidView(
+                            factory = { context -> EditorPlayerView(context).apply { useController = true } },
+                            update = { it.bind(model.player, !model.compatibilityPreview && previewEffects(model.current!!).isNotEmpty()) },
+                            modifier = Modifier.matchParentSize()
+                        )
+                    }
+                    AndroidView(factory = { LyricsPreviewView(it) },
+                        update = { it.model = model; it.invalidate() }, modifier = Modifier.matchParentSize())
                 }
             }
             if (model.current != null) {
@@ -95,6 +100,22 @@ fun EditorScreen(model: EditorModel) {
             }
             Button(onClick = { picker.launch(arrayOf("video/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) {
                 Text(if (model.importing) "Importando…" else "+ Importar vídeos")
+            }
+            OutlinedButton(onClick = { srtPicker.launch(arrayOf("*/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) {
+                Text("+ Importar Legenda (.srt)")
+            }
+            model.lyrics?.let { track ->
+                Text("Trap Lyrics FX · ${model.lyricsName} · ${track.cues.size} frases")
+                Text("SRT da linha do tempo completa. Destaque por palavra aproximado pelo tempo da frase. Ajuste o SRT se mudar os cortes ou a ordem dos clipes.", style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = model.simpleLyrics, onCheckedChange = { model.toggleSimpleLyrics() }, enabled = !model.busy)
+                    Text("Compatibilidade de legenda", Modifier.weight(1f))
+                }
+                Text("Compatibilidade reduz o tamanho da textura e desliga glow e pop-in; mantém texto e palavras no MP4.", style = MaterialTheme.typography.bodySmall)
+                Row {
+                    TextButton(onClick = model::toggleLyricsColor, enabled = !model.busy) { Text(if(model.purpleLyrics) "Cor: Roxo Neon" else "Cor: Vermelho Neon") }
+                    TextButton(onClick = model::removeLyrics, enabled = !model.busy) { Text("Remover legenda") }
+                }
             }
             if (model.clips.isNotEmpty()) {
                 Text("${model.clips.size} clipe(s) • Total ${timeLabel(model.clips.sumOf { it.trim.duration })}")
@@ -172,7 +193,7 @@ fun EditorScreen(model: EditorModel) {
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text("Modo leve")
-                    Text("480p · até 30 fps · 2,5 Mbps", style = MaterialTheme.typography.bodySmall)
+                    Text(if(model.safeMode) "540p · até 30 fps · 2,5 Mbps" else "Alta qualidade · 1080p · até 30 fps · 10 Mbps", style = MaterialTheme.typography.bodySmall)
                 }
             }
             if (model.exporting) {
@@ -183,10 +204,15 @@ fun EditorScreen(model: EditorModel) {
                 Text("Mantenha o aplicativo aberto até terminar.", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = model::cancelExport) { Text("Cancelar exportação") }
             }
-            Button(onClick = model::export, enabled = !model.busy && model.clips.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-                Text("Exportar projeto em MP4")
+            Text("Exportação rápida", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = model.vertical, onClick = { model.setExportFormat(true) }, enabled = !model.busy, label = { Text("Vertical 9:16") })
+                FilterChip(selected = !model.vertical, onClick = { model.setExportFormat(false) }, enabled = !model.busy, label = { Text("Horizontal 16:9") })
             }
-            Text(if (model.safeMode) "Saída: 854 × 480, até 30 fps, 2,5 Mbps. Proporção preservada com barras." else "Saída: 1280 × 720, até 60 fps, 5 Mbps. Proporção preservada com barras.", style = MaterialTheme.typography.bodySmall)
+            Button(onClick = model::export, enabled = !model.busy && model.clips.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+                Text(if(model.vertical) "Exportar 9:16 · Reels / TikTok" else "Exportar 16:9 · MP4")
+            }
+            Text("Saída: ${model.exportFormat.width} × ${model.exportFormat.height}. Vídeo inteiro com fundo desfocado quando as proporções diferem. Legendas gravadas no MP4.", style = MaterialTheme.typography.bodySmall)
             if (model.output != null) {
                 OutlinedButton(onClick = { saver.launch(model.output!!.name) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) {
                     Text(if (model.saving) "Salvando…" else "Salvar último MP4 exportado")
