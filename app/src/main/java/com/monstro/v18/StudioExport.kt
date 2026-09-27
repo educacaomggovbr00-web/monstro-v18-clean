@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableList
 @UnstableApi
 fun EditorModel.studioComposition():Composition {
     var offset=0L;var sourceOffset=0L
+    val frameGate=FrameRateGate()
     val items=clips.flatMap {clip->
         val map=speedMap(clip);val clipOffset=offset
         val parts=map.slices.map {slice->
@@ -23,8 +24,7 @@ fun EditorModel.studioComposition():Composition {
             if(clip.chaos.has(ChaosFx.MOTION_BLUR))visual+=ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id)))
             visual+=AspectBackgroundEffect(exportFormat)
             if(lyrics!=null || studio.texts.isNotEmpty())visual+=OverlayEffect(ImmutableList.of<TextureOverlay>(StudioOverlay(studio,lyrics,simpleLyrics,clock)))
-            visual+=TimelineSpeedEffect(slice.speed,clipOffset+slice.outputStart,sourceOffset+slice.sourceStart)
-            visual+=FrameDropEffect.createDefaultFrameDropEffect(30f)
+            visual+=TimelineSpeedEffect(slice.speed,clipOffset+slice.outputStart,sourceOffset+slice.sourceStart,frameGate)
             
             EditedMediaItem.Builder(clip.copy(trim=TrimRange(clip.trim.start+slice.sourceStart,clip.trim.start+slice.sourceEnd)).mediaItem())
                 .setRemoveAudio(mute).setEffects(Effects(canonicalAudio(slice.speed),visual)).build()

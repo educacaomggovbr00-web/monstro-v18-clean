@@ -91,3 +91,13 @@ object StudioCodec {
             o.optJSONArray("fx").objects { FxLayer(it.getString("id"),it.getString("preset"),it.getLong("start"),it.getLong("end"),it.getDouble("intensity").toFloat(),it.getDouble("speed").toFloat(),it.getDouble("direction").toFloat(),readKeys(it.optJSONArray("keys"))) },motions,style(o.optJSONObject("caption")),styles,strings("favorites").toSet(),strings("recent"))
     }
 }
+
+/** Immediate frame selection: unlike Media3 1.2's cached dropper, no tail frame is lost at EOS. */
+class FrameRateGate {
+    private var lastSlot=Long.MIN_VALUE
+    @Synchronized fun accept(timeUs:Long):Boolean {
+        val slot=(timeUs+500)*30/1_000_000
+        if(slot<=lastSlot)return false
+        lastSlot=slot;return true
+    }
+}
