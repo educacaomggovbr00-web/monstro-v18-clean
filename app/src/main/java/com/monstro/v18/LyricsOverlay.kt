@@ -20,6 +20,7 @@ class LyricsPainter {
         val cue = track.at(timeMs) ?: return
         val unit = min(width.toFloat(), height * 16f/9f)
         val index = cue.wordAt(timeMs)
+        if(index<0)return
         val word = cue.words[index].uppercase(java.util.Locale.ROOT)
         val neon = if (purple) Color.rgb(194,80,255) else Color.rgb(255,35,85)
         paint.color = Color.LTGRAY; paint.textSize = unit * .042f

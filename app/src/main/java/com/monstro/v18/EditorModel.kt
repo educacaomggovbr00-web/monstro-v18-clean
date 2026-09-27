@@ -89,7 +89,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var simpleLyrics by mutableStateOf(false); private set
     var purpleLyrics by mutableStateOf(true); private set
     val exportFormat get() = ExportFormat(vertical, safeMode)
-    val timelineOffset get() = clips.take(selected).sumOf { it.trim.duration }
+    val timelineOffset get() = clips.take(selected).sumOf { speedMap(it).outputDuration }
 
     var importing by mutableStateOf(false); private set
     var exporting by mutableStateOf(false); private set
@@ -97,15 +97,74 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var progress by mutableStateOf<Int?>(null); private set
     var message by mutableStateOf<String?>(null); private set
     var output by mutableStateOf<File?>(null); private set
-    val busy get() = importing || exporting || saving
+    val busy get() = importing || exporting || saving || speechBusy
     val current get() = clips.getOrNull(selected)
     var compatibilityPreview by mutableStateOf(prefs.getBoolean("compatibilityPreview", false)); private set
     var player by mutableStateOf(createPlayer()); private set
+
+    var studio by mutableStateOf(runCatching { StudioCodec.decode(prefs.getString("studio","{}")!!) }.getOrDefault(StudioProject())); private set
+    var inspector by mutableStateOf("Vídeo"); private set
+    var focusedId by mutableStateOf(""); private set
+    var playhead by mutableStateOf(0L); private set
+    @Volatile private var shaderPlayhead=0L
+    var speechStatus by mutableStateOf(""); private set
+    var speechBusy by mutableStateOf(false); private set
+    var modelReady by mutableStateOf(AutoCaptions(context).ready); private set
+    private var speechJob:Job?=null
+    private val audioPlayers=mutableMapOf<String,ExoPlayer>()
+    fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
+    val totalDuration get()=clips.sumOf { speedMap(it).outputDuration }
+    fun focus(kind:String,id:String=""){inspector=kind;focusedId=id}
+    fun updateStudio(next:StudioProject,rebuild:Boolean=true){if(busy)return;studio=next;prefs.edit().putString("studio",StudioCodec.encode(next)).apply();if(rebuild){val pos=player.currentPosition;preview(pos,player.playWhenReady)}}
+    fun seekTimeline(time:Long){if(clips.isEmpty() || busy)return;var remaining=time.coerceIn(0,(totalDuration-1).coerceAtLeast(0));var index=0
+        while(index<clips.lastIndex && remaining>=speedMap(clips[index]).outputDuration){remaining-=speedMap(clips[index]).outputDuration;index++}
+        val source=speedMap(clips[index]).toSource(remaining);if(index!=selected){selected=index;preview(source,player.playWhenReady)}else player.seekTo(source)
+        playhead=time.coerceIn(0,totalDuration);shaderPlayhead=playhead;syncAudio()
+    }
+    fun tick(){val clip=current ?: return;val map=speedMap(clip);playhead=timelineOffset+map.toOutput(player.currentPosition);shaderPlayhead=playhead
+        val speed=map.speedAt(player.currentPosition);if(kotlin.math.abs(player.playbackParameters.speed-speed)>.005f)player.setPlaybackSpeed(speed)
+        syncAudio()
+    }
+    private fun syncAudio(){
+        val ids=studio.audio.map {it.id}.toSet();audioPlayers.keys.toList().filter {it !in ids}.forEach {audioPlayers.remove(it)?.release()}
+        studio.audio.forEach { layer->
+            val active=playhead>=layer.start && playhead<layer.end && playhead<totalDuration
+            val p=audioPlayers[layer.id] ?: if(active) ExoPlayer.Builder(context).build().also {p->p.setMediaItem(MediaItem.fromUri(layer.uri));p.prepare();audioPlayers[layer.id]=p} else return@forEach
+            p.volume=layer.volume.coerceIn(0f,1f)
+            if(active){val target=layer.trimStart+playhead-layer.start;if(kotlin.math.abs(p.currentPosition-target)>150)p.seekTo(target);p.playWhenReady=player.isPlaying && !busy}else p.pause()
+        }
+    }
+    fun pauseAll(){player.pause();audioPlayers.values.forEach {it.pause()}}
+    fun setMotion(motion:ClipMotion){val clip=current ?: return;updateStudio(studio.copy(motions=studio.motions+(clip.id to motion)))}
+    fun addText(){val end=minOf(totalDuration,playhead+3000);if(end<=playhead)return;val layer=TextLayer(start=playhead,end=end);updateStudio(studio.copy(texts=studio.texts+layer),false);focus("Texto",layer.id)}
+    fun addFx(preset:FxPreset){val end=minOf(totalDuration,playhead+3000);if(end<=playhead)return;val layer=FxLayer(presetId=preset.id,start=playhead,end=end);updateStudio(studio.copy(fx=studio.fx+layer,recent=(listOf(preset.id)+studio.recent).distinct().take(30)));focus("FX",layer.id)}
+    fun favorite(id:String){updateStudio(studio.copy(favorites=if(id in studio.favorites)studio.favorites-id else studio.favorites+id),false)}
+    fun importAudio(uri:Uri?){if(uri==null || busy)return;importing=true;viewModelScope.launch {
+        val result=withContext(Dispatchers.IO){runCatching {context.contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);val r=MediaMetadataRetriever();val duration=try{r.setDataSource(context,uri);r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()}finally{r.release()};require(duration>0);val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {if(it.moveToFirst())it.getString(0)else null} ?: "Áudio";AudioLayer(uri=uri.toString(),name=name,duration=duration,start=playhead,trimEnd=minOf(duration,(totalDuration-playhead).coerceAtLeast(1)))}}
+        importing=false;result.onSuccess {updateStudio(studio.copy(audio=studio.audio+it),false);focus("Áudio",it.id)}.onFailure {message="Não foi possível importar o áudio: ${it.localizedMessage}"}
+    }}
+    fun updateCue(index:Int,text:String,start:Long,end:Long){val old=lyrics ?: return;if(index !in old.cues.indices || text.isBlank() || start<0 || end<=start)return
+        val cue=old.cues[index];lyrics=SrtTrack(old.cues.toMutableList().also {it[index]=SrtCue(start,end,text,if(cue.text==text && cue.startMs==start && cue.endMs==end)cue.wordTimes else emptyList())}.sortedBy {it.startMs });persistCues()
+    }
+    private fun persistCues(){val cues=lyrics?.cues ?: emptyList();val array=JSONArray();cues.forEach {c->array.put(JSONObject().put("start",c.startMs).put("end",c.endMs).put("text",c.text).put("words",JSONArray().also {a->c.wordTimes.forEach {a.put(JSONArray().put(it.start).put(it.end))}}))};File(context.filesDir,"captions.json").writeText(array.toString())}
+    private fun restoreCues(){val f=File(context.filesDir,"captions.json");if(!f.isFile)return;runCatching {val a=JSONArray(f.readText());lyrics=if(a.length()==0)null else SrtTrack((0 until a.length()).map {val c=a.getJSONObject(it);val w=c.optJSONArray("words");SrtCue(c.getLong("start"),c.getLong("end"),c.getString("text"),if(w==null)emptyList()else(0 until w.length()).map {j->val pair=w.getJSONArray(j);WordTime(pair.getLong(0),pair.getLong(1))})})}}
+    fun installSpeech(){if(busy)return;speechBusy=true;speechStatus="Baixando português (31 MB)…";speechJob=viewModelScope.launch {
+        try{withContext(Dispatchers.IO){AutoCaptions(context).install {percent->viewModelScope.launch {speechStatus="Preparando português: $percent%"}}};modelReady=true;speechStatus="Português pronto — reconhecimento no aparelho"}
+        catch(e:Exception){speechStatus="Download interrompido. Tente novamente."}finally{speechBusy=false}
+    }}
+    fun autoCaption(){if(busy || clips.isEmpty())return;if(!modelReady){message="Toque em Baixar português (31 MB) primeiro.";return};pauseAll();speechBusy=true;speechStatus="Reconhecendo fala…";val inputs=clips;val project=studio;speechJob=viewModelScope.launch {
+        try{val track=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechStatus="Reconhecendo fala: $percent%"}}};lyrics=track;lyricsName="Legendas automáticas · português";persistCues();speechStatus="${track.cues.size} frases. Toque nas legendas para revisar.";focus("Legenda")}
+        catch(e:Exception){speechStatus=if(e is kotlinx.coroutines.CancellationException)"Reconhecimento cancelado" else "Não foi possível legendar: ${e.localizedMessage}"}finally{speechBusy=false}
+    }}
+    fun cancelSpeech(){speechJob?.cancel()}
+    private fun studioPreviewEffects(clip:VideoClip):List<Effect>{val clock=FrameClock(preview={shaderPlayhead});val zoom=studio.motions[clip.id]?.zoom ?: emptyList();return previewEffects(clip)+
+        (if(zoom.isEmpty())emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset)))+studio.fx.map {StudioEffect(it,emptyList(),clock)}+AspectBackgroundEffect(exportFormat)}
 
     private fun createPlayer(): ExoPlayer {
         val instance = ExoPlayer.Builder(context).build()
         instance.repeatMode = Player.REPEAT_MODE_OFF
         instance.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state:Int){if(state==Player.STATE_ENDED && instance.playWhenReady && selected<clips.lastIndex && !busy){viewModelScope.launch {yield();if(player===instance){selected++;preview(0,true)}}}}
             override fun onPlayerError(error: PlaybackException) { handlePreviewError(instance, error) }
         })
         return instance
@@ -165,7 +224,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             lyricsName = prefs.getString("lyricsName", "") ?: ""
             val subtitleFile = File(context.filesDir, "lyrics.srt")
             if (subtitleFile.isFile) runCatching { lyrics = SrtParser.parse(subtitleFile.readText()).track }
-            preview()
+            restoreCues(); preview()
         }.onFailure { clips = emptyList(); message = "Não foi possível restaurar o projeto. Importe os vídeos novamente." }
     }
 
@@ -180,11 +239,12 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
 
     private fun preview(position: Long = 0, resume: Boolean = false) {
         // Recreate to fully detach a failed GPU pipeline and to return to direct decoding.
+        shaderPlayhead=timelineOffset+(current?.let {speedMap(it).toOutput(position)} ?: 0);playhead=shaderPlayhead
         val oldPlayer = player
         player = createPlayer()
         oldPlayer.release()
         current?.let {
-            val effects = if (compatibilityPreview) emptyList() else previewEffects(it)
+            val effects = if (compatibilityPreview) emptyList() else studioPreviewEffects(it)
             // Even an empty setVideoEffects call can initialize the frame processor.
             if (effects.isNotEmpty()) player.setVideoEffects(effects)
             player.volume = if (mute) 0f else 1f
@@ -288,7 +348,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
 
     fun setExportFormat(isVertical: Boolean) {
         if (busy) return
-        vertical = isVertical; prefs.edit().putBoolean("vertical", vertical).apply()
+        vertical = isVertical; prefs.edit().putBoolean("vertical", vertical).apply(); preview(player.currentPosition,player.playWhenReady)
     }
     fun toggleSimpleLyrics() {
         if (busy) return
@@ -300,7 +360,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
     fun removeLyrics() {
         if (busy) return
-        lyrics = null; lyricsName = ""; File(context.filesDir,"lyrics.srt").delete()
+        lyrics = null; lyricsName = ""; persistCues(); File(context.filesDir,"lyrics.srt").delete()
         prefs.edit().remove("lyricsName").apply()
     }
     fun importLyrics(uri: Uri?) {
@@ -326,7 +386,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             } }
             importing = false
             result.onSuccess { (parsed,name,_) ->
-                lyrics = parsed.track; lyricsName = name; prefs.edit().putString("lyricsName",name).apply()
+                lyrics = parsed.track; persistCues(); lyricsName = name; prefs.edit().putString("lyricsName",name).apply()
                 message = "${parsed.track.cues.size} frases importadas." + if(parsed.skipped > 0) " ${parsed.skipped} blocos inválidos ignorados." else ""
             }.onFailure { message = "Não foi possível importar a legenda: ${it.localizedMessage}" }
         }
@@ -336,21 +396,13 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
 
     fun export() {
         if (busy || clips.isEmpty()) return
-        player.pause()
+        pauseAll()
         exporting = true
         progress = null
         val file = File(context.filesDir, "monstro-${System.currentTimeMillis()}.mp4")
         renderingFile = file
         try {
-            val items = clips.map { clip ->
-                EditedMediaItem.Builder(clip.mediaItem()).setRemoveAudio(mute)
-                    .setEffects(Effects(emptyList(), listOf(FrameDropEffect.createDefaultFrameDropEffect(30f)) + previewEffects(clip) + AspectBackgroundEffect(exportFormat) + lyricsEffects(lyrics,simpleLyrics,purpleLyrics)))
-                    .build()
-            }
-            val composition = Composition.Builder(EditedMediaItemSequence(items))
-                .experimentalSetForceAudioTrack(!mute)
-                .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
-                .build()
+            val composition = studioComposition()
             val encoderFactory = DefaultEncoderFactory.Builder(context)
                 .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder()
                     .setBitrate(exportFormat.bitrate).build())
@@ -417,7 +469,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
+        speechJob?.cancel(); audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
         super.onCleared()
     }
 }

@@ -2,10 +2,11 @@ package com.monstro.v18
 
 import kotlin.math.floor
 
-data class SrtCue(val startMs: Long, val endMs: Long, val text: String) {
+data class WordTime(val start:Long,val end:Long)
+data class SrtCue(val startMs: Long, val endMs: Long, val text: String, val wordTimes:List<WordTime> = emptyList()) {
     val words = text.split(Regex("\\s+")).filter { it.isNotBlank() }
-    fun wordAt(timeMs: Long): Int = floor((timeMs-startMs).toDouble() * words.size / (endMs-startMs)).toInt().coerceIn(0, words.lastIndex)
-    fun wordStart(index: Int): Long = startMs + (endMs-startMs) * index / words.size
+    fun wordAt(timeMs: Long): Int = if(wordTimes.size==words.size && wordTimes.isNotEmpty()) wordTimes.indexOfLast { timeMs>=it.start && timeMs<it.end } else floor((timeMs-startMs).toDouble() * words.size / (endMs-startMs)).toInt().coerceIn(0, words.lastIndex)
+    fun wordStart(index: Int): Long = wordTimes.getOrNull(index)?.start ?: (startMs + (endMs-startMs) * index / words.size)
 }
 data class SrtParseResult(val track: SrtTrack, val skipped: Int)
 class SrtTrack(val cues: List<SrtCue>) {

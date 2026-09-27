@@ -8,11 +8,11 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.monstro.v18.lyrics"
+        applicationId "com.monstro.v18.studio"
         minSdk 24
         targetSdk 34
-        versionCode 22
-        versionName "18.4-Lyrics"
+        versionCode 23
+        versionName "18.5-Studio"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         
     }
@@ -28,6 +28,8 @@ android {
 }
 
 dependencies {
+    implementation 'com.alphacephei:vosk-android:0.3.45'
+    implementation 'net.java.dev.jna:jna:5.13.0@aar'
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
     implementation 'androidx.activity:activity-compose:1.8.2'

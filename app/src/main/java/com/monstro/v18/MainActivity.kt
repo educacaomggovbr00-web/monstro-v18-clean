@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
                     if (model.exporting) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
                 }
-                EditorScreen(model)
+                StudioScreen(model)
             }
         }
     }
