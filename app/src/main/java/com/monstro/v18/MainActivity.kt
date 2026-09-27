@@ -79,6 +79,16 @@ fun EditorScreen(model: EditorModel) {
                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)
                 )
             }
+            if (model.current != null) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Prévia de compatibilidade")
+                        Text(if (model.compatibilityPreview) "Sem efeitos na prévia. Efeitos mantidos no MP4."
+                            else "Mostrar os efeitos na prévia.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(checked = model.compatibilityPreview, onCheckedChange = { model.toggleCompatibilityPreview() }, enabled = !model.busy)
+                }
+            }
             Button(onClick = { picker.launch(arrayOf("video/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) {
                 Text(if (model.importing) "Importando…" else "+ Importar vídeos")
             }

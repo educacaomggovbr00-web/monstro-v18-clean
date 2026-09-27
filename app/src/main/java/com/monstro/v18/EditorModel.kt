@@ -28,6 +28,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -62,12 +63,16 @@ fun videoEffects(preset: String): List<Effect> = when (preset) {
     else -> emptyList()
 }
 
-// Shared by preview, export and the on-device integration test.
+// Preview only applies visual effects. Frame dropping and output sizing belong to export.
+@UnstableApi
+fun previewEffects(clip: VideoClip): List<Effect> = videoEffects(clip.preset) +
+    if (clip.chaos.isIdentity) emptyList() else listOf(ChaosEffect(clip.chaos))
+
 @UnstableApi
 fun buildClipEffects(clip: VideoClip, safeMode: Boolean): List<Effect> = listOf(
     FrameDropEffect.createDefaultFrameDropEffect(if (safeMode) 30f else 60f),
     Presentation.createForHeight(if (safeMode) 480 else 720)
-) + videoEffects(clip.preset) + if (clip.chaos.isIdentity) emptyList() else listOf(ChaosEffect(clip.chaos))
+) + previewEffects(clip)
 
 @UnstableApi
 fun VideoClip.mediaItem(): MediaItem = MediaItem.Builder().setUri(uri)
@@ -91,13 +96,48 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var output by mutableStateOf<File?>(null); private set
     val busy get() = importing || exporting || saving
     val current get() = clips.getOrNull(selected)
-    val player = ExoPlayer.Builder(context).build().apply {
-        repeatMode = Player.REPEAT_MODE_OFF
-        addListener(object : Player.Listener {
-            override fun onPlayerError(error: PlaybackException) {
-                message = "Não foi possível abrir este vídeo: ${error.errorCodeName}. Tente outro arquivo."
-            }
+    var compatibilityPreview by mutableStateOf(prefs.getBoolean("compatibilityPreview", false)); private set
+    var player by mutableStateOf(createPlayer()); private set
+
+    private fun createPlayer(): ExoPlayer {
+        val instance = ExoPlayer.Builder(context).build()
+        instance.repeatMode = Player.REPEAT_MODE_OFF
+        instance.addListener(object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) { handlePreviewError(instance, error) }
         })
+        return instance
+    }
+
+    internal fun handlePreviewError(failedPlayer: ExoPlayer, error: PlaybackException) {
+        viewModelScope.launch {
+            // Leave the listener callback before releasing the renderer that reported the error.
+            yield()
+            if (player !== failedPlayer) return@launch
+            val processingFailure = error.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED ||
+                error.errorCode == PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED
+            if (processingFailure && !compatibilityPreview) {
+                val position = player.currentPosition
+                val resume = player.playWhenReady
+                compatibilityPreview = true
+                prefs.edit().putBoolean("compatibilityPreview", true).apply()
+                preview(position, resume)
+                message = "Ativei a prévia de compatibilidade. Seus cortes e efeitos foram mantidos. " +
+                    "A prévia mostra o vídeo sem efeitos; a exportação continua aplicando os efeitos escolhidos."
+            } else {
+                val detail = generateSequence(error as Throwable) { it.cause }.take(6)
+                    .joinToString(" → ") { it.message ?: it.javaClass.simpleName }
+                message = "Falha na prévia: ${error.errorCodeName}. Seu projeto foi mantido.\n$detail"
+            }
+        }
+    }
+
+    fun toggleCompatibilityPreview() {
+        if (busy) return
+        val position = player.currentPosition
+        val resume = player.playWhenReady
+        compatibilityPreview = !compatibilityPreview
+        prefs.edit().putBoolean("compatibilityPreview", compatibilityPreview).apply()
+        preview(position, resume)
     }
     private var transformer: Transformer? = null
     private var renderingFile: File? = null
@@ -130,10 +170,14 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun preview(position: Long = 0, resume: Boolean = false) {
-        player.stop()
-        player.clearMediaItems()
+        // Recreate to fully detach a failed GPU pipeline and to return to direct decoding.
+        val oldPlayer = player
+        player = createPlayer()
+        oldPlayer.release()
         current?.let {
-            player.setVideoEffects(buildClipEffects(it, safeMode))
+            val effects = if (compatibilityPreview) emptyList() else previewEffects(it)
+            // Even an empty setVideoEffects call can initialize the frame processor.
+            if (effects.isNotEmpty()) player.setVideoEffects(effects)
             player.volume = if (mute) 0f else 1f
             player.setMediaItem(it.mediaItem(), position.coerceIn(0, it.trim.duration - 1))
             player.prepare()
@@ -179,10 +223,8 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleSafeMode() {
         if (busy) return
-        val position = player.currentPosition
-        val playing = player.playWhenReady
         safeMode = !safeMode
-        persist(); preview(position, playing)
+        persist()
     }
 
     fun toggleFx(fx: ChaosFx) {

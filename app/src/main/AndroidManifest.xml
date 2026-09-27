@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
-        android:label="Monstro V18 FX"
+        android:label="Monstro V18 FX Compat"
         android:allowBackup="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
