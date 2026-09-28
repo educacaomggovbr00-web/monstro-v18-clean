@@ -32,6 +32,7 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        configureAppCheck(this)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(
                 primary = Color(0xFFA855F7), background = Color(0xFF020306), surface = Color(0xFF121214)
