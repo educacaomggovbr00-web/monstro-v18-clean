@@ -813,6 +813,19 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun shareOutput(){
+        val file=output?.takeIf {it.isFile && it.length()>0} ?: run {message="Exporte um MP4 primeiro.";return}
+        runCatching {
+            val uri=androidx.core.content.FileProvider.getUriForFile(context,"${context.packageName}.files",file)
+            val send=Intent(Intent.ACTION_SEND).apply {
+                type="video/mp4"
+                putExtra(Intent.EXTRA_STREAM,uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData=android.content.ClipData.newRawUri("MONSTRO",uri)
+            }
+            context.startActivity(Intent.createChooser(send,"Compartilhar vídeo").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.onFailure {message="Não consegui abrir o compartilhamento: ${it.localizedMessage}"}
+    }
     fun showMessage(text:String){message=text}
     fun clearMessage() { message = null }
 
