@@ -46,7 +46,7 @@ fun StudioScreen(m:EditorModel){
             TextButton(onClick={videos.launch(arrayOf("video/*"))},enabled=!m.busy){Text("+ Mídia")}
             Button(onClick={exportDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy,contentPadding=PaddingValues(horizontal=12.dp)){Text("Exportar")}
         }
-        Box(Modifier.fillMaxWidth().heightIn(min=140.dp,max=320.dp).weight(2f).clipToBounds().background(Color.Black),contentAlignment=Alignment.Center){
+        Box(Modifier.fillMaxWidth().heightIn(min=140.dp,max=320.dp).weight(1.65f).clipToBounds().background(Color.Black),contentAlignment=Alignment.Center){
             if(m.current==null)Column(horizontalAlignment=Alignment.CenterHorizontally){Text("Seu próximo edit começa aqui",fontWeight=FontWeight.Bold);TextButton(onClick={videos.launch(arrayOf("video/*"))}){Text("+ Importar vídeos")}}
             else Box(Modifier.fillMaxHeight().aspectRatio(if(m.vertical)9f/16 else 16f/9)){
                 key(m.player){AndroidView(factory={EditorPlayerView(it).apply {useController=false;resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT}},update={it.bind(m.player,!m.compatibilityPreview)},modifier=Modifier.fillMaxSize())}
@@ -64,8 +64,25 @@ fun StudioScreen(m:EditorModel){
         LazyRow(Modifier.fillMaxWidth().background(Color(0xff18151f)),horizontalArrangement=Arrangement.spacedBy(2.dp)){
             items(listOf("Vídeo","Áudio","Texto","Legenda","FX")){kind->TextButton(onClick={m.focus(kind)},enabled=!m.busy){Text(kind,color=if(m.inspector==kind)MaterialTheme.colorScheme.primary else Color.LightGray,fontWeight=FontWeight.Bold)}}
         }
-        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-            if(m.busy){LinearProgressIndicator(modifier=Modifier.fillMaxWidth());Text(if(m.speechBusy)m.speechStatus else if(m.exporting)"Renderizando ${m.progress?.let {"$it%"} ?: "…"}" else "Preparando…");TextButton(onClick={if(m.speechBusy)m.cancelSpeech()else m.cancelExport()}){Text("Cancelar")}}
+        Column(Modifier.fillMaxWidth().weight(1.35f).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+            if(m.busy){
+                if(m.speechBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
+                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                        Text("Analisando áudio",fontWeight=FontWeight.Bold,fontSize=18.sp)
+                        Text("Reconhecendo a fala e sincronizando as palavras com o vídeo.",color=Color.LightGray,fontSize=12.sp)
+                        m.speechProgress?.let {p->
+                            LinearProgressIndicator(progress=p/100f,modifier=Modifier.fillMaxWidth())
+                            Text("$p%",color=MaterialTheme.colorScheme.primary,fontWeight=FontWeight.Bold)
+                        } ?: LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
+                        Text(m.speechStatus,color=Color.Gray,fontSize=11.sp)
+                        TextButton(onClick=m::cancelSpeech){Text("Cancelar")}
+                    }
+                } else {
+                    LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
+                    Text(if(m.exporting)"Renderizando ${m.progress?.let {"$it%"} ?: "…"}" else "Preparando…")
+                    TextButton(onClick=m::cancelExport){Text("Cancelar")}
+                }
+            }
             else when(m.inspector){
                 "Vídeo"->VideoInspector(m){videos.launch(arrayOf("video/*"))}
                 "Áudio"->AudioInspector(m){audio.launch(arrayOf("audio/*"))}
@@ -97,6 +114,14 @@ private fun Timing(start:Long,end:Long,total:Long,change:(Long,Long)->Unit){
 @UnstableApi @Composable
 private fun VideoInspector(m:EditorModel,importVideo:()->Unit){OutlinedButton(onClick=importVideo,modifier=Modifier.fillMaxWidth()){Text("+ Adicionar vídeo")};val clip=m.current ?: return
     Text(clip.name,maxLines=1,fontWeight=FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+        Switch(checked=m.compatibilityPreview,onCheckedChange={m.toggleCompatibilityPreview()})
+        Spacer(Modifier.width(8.dp))
+        Column{
+            Text("Modo compatibilidade",fontWeight=FontWeight.Bold)
+            Text(if(m.compatibilityPreview)"Ativado · efeitos ocultos na prévia" else "Desativado · efeitos visíveis no vídeo",color=Color.Gray,fontSize=11.sp)
+        }
+    }
     Row{TextButton(onClick=m::split){Text("Dividir")};TextButton(onClick={m.move(-1)}){Text("←")};TextButton(onClick={m.move(1)}){Text("→")};TextButton(onClick=m::remove){Text("Excluir")}}
     Timing(clip.trim.start,clip.trim.end,clip.duration){a,b->m.edit(trim=TrimRange(a,b))}
     Choices(listOf("raw","neon","trap","dark","cinema"),clip.preset){m.edit(preset=it)}
