@@ -113,7 +113,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var modelReady by mutableStateOf(AutoCaptions(context).ready); private set
     var captionEngine by mutableStateOf(prefs.getString("captionEngine","gemini") ?: "gemini"); private set
     val geminiReady get()=GeminiAudioCaptions(context).configured
-    fun setCaptionEngine(engine:String){if(engine !in listOf("gemini","offline") || busy)return;captionEngine=engine;prefs.edit().putString("captionEngine",engine).apply()}
+    fun selectCaptionEngine(engine:String){if(engine !in listOf("gemini","offline") || busy)return;captionEngine=engine;prefs.edit().putString("captionEngine",engine).apply()}
     private var speechJob:Job?=null
     private val audioPlayers=mutableMapOf<String,ExoPlayer>()
     fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
