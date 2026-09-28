@@ -16,16 +16,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configurar Firebase AI Logic (opcional)
+      - name: Configurar Firebase AI Logic
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
             echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
-            echo "Firebase configurado para este build."
+            echo "Firebase configurado pelo segredo do GitHub."
+          elif [ -f app/google-services.json ]; then
+            echo "Firebase configurado pelo app/google-services.json do repositório."
           else
-            echo "GOOGLE_SERVICES_JSON_B64 não definido; build seguirá sem Firebase AI Logic."
+            echo "::error::Firebase não configurado: app/google-services.json ausente."
+            exit 1
           fi
+          grep -q '"project_id": "monstro-v18-9a791"' app/google-services.json
+          grep -q '"package_name": "com.monstro.v18.studio"' app/google-services.json
+          echo "Configuração Firebase do Monstro V18 validada."
 
       - uses: actions/setup-java@v4
         with:
