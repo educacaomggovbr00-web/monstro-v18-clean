@@ -61,6 +61,13 @@ fun MonstroApp(model:EditorModel){
     if(screen=="studio"){
         StudioScreen(model,onBack={screen="home"})
     }else{
+        MaterialTheme(colorScheme=lightColorScheme(
+            primary=Color(0xff7d36e8),
+            background=Color(0xfff7f8fc),
+            surface=Color.White,
+            onBackground=Color(0xff111216),
+            onSurface=Color(0xff111216)
+        )){
         Surface(Modifier.fillMaxSize(),color=Color(0xfff7f8fc),contentColor=Color(0xff111216)){
             Column(Modifier.fillMaxSize()){
                 Box(Modifier.weight(1f)){
@@ -83,6 +90,7 @@ fun MonstroApp(model:EditorModel){
                     }
                 }
             }
+        }
         }
     }
     if(accountDialog)AccountDialog{accountDialog=false}
