@@ -67,7 +67,7 @@ fun StudioScreen(m:EditorModel){
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
             if(m.busy){LinearProgressIndicator(modifier=Modifier.fillMaxWidth());Text(if(m.speechBusy)m.speechStatus else if(m.exporting)"Renderizando ${m.progress?.let {"$it%"} ?: "…"}" else "Preparando…");TextButton(onClick={if(m.speechBusy)m.cancelSpeech()else m.cancelExport()}){Text("Cancelar")}}
             else when(m.inspector){
-                "Vídeo"->VideoInspector(m)
+                "Vídeo"->VideoInspector(m){videos.launch(arrayOf("video/*"))}
                 "Áudio"->AudioInspector(m){audio.launch(arrayOf("audio/*"))}
                 "Texto"->TextInspector(m)
                 "Legenda"->CaptionInspector(m){srt.launch(arrayOf("*/*"))}
@@ -95,7 +95,7 @@ private fun Timing(start:Long,end:Long,total:Long,change:(Long,Long)->Unit){
     Adjust("Fim",end/1000f,.001f..maxOf(.001f,total/1000f),"s"){change(start,(it*1000).toLong().coerceAtLeast(start+1))}
 }
 @UnstableApi @Composable
-private fun VideoInspector(m:EditorModel){val clip=m.current ?: return
+private fun VideoInspector(m:EditorModel,importVideo:()->Unit){OutlinedButton(onClick=importVideo,modifier=Modifier.fillMaxWidth()){Text("+ Adicionar vídeo")};val clip=m.current ?: return
     Text(clip.name,maxLines=1,fontWeight=FontWeight.Bold)
     Row{TextButton(onClick=m::split){Text("Dividir")};TextButton(onClick={m.move(-1)}){Text("←")};TextButton(onClick={m.move(1)}){Text("→")};TextButton(onClick=m::remove){Text("Excluir")}}
     Timing(clip.trim.start,clip.trim.end,clip.duration){a,b->m.edit(trim=TrimRange(a,b))}
@@ -137,7 +137,7 @@ private fun TextInspector(m:EditorModel){OutlinedButton(onClick=m::addText){Text
 }
 @UnstableApi @Composable
 private fun CaptionInspector(m:EditorModel,import:()->Unit){
-    Row {OutlinedButton(onClick=import){Text("+ SRT")};Spacer(Modifier.width(6.dp));OutlinedButton(onClick=if(m.modelReady)m::autoCaption else m::installSpeech){Text(if(m.modelReady)"Legendar fala" else "Baixar português · 31 MB",fontSize=11.sp)}}
+    Row {OutlinedButton(onClick={m.addManualCaption()}){Text("+ Legenda")};Spacer(Modifier.width(6.dp));OutlinedButton(onClick=import){Text("+ SRT")};Spacer(Modifier.width(6.dp));OutlinedButton(onClick=if(m.modelReady)m::autoCaption else m::installSpeech){Text(if(m.modelReady)"Legendar fala" else "Baixar português · 31 MB",fontSize=11.sp)}}
     if(m.speechStatus.isNotBlank())Text(m.speechStatus,fontSize=11.sp)
     Text("Automática: tempos por palavra. SRT: word-sync aproximado.",fontSize=10.sp,color=Color.Gray)
     val index=m.focusedId.toIntOrNull() ?: m.lyrics?.cues?.indexOf(m.lyrics?.at(m.playhead)) ?: -1
