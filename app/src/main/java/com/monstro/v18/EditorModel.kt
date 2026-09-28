@@ -137,7 +137,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var output by mutableStateOf<File?>(null); private set
     val busy get() = importing || exporting || saving || speechBusy || translationBusy || ttsBusy || beatBusy || aiEditBusy
     val current get() = clips.getOrNull(selected)
-    var compatibilityPreview by mutableStateOf(prefs.getBoolean("compatibilityPreview", false)); private set
+    var compatibilityPreview by mutableStateOf(false); private set
     var player by mutableStateOf(createPlayer()); private set
 
     var studio by mutableStateOf(runCatching { StudioCodec.decode(prefs.getString("studio","{}")!!) }.getOrDefault(StudioProject())); private set
@@ -377,7 +377,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
     fun cancelNarration(){ttsJob?.cancel()}
     fun addManualCaption(){if(busy || totalDuration<=0)return;pushHistory();val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0));val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1);val cue=SrtCue(start,end,"NOVA LEGENDA");val cues=(lyrics?.cues.orEmpty()+cue).sortedBy {it.startMs};lyrics=SrtTrack(cues);lyricsName="Legendas manuais";persistCues();focus("Legenda",cues.indexOf(cue).toString())}
-    fun addFx(preset:FxPreset){val clip=current ?: return;val start=timelineOffset;val end=start+speedMap(clip).outputDuration;if(end<=start)return;val layer=FxLayer(presetId=preset.id,start=start,end=end);if(compatibilityPreview){compatibilityPreview=false;prefs.edit().putBoolean("compatibilityPreview",false).apply()};updateStudio(studio.copy(fx=studio.fx+layer,recent=(listOf(preset.id)+studio.recent).distinct().take(30)),true);focus("FX",layer.id)}
+    fun addFx(preset:FxPreset){val clip=current ?: return;val start=timelineOffset;val end=start+speedMap(clip).outputDuration;if(end<=start)return;val layer=FxLayer(presetId=preset.id,start=start,end=end);if(compatibilityPreview){compatibilityPreview=false};updateStudio(studio.copy(fx=studio.fx+layer,recent=(listOf(preset.id)+studio.recent).distinct().take(30)),true);focus("FX",layer.id)}
     fun importFxPack(uri:Uri?){
         if(uri==null || busy)return
         importing=true
@@ -662,10 +662,8 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 val position = player.currentPosition
                 val resume = player.playWhenReady
                 compatibilityPreview = true
-                prefs.edit().putBoolean("compatibilityPreview", true).apply()
                 preview(position, resume)
-                message = "Ativei a prévia de compatibilidade. Seus cortes e efeitos foram mantidos. " +
-                    "A prévia mostra o vídeo sem efeitos; a exportação continua aplicando os efeitos escolhidos."
+                message = "A prévia precisou usar um modo seguro neste vídeo. O projeto e os efeitos foram mantidos, e a exportação continua aplicando os efeitos escolhidos."
             } else {
                 val detail = generateSequence(error as Throwable) { it.cause }.take(6)
                     .joinToString(" → ") { it.message ?: it.javaClass.simpleName }
@@ -674,14 +672,6 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun toggleCompatibilityPreview() {
-        if (busy) return
-        val position = player.currentPosition
-        val resume = player.playWhenReady
-        compatibilityPreview = !compatibilityPreview
-        prefs.edit().putBoolean("compatibilityPreview", compatibilityPreview).apply()
-        preview(position, resume)
-    }
     private var transformer: Transformer? = null
     private var renderingFile: File? = null
     private var polling: Job? = null
