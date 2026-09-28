@@ -51,7 +51,7 @@ fun StudioScreen(m:EditorModel){
         LazyRow(Modifier.fillMaxWidth().height(38.dp).background(Color(0xff111119)),horizontalArrangement=Arrangement.spacedBy(2.dp),verticalAlignment=Alignment.CenterVertically){
             item{TextButton(onClick={mediaDialog=true},enabled=!m.busy){Text("+ Mídia",fontSize=11.sp)}}
             item{TextButton(onClick={aiDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy){Text("✦ IA Auto Edit",fontSize=11.sp,fontWeight=FontWeight.Bold)}}
-            item{TextButton(onClick={exportDialog=true},enabled=!m.busy){Text("${m.exportFormat.resolutionLabel} · 30 fps",fontSize=10.sp)}}
+            item{TextButton(onClick={exportDialog=true},enabled=!m.busy){Text("${m.exportFormat.resolutionLabel} · ${m.exportFps} fps",fontSize=10.sp)}}
             item{Text("${m.canvasRatio} · ${m.studio.fx.size} FX",fontSize=10.sp,color=Color.Gray,modifier=Modifier.padding(horizontal=8.dp))}
         }
         Box(Modifier.fillMaxWidth().heightIn(min=140.dp,max=320.dp).weight(1.65f).clipToBounds().background(Color.Black),contentAlignment=Alignment.Center){
@@ -170,7 +170,8 @@ fun StudioScreen(m:EditorModel){
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=m.safeMode,onClick={if(!m.safeMode)m.toggleSafeMode()},label={Text("540p · leve")});FilterChip(selected=!m.safeMode,onClick={if(m.safeMode)m.toggleSafeMode()},label={Text("1080p · 30fps")})}
         Text("Bitrate",fontWeight=FontWeight.Bold);Choices(listOf("Baixo","Recomendado","Alto"),when(m.bitrateMode){"low"->"Baixo";"high"->"Alto";else->"Recomendado"}){m.selectBitrateMode(when(it){"Baixo"->"low";"Alto"->"high";else->"recommended"})}
         Text("Codec",fontWeight=FontWeight.Bold);Choices(if(m.hevcSupported)listOf("H.264","HEVC") else listOf("H.264"),if(m.exportCodec=="HEVC")"HEVC" else "H.264"){m.selectExportCodec(if(it=="HEVC")"HEVC" else "H264")}
-        Text("${m.exportFormat.width} × ${m.exportFormat.height} · 30 fps · ${String.format(java.util.Locale.US,"%.1f",m.exportFormat.bitrate/1_000_000f)} Mbps",fontSize=11.sp,color=Color.Gray)
+        Text("Frame rate",fontWeight=FontWeight.Bold);Choices(listOf("24 fps","30 fps","60 fps"),"${m.exportFps} fps"){m.selectExportFps(it.substringBefore(" ").toInt())}
+        Text("${m.exportFormat.width} × ${m.exportFormat.height} · ${m.exportFps} fps · ${String.format(java.util.Locale.US,"%.1f",m.exportFormat.bitrate/1_000_000f)} Mbps",fontSize=11.sp,color=Color.Gray)
     }},confirmButton={Button(onClick={exportDialog=false;m.export()}){Text("Gerar MP4")}},dismissButton={TextButton(onClick={exportDialog=false}){Text("Voltar")}})
     if(fullscreen && m.current!=null)Dialog(onDismissRequest={fullscreen=false},properties=DialogProperties(usePlatformDefaultWidth=false)){
         Box(Modifier.fillMaxSize().background(Color.Black).systemBarsPadding(),contentAlignment=Alignment.Center){
