@@ -175,7 +175,12 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun focus(kind:String,id:String=""){inspector=kind;focusedId=id}
     fun runAiAutoEdit(style:String){
         if(busy || clips.isEmpty())return
-        if(!GeminiAutoEdit(context).configured){message="Firebase AI Logic ainda não está disponível neste APK.";return}
+        if(!GeminiAutoEdit(context).configured){
+            val local=LocalAutoEdit.build(clips,studio,style);applyAiEditPlan(local)
+            aiEditStatus="Modo local · ${local.summary}"
+            message="IA online indisponível. Apliquei o Auto Edit local por ritmo e estilo."
+            return
+        }
         pauseAll();aiEditBusy=true;aiEditProgress=0;aiEditStatus="IA analisando cenas, fala e ritmo…"
         aiEditJob=viewModelScope.launch {
             try{
@@ -210,7 +215,15 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 aiEditStatus="Pronto · ${plan.summary}"
                 message="IA Auto Edit concluído. Você pode desfazer tudo com ↶."
             }catch(e:Exception){
-                aiEditStatus=if(e is kotlinx.coroutines.CancellationException)"IA Auto Edit cancelado" else "IA Auto Edit falhou: ${e.localizedMessage}"
+                if(e is kotlinx.coroutines.CancellationException){
+                    aiEditStatus="IA Auto Edit cancelado"
+                }else{
+                    val local=LocalAutoEdit.build(clips,studio,style)
+                    applyAiEditPlan(local)
+                    aiEditProgress=100
+                    aiEditStatus="Modo local · ${local.summary}"
+                    message="A IA online atingiu o limite agora. O Monstro continuou com Auto Edit local; tente a análise por contexto novamente mais tarde."
+                }
             }finally{aiEditBusy=false}
         }
     }
@@ -501,11 +514,22 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             } catch(e:Exception) {
                 if(e is kotlinx.coroutines.CancellationException){
                     speechStatus="Reconhecimento cancelado"
-                } else if(modelReady) {
-                    speechStatus="Gemini indisponível. Tentando reconhecimento Offline…"
+                } else {
                     runCatching {
+                        val offline=AutoCaptions(context)
+                        if(!offline.ready){
+                            speechStatus="IA online indisponível · preparando reconhecimento offline (31 MB)…"
+                            withContext(Dispatchers.IO){
+                                offline.install {percent->viewModelScope.launch {
+                                    speechProgress=percent.coerceIn(0,100)
+                                    speechStatus="Preparando modo offline: ${percent.coerceIn(0,100)}%"
+                                }}
+                            }
+                            modelReady=true
+                        }
+                        speechStatus="Continuando no aparelho, sem usar cota do Gemini…"
                         val fallback=withContext(Dispatchers.IO){
-                            AutoCaptions(context).transcribe(inputs,project){percent->
+                            offline.transcribe(inputs,project){percent->
                                 viewModelScope.launch {
                                     speechProgress=percent.coerceIn(0,100)
                                     speechStatus="Offline: reconhecendo fala ${percent.coerceIn(0,100)}%"
@@ -513,11 +537,9 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                         applyCaptionResult(fallback,offset,"Legendas automáticas · Offline")
-                    }.onFailure {fallbackError->
-                        speechStatus="Não foi possível legendar: ${fallbackError.localizedMessage}"
+                    }.onFailure {
+                        speechStatus="Não consegui concluir a legenda agora. Verifique sua internet para preparar o modo offline e tente novamente."
                     }
-                } else {
-                    speechStatus="Gemini falhou: ${e.localizedMessage}. Baixe o modo Offline para ter fallback."
                 }
             } finally {speechBusy=false;speechProgress=null}
         }
