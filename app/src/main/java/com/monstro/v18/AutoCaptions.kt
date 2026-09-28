@@ -91,6 +91,12 @@ class AutoCaptions(private val context:Context) {
             }
             recognizer?.let {collect(it.finalResult)}
         } finally {recognizer?.close();runCatching {decoder?.stop()};decoder?.release();extractor.release()}
-        return words
+        val clean=mutableListOf<Triple<String,Long,Long>>()
+        words.sortedBy {it.second}.forEach {w->
+            val last=clean.lastOrNull()
+            val duplicate=last!=null && last.first.equals(w.first,true) && abs(last.second-w.second)<=80 && abs(last.third-w.third)<=80
+            if(!duplicate)clean+=w
+        }
+        return clean
     }
 }
