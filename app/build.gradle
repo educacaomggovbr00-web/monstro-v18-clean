@@ -8,6 +8,13 @@ if (file('google-services.json').exists()) {
     apply plugin: 'com.google.gms.google-services'
 }
 
+def releaseKeystore = System.getenv('MONSTRO_RELEASE_KEYSTORE')
+def releaseStorePassword = System.getenv('MONSTRO_RELEASE_STORE_PASSWORD')
+def releaseKeyAlias = System.getenv('MONSTRO_RELEASE_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('MONSTRO_RELEASE_KEY_PASSWORD')
+def releaseSigningReady = releaseKeystore && releaseStorePassword && releaseKeyAlias && releaseKeyPassword &&
+        file(releaseKeystore).exists()
+
 android {
     namespace 'com.monstro.v18'
     compileSdk 34
@@ -19,7 +26,26 @@ android {
         versionCode 23
         versionName "18.5-Studio"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        
+    }
+
+    signingConfigs {
+        release {
+            if (releaseSigningReady) {
+                storeFile file(releaseKeystore)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+        }
     }
 
     packaging { jniLibs { useLegacyPackaging true }; resources { merges += ['META-INF/AL2.0', 'META-INF/LGPL2.1'] } }
