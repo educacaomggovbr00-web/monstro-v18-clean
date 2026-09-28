@@ -32,7 +32,7 @@ class StudioPainter {
     private fun drawImage(c:Canvas,w:Int,h:Int,layer:ImageLayer,time:Long){
         val bitmap=imageCache[layer.path] ?: BitmapFactory.decodeFile(layer.path)?.also {b->
             imageCache[layer.path]=b
-            while(imageCache.size>8){val key=imageCache.keys.first();imageCache.remove(key)?.recycle()}
+            while(imageCache.size>4){val key=imageCache.keys.first();imageCache.remove(key)?.recycle()}
         } ?: return
         val x=animated(layer.xKeys,time,layer.x).coerceIn(-1f,2f)*w
         val y=animated(layer.yKeys,time,layer.y).coerceIn(-1f,2f)*h
