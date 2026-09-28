@@ -159,7 +159,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
 
     val fxTools=listOf(
         StudioTool("✦","Efeitos"){library=true},
-        StudioTool("↓","Importar FX"){fxPack.launch(arrayOf("application/json","text/plain","application/octet-stream"))},
+        StudioTool("↓","Importar FX"){fxPack.launch(arrayOf("application/json","text/plain","application/xml","text/xml","application/octet-stream"))},
         StudioTool("◇","IA sugerir"){aiDialog=true}
     )
 
@@ -385,7 +385,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         }
     }
 
-    if(library)FxLibrary(m,{fxPack.launch(arrayOf("application/json","text/plain","application/octet-stream"))}){library=false}
+    if(library)FxLibrary(m,{fxPack.launch(arrayOf("application/json","text/plain","application/xml","text/xml","application/octet-stream"))}){library=false}
 
     if(aiDialog){
         var style by remember {mutableStateOf("Automático")}
@@ -749,7 +749,7 @@ private fun FxLibrary(m:EditorModel,importPack:()->Unit,close:()->Unit){
                     TextButton(onClick=importPack){Text("↓ Importar")}
                     TextButton(onClick=close){Text("Fechar")}
                 }
-                Text("Toque em um efeito e ele é aplicado pronto. Pacotes baixados ficam em Meus efeitos.",fontSize=12.sp,color=Color.Gray)
+                Text("Toque em um efeito e ele é aplicado pronto. Pacotes .monstrofx e presets .prfpset do Premiere ficam em Meus efeitos.",fontSize=12.sp,color=Color.Gray)
                 OutlinedTextField(value=query,onValueChange={query=it},label={Text("Pesquisar FX")},singleLine=true,modifier=Modifier.fillMaxWidth())
                 Choices(listOf("Todos","Meus efeitos","Favoritos","Recentes")+categories,category){category=it}
                 Text("${results.size} resultados",fontSize=11.sp,color=Color.Gray)
