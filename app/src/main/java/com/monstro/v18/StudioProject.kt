@@ -66,7 +66,7 @@ data class TextStyle(
 data class TextLayer(val id:String=UUID.randomUUID().toString(),val text:String="MONSTRO",val start:Long=0,val end:Long=3000,val style:TextStyle=TextStyle())
 data class AudioLayer(val id:String=UUID.randomUUID().toString(),val uri:String,val name:String,val duration:Long,val start:Long=0,val trimStart:Long=0,val trimEnd:Long=duration,val volume:Float=1f) { val end get()=start+trimEnd-trimStart }
 data class FxLayer(val id:String=UUID.randomUUID().toString(),val presetId:String,val start:Long,val end:Long,val intensity:Float=1f,val speed:Float=1f,val direction:Float=0f,val keys:List<KeyPoint> = emptyList())
-data class ClipMotion(val speed:List<KeyPoint> = emptyList(),val zoom:List<KeyPoint> = emptyList())
+data class ClipMotion(val speed:List<KeyPoint> = emptyList(),val zoom:List<KeyPoint> = emptyList(),val rotation:List<KeyPoint> = emptyList(),val x:List<KeyPoint> = emptyList(),val y:List<KeyPoint> = emptyList())
 data class ClipAdjust(
     val brightness:Float=0f,val contrast:Float=0f,val saturation:Float=0f,
     val hue:Float=0f,val lightness:Float=0f,val temperature:Float=0f
@@ -101,7 +101,7 @@ object StudioCodec {
         put("texts",JSONArray().also { a->p.texts.forEach { a.put(JSONObject().put("id",it.id).put("text",it.text).put("start",it.start).put("end",it.end).put("style",it.style.json())) } })
         put("audio",JSONArray().also { a->p.audio.forEach { a.put(JSONObject().put("id",it.id).put("uri",it.uri).put("name",it.name).put("duration",it.duration).put("start",it.start).put("in",it.trimStart).put("out",it.trimEnd).put("volume",it.volume.toDouble())) } })
         put("fx",JSONArray().also { a->p.fx.forEach { a.put(JSONObject().put("id",it.id).put("preset",it.presetId).put("start",it.start).put("end",it.end).put("intensity",it.intensity.toDouble()).put("speed",it.speed.toDouble()).put("direction",it.direction.toDouble()).put("keys",keysJson(it.keys))) } })
-        put("motions",JSONObject().also { o->p.motions.forEach { (id,m)->o.put(id,JSONObject().put("speed",keysJson(m.speed)).put("zoom",keysJson(m.zoom))) } })
+        put("motions",JSONObject().also { o->p.motions.forEach { (id,m)->o.put(id,JSONObject().put("speed",keysJson(m.speed)).put("zoom",keysJson(m.zoom)).put("rotation",keysJson(m.rotation)).put("x",keysJson(m.x)).put("y",keysJson(m.y))) } })
         put("caption",p.captionStyle.json()); put("styles",JSONObject().also { o->p.captionStyles.forEach { (i,s)->o.put(i.toString(),s.json()) } })
         put("favorites",JSONArray(p.favorites.toList())); put("recent",JSONArray(p.recent))
         put("adjustments",JSONObject().also { o->p.adjustments.forEach { (id,a)->o.put(id,JSONObject().put("brightness",a.brightness.toDouble()).put("contrast",a.contrast.toDouble()).put("saturation",a.saturation.toDouble()).put("hue",a.hue.toDouble()).put("lightness",a.lightness.toDouble()).put("temperature",a.temperature.toDouble())) } })
@@ -109,7 +109,7 @@ object StudioCodec {
     fun decode(source:String):StudioProject {
         val o=JSONObject(source);val motions=mutableMapOf<String,ClipMotion>(); val styles=mutableMapOf<Int,TextStyle>();val adjustments=mutableMapOf<String,ClipAdjust>()
         o.optJSONObject("adjustments")?.let { m->m.keys().forEach { id->val a=m.getJSONObject(id);adjustments[id]=ClipAdjust(a.optDouble("brightness",0.0).toFloat(),a.optDouble("contrast",0.0).toFloat(),a.optDouble("saturation",0.0).toFloat(),a.optDouble("hue",0.0).toFloat(),a.optDouble("lightness",0.0).toFloat(),a.optDouble("temperature",0.0).toFloat()) } }
-        o.optJSONObject("motions")?.let { m->m.keys().forEach { id-> val j=m.getJSONObject(id); motions[id]=ClipMotion(readKeys(j.optJSONArray("speed")),readKeys(j.optJSONArray("zoom"))) } }
+        o.optJSONObject("motions")?.let { m->m.keys().forEach { id-> val j=m.getJSONObject(id); motions[id]=ClipMotion(readKeys(j.optJSONArray("speed")),readKeys(j.optJSONArray("zoom")),readKeys(j.optJSONArray("rotation")),readKeys(j.optJSONArray("x")),readKeys(j.optJSONArray("y"))) } }
         o.optJSONObject("styles")?.let { m->m.keys().forEach { id->id.toIntOrNull()?.let { styles[it]=style(m.getJSONObject(id)) } } }
         fun strings(name:String)=o.optJSONArray(name)?.let { a->(0 until a.length()).map { a.getString(it) } } ?: emptyList()
         return StudioProject(o.optJSONArray("texts").objects { TextLayer(it.getString("id"),it.getString("text"),it.getLong("start"),it.getLong("end"),style(it.optJSONObject("style"))) },
