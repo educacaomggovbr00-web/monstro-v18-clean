@@ -6,6 +6,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.InlineDataPart
+import com.google.firebase.ai.type.PublicPreviewAPI
 import com.google.firebase.ai.type.ResponseModality
 import com.google.firebase.ai.type.SpeechConfig
 import com.google.firebase.ai.type.Voice
@@ -17,6 +18,7 @@ import java.nio.ByteOrder
 
 data class GeneratedNarration(val file:File,val durationMs:Long)
 
+@OptIn(PublicPreviewAPI::class)
 class GeminiTts(private val context:Context){
     val configured get()=FirebaseApp.getApps(context).isNotEmpty()
 
