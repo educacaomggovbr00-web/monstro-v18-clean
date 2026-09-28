@@ -28,10 +28,14 @@ class StudioTest {
         )
         val audio=AudioLayer(uri="file:///voice.wav",name="voz",duration=4000,start=250,trimStart=10,trimEnd=3500,volume=.7f,pitch=1.4f,fadeIn=300,fadeOut=500)
         val adjust=ClipAdjust(.1f,.2f,20f,5f,-10f,.3f)
-        val source=StudioProject(audio=listOf(audio),motions=mapOf("clip" to motion),adjustments=mapOf("clip" to adjust))
+        val image=ImageLayer(path="/tmp/test.png",name="logo",start=100,end=2100,x=.4f,y=.6f,scale=.5f,rotation=12f,opacity=.8f,xKeys=listOf(KeyPoint(0,.3f),KeyPoint(1000,.7f)))
+        val marker=TimelineMarker(time=777,label="Beat")
+        val source=StudioProject(audio=listOf(audio),motions=mapOf("clip" to motion),adjustments=mapOf("clip" to adjust),markers=listOf(marker),images=listOf(image))
         val restored=StudioCodec.decode(StudioCodec.encode(source))
         assertEquals(audio,restored.audio.single())
         assertEquals(motion,restored.motions["clip"])
         assertEquals(adjust,restored.adjustments["clip"])
+        assertEquals(marker,restored.markers.single())
+        assertEquals(image,restored.images.single())
     }
 }
