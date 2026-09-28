@@ -38,16 +38,21 @@ fun StudioScreen(m:EditorModel){
     val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)m.startVoiceover()else m.showMessage("Permita acesso ao microfone para gravar dublagem.")}
     val srt=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importLyrics)
     val save=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"),m::saveOutput)
-    var library by remember {mutableStateOf(false)};var exportDialog by remember {mutableStateOf(false)};var mediaDialog by remember {mutableStateOf(false)};var fullscreen by remember {mutableStateOf(false)}
+    var library by remember {mutableStateOf(false)};var exportDialog by remember {mutableStateOf(false)};var mediaDialog by remember {mutableStateOf(false)};var aiDialog by remember {mutableStateOf(false)};var accountDialog by remember {mutableStateOf(false)};var fullscreen by remember {mutableStateOf(false)}
     val owner=LocalLifecycleOwner.current
     DisposableEffect(owner,m){val listener=LifecycleEventObserver {_,event->if(event==Lifecycle.Event.ON_STOP)m.pauseAll()};owner.lifecycle.addObserver(listener);onDispose{owner.lifecycle.removeObserver(listener)}}
     LaunchedEffect(m){while(true){m.tick();delay(if(m.player.isPlaying || m.busy)33 else 120)}}
     Column(Modifier.fillMaxSize().background(Color(0xff09090f)).systemBarsPadding()){
-        Row(Modifier.fillMaxWidth().height(50.dp).padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
-            Column(Modifier.weight(1f)){Text("MONSTRO",fontWeight=FontWeight.Black,letterSpacing=2.sp,fontSize=18.sp);Text("V18  /  STUDIO",color=MaterialTheme.colorScheme.primary,fontSize=9.sp,letterSpacing=2.sp)}
-            TextButton(onClick={mediaDialog=true},enabled=!m.busy){Text("+ Mídia")}
-            TextButton(onClick={exportDialog=true},enabled=!m.busy){Text("${m.exportFormat.resolutionLabel} · 30",fontSize=10.sp)}
-            Button(onClick={exportDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy,contentPadding=PaddingValues(horizontal=12.dp)){Text("Exportar")}
+        Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal=10.dp),verticalAlignment=Alignment.CenterVertically){
+            Column(Modifier.weight(1f)){Text("MONSTRO",fontWeight=FontWeight.Black,letterSpacing=2.sp,fontSize=17.sp);Text("V18  /  STUDIO",color=MaterialTheme.colorScheme.primary,fontSize=8.sp,letterSpacing=2.sp)}
+            TextButton(onClick={accountDialog=true},contentPadding=PaddingValues(horizontal=8.dp)){Text("Conta",fontSize=11.sp)}
+            Button(onClick={exportDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy,contentPadding=PaddingValues(horizontal=11.dp)){Text("Exportar")}
+        }
+        LazyRow(Modifier.fillMaxWidth().height(38.dp).background(Color(0xff111119)),horizontalArrangement=Arrangement.spacedBy(2.dp),verticalAlignment=Alignment.CenterVertically){
+            item{TextButton(onClick={mediaDialog=true},enabled=!m.busy){Text("+ Mídia",fontSize=11.sp)}}
+            item{TextButton(onClick={aiDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy){Text("✦ IA Auto Edit",fontSize=11.sp,fontWeight=FontWeight.Bold)}}
+            item{TextButton(onClick={exportDialog=true},enabled=!m.busy){Text("${m.exportFormat.resolutionLabel} · 30 fps",fontSize=10.sp)}}
+            item{Text("${m.canvasRatio} · ${m.studio.fx.size} FX",fontSize=10.sp,color=Color.Gray,modifier=Modifier.padding(horizontal=8.dp))}
         }
         Box(Modifier.fillMaxWidth().heightIn(min=140.dp,max=320.dp).weight(1.65f).clipToBounds().background(Color.Black),contentAlignment=Alignment.Center){
             if(m.current==null)Column(horizontalAlignment=Alignment.CenterHorizontally){Text("Seu próximo edit começa aqui",fontWeight=FontWeight.Bold);TextButton(onClick={videos.launch(arrayOf("video/*"))}){Text("+ Importar vídeos")}}
@@ -94,6 +99,14 @@ fun StudioScreen(m:EditorModel){
                         Text(m.ttsStatus,color=Color.Gray,fontSize=11.sp)
                         TextButton(onClick=m::cancelNarration){Text("Cancelar")}
                     }
+                } else if(m.aiEditBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
+                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                        Text("IA Auto Edit",fontWeight=FontWeight.Bold,fontSize=18.sp)
+                        Text("Entendendo cenas, fala, ritmo e escolhendo os efeitos do Monstro.",color=Color.LightGray,fontSize=12.sp)
+                        LinearProgressIndicator(progress=m.aiEditProgress/100f,modifier=Modifier.fillMaxWidth())
+                        Text("${m.aiEditProgress}% · ${m.aiEditStatus}",color=Color.Gray,fontSize=11.sp)
+                        TextButton(onClick=m::cancelAiAutoEdit){Text("Cancelar")}
+                    }
                 } else if(m.beatBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
                     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                         Text("Auto-Beats",fontWeight=FontWeight.Bold,fontSize=18.sp)
@@ -123,6 +136,22 @@ fun StudioScreen(m:EditorModel){
         }
     }
     if(library)FxLibrary(m){library=false}
+    if(accountDialog)AccountDialog{accountDialog=false}
+    if(aiDialog){
+        var style by remember {mutableStateOf("Automático")}
+        AlertDialog(
+            onDismissRequest={aiDialog=false},
+            title={Text("✦ Monstro IA Auto Edit")},
+            text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
+                Text("A IA analisa os quadros, a fala e os beats e aplica uma edição que você pode desfazer com ↶.",fontSize=12.sp,color=Color.LightGray)
+                Text("Estilo",fontWeight=FontWeight.Bold)
+                Choices(listOf("Automático","Trap / Música","Cinemático","Vlog / Conversa","Gameplay / Ação","Anime / Edit"),style){style=it}
+                Text("Ela não apaga seus efeitos existentes: adiciona e ajusta em cima do projeto atual.",fontSize=10.sp,color=Color.Gray)
+            }},
+            confirmButton={Button(onClick={aiDialog=false;m.runAiAutoEdit(style)}){Text("Analisar e editar")}},
+            dismissButton={TextButton(onClick={aiDialog=false}){Text("Cancelar")}}
+        )
+    }
     if(mediaDialog)AlertDialog(
         onDismissRequest={mediaDialog=false},
         title={Text("Adicionar mídia")},
