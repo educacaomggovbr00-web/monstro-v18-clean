@@ -83,6 +83,28 @@ object FxCatalog {
 
     fun isCurated(id:String)=id in index
 
+    fun curatedReplacement(id:String):FxPreset? {
+        index[id]?.let {return it}
+        val legacy=parseLegacy(id) ?: return null
+        return all.filter {it.engine==legacy.engine}.minByOrNull {
+            kotlin.math.abs(it.recipe-legacy.recipe)*10+kotlin.math.abs(it.envelope-legacy.envelope)
+        } ?: all.firstOrNull {it.category==legacy.category}
+    }
+
+    fun sanitizeProject(project:StudioProject):StudioProject {
+        val remapped=project.fx.mapNotNull {layer->
+            curatedReplacement(layer.presetId)?.let {preset->
+                layer.copy(presetId=preset.id,intensity=layer.intensity.coerceIn(.1f,1.35f))
+            }
+        }
+        fun remapIds(ids:Collection<String>)=ids.mapNotNull {curatedReplacement(it)?.id}.distinct()
+        return project.copy(
+            fx=remapped,
+            favorites=remapIds(project.favorites).toSet(),
+            recent=remapIds(project.recent).take(20)
+        )
+    }
+
     private fun parseLegacy(id:String):FxPreset? {
         val parts=id.removePrefix("fx-").split("-")
         if(parts.size!=3)return null
