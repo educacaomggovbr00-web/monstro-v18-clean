@@ -144,6 +144,15 @@ fun StudioScreen(m:EditorModel){
                 }
             }
             TextButton(onClick={fullscreen=false},modifier=Modifier.align(Alignment.TopEnd).padding(8.dp)){Text("Fechar ⛶")}
+            Surface(modifier=Modifier.align(Alignment.BottomCenter).padding(18.dp),shape=RoundedCornerShape(24.dp),color=Color(0xaa15151c)){
+                Row(Modifier.padding(horizontal=12.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
+                    Text(timeLabel(m.playhead),fontSize=11.sp)
+                    TextButton(onClick={m.seekTimeline(m.playhead-1000)}){Text("−1s")}
+                    TextButton(onClick={if(m.player.isPlaying)m.pauseAll()else m.player.play()}){Text(if(m.player.isPlaying)"Ⅱ" else "▶",fontSize=22.sp)}
+                    TextButton(onClick={m.seekTimeline(m.playhead+1000)}){Text("+1s")}
+                    Text(timeLabel(m.totalDuration),fontSize=11.sp,color=Color.Gray)
+                }
+            }
         }
     }
     m.message?.let {AlertDialog(onDismissRequest=m::clearMessage,title={Text("Monstro Studio")},text={Text(it)},confirmButton={TextButton(onClick=m::clearMessage){Text("OK")}})}
@@ -254,6 +263,16 @@ private fun TextInspector(m:EditorModel){OutlinedButton(onClick=m::addText){Text
     Choices(listOf("Natural","Animado","Calmo","Narrador"),voiceStyle){voiceStyle=it}
     OutlinedButton(onClick={m.generateNarration(text,voice,voiceStyle)},enabled=text.isNotBlank()&&!m.busy,modifier=Modifier.fillMaxWidth()){Text("♪ Gerar narração com Gemini")}
     if(m.ttsStatus.isNotBlank())Text(m.ttsStatus,fontSize=10.sp,color=Color.Gray)
+    Text("Estilos rápidos",fontWeight=FontWeight.Bold)
+    Choices(listOf("Clean","Neon","3D","Trap"),""){preset->
+        val next=when(preset){
+            "Neon"->layer.style.copy(font="sans-serif-condensed",color=0xffc250ff.toInt(),stroke=.004f,shadow=.006f,glow=.035f,animation="Pop")
+            "3D"->layer.style.copy(font="sans-serif",color=0xffffffff.toInt(),stroke=.008f,shadow=.025f,glow=0f,animation="Pop")
+            "Trap"->layer.style.copy(font="sans-serif-condensed",color=0xffff2355.toInt(),stroke=.007f,shadow=.012f,glow=.018f,animation="Digitar")
+            else->layer.style.copy(font="sans-serif",color=0xffffffff.toInt(),stroke=.003f,shadow=.006f,glow=0f,animation="Fade")
+        }
+        m.updateStudio(m.studio.copy(texts=m.studio.texts.map {if(it.id==layer.id)it.copy(style=next)else it}),false)
+    }
     Timing(layer.start,layer.end,m.totalDuration){a,b->m.updateStudio(m.studio.copy(texts=m.studio.texts.map {if(it.id==layer.id)it.copy(start=a,end=b)else it}),false)}
     StyleInspector(layer.style,m.playhead-layer.start){style->m.updateStudio(m.studio.copy(texts=m.studio.texts.map {if(it.id==layer.id)it.copy(style=style)else it}),false)}
     TextButton(onClick={m.updateStudio(m.studio.copy(texts=m.studio.texts-layer),false)}){Text("Excluir texto")}
