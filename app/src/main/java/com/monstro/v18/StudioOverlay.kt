@@ -7,6 +7,11 @@ import android.opengl.GLUtils
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
 import android.view.MotionEvent
 import android.view.View
 import androidx.media3.common.util.*
@@ -19,10 +24,35 @@ class StudioPainter {
         project.texts.filter { time in it.start until it.end }.forEach { drawText(canvas,w,h,it.text,it.style,time-it.start,simple) }
         val cue=track?.at(time) ?: return
         val i=track.cues.indexOf(cue);val style=project.captionStyles[i] ?: project.captionStyle
-        // Keep the entire phrase legible below the animated word.
-        drawText(canvas,w,h,cue.text,style.copy(size=style.size*.34f,color=Color.LTGRAY,y=(style.y+.10f).coerceAtMost(.94f),animation="Nenhuma",glow=0f,scaleKeys=emptyList()),time-cue.startMs,true)
+        drawCaption(canvas,w,h,cue,style,time,simple)
+    }
+    private fun drawCaption(c:Canvas,w:Int,h:Int,cue:SrtCue,s:TextStyle,time:Long,simple:Boolean) {
         val word=cue.wordAt(time)
-        if(word>=0) drawText(canvas,w,h,cue.words[word].uppercase(java.util.Locale.ROOT),style,time-cue.startMs,simple,time-cue.wordStart(word))
+        val styled=SpannableString(cue.text)
+        val match=Regex("\\S+").findAll(cue.text).toList().getOrNull(word)
+        if(match!=null){
+            val start=match.range.first;val end=match.range.last+1
+            styled.setSpan(ForegroundColorSpan(s.color),start,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            styled.setSpan(RelativeSizeSpan(if(simple)1.06f else 1.14f),start,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            styled.setSpan(StyleSpan(Typeface.BOLD),start,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        val unit=min(w.toFloat(),h*16f/9f)
+        paint.reset();paint.isAntiAlias=true;paint.typeface=Typeface.create(s.font,Typeface.BOLD)
+        paint.textSize=unit*animated(s.scaleKeys,time-cue.startMs,s.size)*.58f
+        paint.color=Color.LTGRAY;paint.alpha=(255*s.opacity).toInt().coerceIn(0,255)
+        val x=animated(s.xKeys,time-cue.startMs,s.x)*w;val y=animated(s.yKeys,time-cue.startMs,s.y)*h
+        val age=(time-cue.startMs).coerceAtLeast(0);val phase=(age/180f).coerceIn(0f,1f)
+        if(s.animation=="Fade")paint.alpha=(paint.alpha*phase).toInt()
+        if(s.shadow>0)paint.setShadowLayer(s.shadow*unit,0f,unit*.004f,Color.BLACK)
+        else if(!simple && s.glow>0)paint.setShadowLayer(s.glow*unit,0f,0f,s.color)
+        val box=(w*.90f).toInt().coerceAtLeast(1)
+        var layout=StaticLayout.Builder.obtain(styled,0,styled.length,paint,box).setAlignment(Layout.Alignment.ALIGN_CENTER).setIncludePad(false).build()
+        while(layout.height>h*.30f && paint.textSize>unit*.018f){
+            paint.textSize*=.86f
+            layout=StaticLayout.Builder.obtain(styled,0,styled.length,paint,box).setAlignment(Layout.Alignment.ALIGN_CENTER).setIncludePad(false).build()
+        }
+        val pop=if(simple || s.animation!="Pop")1f else .94f+.06f*(1-(1-phase).pow(3))
+        c.save();c.translate(x-box/2f,y-layout.height/2f);c.scale(pop,pop,box/2f,layout.height/2f);layout.draw(c);c.restore();paint.clearShadowLayer()
     }
     private fun drawText(c:Canvas,w:Int,h:Int,text:String,s:TextStyle,time:Long,simple:Boolean,age:Long=time) {
         val unit=min(w.toFloat(),h*16f/9f)
