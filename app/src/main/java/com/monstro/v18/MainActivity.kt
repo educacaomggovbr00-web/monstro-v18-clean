@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
                         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
                 }
-                MonstroApp(model)
+                MonstroApp(model,startInStudio=intent?.getBooleanExtra("monstro.test.OPEN_STUDIO",false)==true)
             }
         }
     }
