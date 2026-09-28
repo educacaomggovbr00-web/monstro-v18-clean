@@ -354,7 +354,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 updateStudio(studio.copy(audio=studio.audio+layer),false)
                 focus("Áudio",layer.id);ttsStatus="Narração pronta · ${timeLabel(end)}"
             } catch(e:Exception) {
-                ttsStatus=if(e is kotlinx.coroutines.CancellationException)"Narração cancelada" else "Falha na narração: ${e.localizedMessage}"
+                ttsStatus=if(e is kotlinx.coroutines.CancellationException)"Narração cancelada" else "Narração IA indisponível agora. A cota pode ter atingido o limite; tente novamente mais tarde."
             } finally {ttsBusy=false}
         }
     }
