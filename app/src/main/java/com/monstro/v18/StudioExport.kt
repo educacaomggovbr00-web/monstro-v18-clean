@@ -21,7 +21,7 @@ fun EditorModel.studioComposition():Composition {
             visual+=colorAdjustEffects(studio.adjustments[clip.id] ?: ClipAdjust())
             visual+=previewEffects(clip.copy(chaos=clip.chaos.copy(enabled=clip.chaos.enabled-ChaosFx.MOTION_BLUR.id,zoom=if(zoom.isEmpty())clip.chaos.zoom else 1f)))
             if(zoom.isNotEmpty() || motion.rotation.isNotEmpty() || motion.x.isNotEmpty() || motion.y.isNotEmpty())visual+=StudioEffect(null,zoom,clock,clipOffset,motion.rotation,motion.x,motion.y)
-            visual+=studio.fx.filter {it.end>clipOffset+slice.outputStart && it.start<clipOffset+slice.outputStart+slice.outputDuration}.map {StudioEffect(it,emptyList(),clock)}
+            visual+=studio.fx.filter {it.end>clipOffset+slice.outputStart && it.start<clipOffset+slice.outputStart+slice.outputDuration}.map {StudioEffect(it,emptyList(),clock,customPresets=studio.customFx)}
             if(clip.chaos.has(ChaosFx.MOTION_BLUR))visual+=ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id)))
             visual+=AspectBackgroundEffect(exportFormat)
             if(lyrics!=null || studio.texts.isNotEmpty() || studio.images.isNotEmpty())visual+=OverlayEffect(ImmutableList.of<TextureOverlay>(StudioOverlay(studio,lyrics,simpleLyrics,clock)))
