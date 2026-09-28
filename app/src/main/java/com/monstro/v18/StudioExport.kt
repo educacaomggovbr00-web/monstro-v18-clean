@@ -11,7 +11,7 @@ import com.google.common.collect.ImmutableList
 @UnstableApi
 fun EditorModel.studioComposition():Composition {
     var offset=0L;var sourceOffset=0L
-    val frameGate=FrameRateGate()
+    val frameGate=FrameRateGate(exportFormat.fps)
     val items=clips.flatMap {clip->
         val map=speedMap(clip);val clipOffset=offset
         val parts=map.slices.map {slice->
