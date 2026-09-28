@@ -83,6 +83,14 @@ fun StudioScreen(m:EditorModel){
                         Text(m.speechStatus,color=Color.Gray,fontSize=11.sp)
                         TextButton(onClick=m::cancelSpeech){Text("Cancelar")}
                     }
+                } else if(m.ttsBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
+                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                        Text("Criando narração IA",fontWeight=FontWeight.Bold,fontSize=18.sp)
+                        Text("Gemini está sintetizando a voz em português do Brasil.",color=Color.LightGray,fontSize=12.sp)
+                        LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
+                        Text(m.ttsStatus,color=Color.Gray,fontSize=11.sp)
+                        TextButton(onClick=m::cancelNarration){Text("Cancelar")}
+                    }
                 } else {
                     LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
                     Text(if(m.exporting)"Renderizando ${m.progress?.let {"$it%"} ?: "…"}" else "Preparando…")
@@ -217,8 +225,15 @@ private fun AudioInspector(m:EditorModel,import:()->Unit){OutlinedButton(onClick
 @UnstableApi @Composable
 private fun TextInspector(m:EditorModel){OutlinedButton(onClick=m::addText){Text("+ Adicionar texto")};val layer=m.studio.texts.find {it.id==m.focusedId} ?: return
     var text by remember(layer.id){mutableStateOf(layer.text)}
-    OutlinedTextField(value=text,onValueChange={text=it.take(2000)},label={Text("Texto")},modifier=Modifier.fillMaxWidth())
+    OutlinedTextField(value=text,onValueChange={text=it.take(5000)},label={Text("Texto")},modifier=Modifier.fillMaxWidth())
     TextButton(onClick={m.updateStudio(m.studio.copy(texts=m.studio.texts.map {if(it.id==layer.id)it.copy(text=text)else it}),false)}){Text("Aplicar texto")}
+    Text("Narração IA",fontWeight=FontWeight.Bold)
+    var voice by remember(layer.id){mutableStateOf("Kore")}
+    var voiceStyle by remember(layer.id){mutableStateOf("Natural")}
+    Choices(listOf("Kore","Puck","Sulafat","Orus","Zephyr"),voice){voice=it}
+    Choices(listOf("Natural","Animado","Calmo","Narrador"),voiceStyle){voiceStyle=it}
+    OutlinedButton(onClick={m.generateNarration(text,voice,voiceStyle)},enabled=text.isNotBlank()&&!m.busy,modifier=Modifier.fillMaxWidth()){Text("♪ Gerar narração com Gemini")}
+    if(m.ttsStatus.isNotBlank())Text(m.ttsStatus,fontSize=10.sp,color=Color.Gray)
     Timing(layer.start,layer.end,m.totalDuration){a,b->m.updateStudio(m.studio.copy(texts=m.studio.texts.map {if(it.id==layer.id)it.copy(start=a,end=b)else it}),false)}
     StyleInspector(layer.style,m.playhead-layer.start){style->m.updateStudio(m.studio.copy(texts=m.studio.texts.map {if(it.id==layer.id)it.copy(style=style)else it}),false)}
     TextButton(onClick={m.updateStudio(m.studio.copy(texts=m.studio.texts-layer),false)}){Text("Excluir texto")}
