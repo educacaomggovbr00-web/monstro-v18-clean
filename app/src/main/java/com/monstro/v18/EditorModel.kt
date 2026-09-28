@@ -79,6 +79,30 @@ fun VideoClip.mediaItem(): MediaItem = MediaItem.Builder().setUri(uri)
 class EditorModel(application: Application) : AndroidViewModel(application) {
     private val context = application.applicationContext
     private val prefs = context.getSharedPreferences("editor", 0)
+    private data class EditorSnapshot(
+        val clips:List<VideoClip>,val selected:Int,val mute:Boolean,val studio:StudioProject,
+        val lyrics:SrtTrack?,val lyricsName:String,val simpleLyrics:Boolean,val purpleLyrics:Boolean
+    )
+    private val undoStack=java.util.ArrayDeque<EditorSnapshot>()
+    private val redoStack=java.util.ArrayDeque<EditorSnapshot>()
+    private var historyVersion by mutableStateOf(0)
+    val canUndo get()=historyVersion.let {undoStack.isNotEmpty()}
+    val canRedo get()=historyVersion.let {redoStack.isNotEmpty()}
+    private fun snapshot()=EditorSnapshot(clips,selected,mute,studio,lyrics,lyricsName,simpleLyrics,purpleLyrics)
+    private fun pushHistory(){
+        undoStack.addLast(snapshot());while(undoStack.size>40)undoStack.removeFirst()
+        redoStack.clear();historyVersion++
+    }
+    private fun restoreSnapshot(s:EditorSnapshot){
+        clips=s.clips;selected=s.selected.coerceIn(0,(clips.size-1).coerceAtLeast(0));mute=s.mute;studio=s.studio
+        lyrics=s.lyrics;lyricsName=s.lyricsName;simpleLyrics=s.simpleLyrics;purpleLyrics=s.purpleLyrics
+        persist();persistCues()
+        prefs.edit().putString("studio",StudioCodec.encode(studio)).putString("lyricsName",lyricsName)
+            .putBoolean("simpleLyrics",simpleLyrics).putBoolean("purpleLyrics",purpleLyrics).apply()
+        preview()
+    }
+    fun undo(){if(busy || undoStack.isEmpty())return;pauseAll();redoStack.addLast(snapshot());restoreSnapshot(undoStack.removeLast());historyVersion++}
+    fun redo(){if(busy || redoStack.isEmpty())return;pauseAll();undoStack.addLast(snapshot());restoreSnapshot(redoStack.removeLast());historyVersion++}
     var clips by mutableStateOf<List<VideoClip>>(emptyList()); private set
     var selected by mutableStateOf(0); private set
     var mute by mutableStateOf(false); private set
@@ -124,7 +148,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
     val totalDuration get()=clips.sumOf { speedMap(it).outputDuration }
     fun focus(kind:String,id:String=""){inspector=kind;focusedId=id}
-    fun updateStudio(next:StudioProject,rebuild:Boolean=true){if(busy)return;studio=next;prefs.edit().putString("studio",StudioCodec.encode(next)).apply();if(rebuild){val pos=player.currentPosition;preview(pos,player.playWhenReady)}}
+    fun updateStudio(next:StudioProject,rebuild:Boolean=true,record:Boolean=true){if(busy || next==studio)return;if(record)pushHistory();studio=next;prefs.edit().putString("studio",StudioCodec.encode(next)).apply();if(rebuild){val pos=player.currentPosition;preview(pos,player.playWhenReady)}}
     fun seekTimeline(time:Long){if(clips.isEmpty() || busy)return;var remaining=time.coerceIn(0,(totalDuration-1).coerceAtLeast(0));var index=0
         while(index<clips.lastIndex && remaining>=speedMap(clips[index]).outputDuration){remaining-=speedMap(clips[index]).outputDuration;index++}
         val source=speedMap(clips[index]).toSource(remaining);if(index!=selected){selected=index;preview(source,player.playWhenReady)}else player.seekTo(source)
@@ -146,18 +170,18 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun pauseAll(){player.pause();audioPlayers.values.forEach {it.pause()}}
     fun setMotion(motion:ClipMotion){val clip=current ?: return;updateStudio(studio.copy(motions=studio.motions+(clip.id to motion)))}
     fun addText(){val start=if(playhead>=totalDuration)(totalDuration-3000).coerceAtLeast(0)else playhead;val end=minOf(totalDuration,start+3000);if(end<=start)return;val layer=TextLayer(start=start,end=end);updateStudio(studio.copy(texts=studio.texts+layer),false);focus("Texto",layer.id)}
-    fun addManualCaption(){if(busy || totalDuration<=0)return;val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0));val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1);val cue=SrtCue(start,end,"NOVA LEGENDA");val cues=(lyrics?.cues.orEmpty()+cue).sortedBy {it.startMs};lyrics=SrtTrack(cues);lyricsName="Legendas manuais";persistCues();focus("Legenda",cues.indexOf(cue).toString())}
+    fun addManualCaption(){if(busy || totalDuration<=0)return;pushHistory();val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0));val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1);val cue=SrtCue(start,end,"NOVA LEGENDA");val cues=(lyrics?.cues.orEmpty()+cue).sortedBy {it.startMs};lyrics=SrtTrack(cues);lyricsName="Legendas manuais";persistCues();focus("Legenda",cues.indexOf(cue).toString())}
     fun addFx(preset:FxPreset){val clip=current ?: return;val start=timelineOffset;val end=start+speedMap(clip).outputDuration;if(end<=start)return;val layer=FxLayer(presetId=preset.id,start=start,end=end);if(compatibilityPreview){compatibilityPreview=false;prefs.edit().putBoolean("compatibilityPreview",false).apply()};updateStudio(studio.copy(fx=studio.fx+layer,recent=(listOf(preset.id)+studio.recent).distinct().take(30)),true);focus("FX",layer.id)}
-    fun favorite(id:String){updateStudio(studio.copy(favorites=if(id in studio.favorites)studio.favorites-id else studio.favorites+id),false)}
+    fun favorite(id:String){updateStudio(studio.copy(favorites=if(id in studio.favorites)studio.favorites-id else studio.favorites+id),false,false)}
     fun importAudio(uri:Uri?){if(uri==null || busy)return;importing=true;viewModelScope.launch {
         val result=withContext(Dispatchers.IO){runCatching {context.contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);val r=MediaMetadataRetriever();val duration=try{r.setDataSource(context,uri);r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()}finally{r.release()};require(duration>0);val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {if(it.moveToFirst())it.getString(0)else null} ?: "Áudio";AudioLayer(uri=uri.toString(),name=name,duration=duration,start=playhead,trimEnd=if(totalDuration>playhead)minOf(duration,totalDuration-playhead)else duration)}}
         importing=false;result.onSuccess {updateStudio(studio.copy(audio=studio.audio+it),false);focus("Áudio",it.id)}.onFailure {message="Não foi possível importar o áudio: ${it.localizedMessage}"}
     }}
     fun updateCue(index:Int,text:String,start:Long,end:Long){if(busy)return;val old=lyrics ?: return;if(index !in old.cues.indices || text.isBlank() || start<0 || end<=start)return
-        val cue=old.cues[index];val replacement=SrtCue(start,end,text,if(cue.text==text && cue.startMs==start && cue.endMs==end)cue.wordTimes else emptyList())
+        pushHistory();val cue=old.cues[index];val replacement=SrtCue(start,end,text,if(cue.text==text && cue.startMs==start && cue.endMs==end)cue.wordTimes else emptyList())
         val sorted=old.cues.mapIndexed {i,c->i to if(i==index)replacement else c}.sortedBy {it.second.startMs}
         lyrics=SrtTrack(sorted.map {it.second});focusedId=sorted.indexOfFirst {it.first==index}.toString()
-        updateStudio(studio.copy(captionStyles=sorted.mapIndexedNotNull {newIndex,pair->studio.captionStyles[pair.first]?.let {newIndex to it}}.toMap()),false);persistCues()
+        updateStudio(studio.copy(captionStyles=sorted.mapIndexedNotNull {newIndex,pair->studio.captionStyles[pair.first]?.let {newIndex to it}}.toMap()),false,false);persistCues()
     }
     private fun persistCues(){val cues=lyrics?.cues ?: emptyList();val array=JSONArray();cues.forEach {c->array.put(JSONObject().put("start",c.startMs).put("end",c.endMs).put("text",c.text).put("words",JSONArray().also {a->c.wordTimes.forEach {a.put(JSONArray().put(it.start).put(it.end))}}))};File(context.filesDir,"captions.json").writeText(array.toString())}
     private fun restoreCues(){val f=File(context.filesDir,"captions.json");if(!f.isFile)return;runCatching {val a=JSONArray(f.readText());lyrics=if(a.length()==0)null else SrtTrack((0 until a.length()).map {val c=a.getJSONObject(it);val w=c.optJSONArray("words");SrtCue(c.getLong("start"),c.getLong("end"),c.getString("text"),if(w==null)emptyList()else(0 until w.length()).map {j->val pair=w.getJSONArray(j);WordTime(pair.getLong(0),pair.getLong(1))})})}}
@@ -177,6 +201,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         else recognizeCaptions(inputs,StudioProject(),layer.start)
     }
     private fun applyCaptionResult(result:SrtTrack,offset:Long,name:String) {
+        pushHistory()
         val track=if(offset==0L)result else SrtTrack(result.cues.map {cue->cue.copy(
             startMs=cue.startMs+offset,
             endMs=cue.endMs+offset,
@@ -377,6 +402,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             val firstNewIndex = clips.size
+            if(added.isNotEmpty())pushHistory()
             clips = clips + added
             if (added.isNotEmpty()) { selected = firstNewIndex; persist(); preview() }
             importing = false
@@ -401,21 +427,21 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         if (trim != null && trim.end > old.duration) return
         val position = if (trim == null) player.currentPosition else 0L
         val playing = player.playWhenReady
-        clips = clips.toMutableList().also { it[selected] = old.copy(trim = trim ?: old.trim, preset = preset ?: old.preset, chaos = chaos ?: old.chaos) }
+        pushHistory();clips = clips.toMutableList().also { it[selected] = old.copy(trim = trim ?: old.trim, preset = preset ?: old.preset, chaos = chaos ?: old.chaos) }
         persist(); preview(position, playing)
     }
 
     fun move(delta: Int) {
         val target = selected + delta
         if (busy || target !in clips.indices) return
-        clips = clips.toMutableList().also { val c = it.removeAt(selected); it.add(target, c) }
+        pushHistory();clips = clips.toMutableList().also { val c = it.removeAt(selected); it.add(target, c) }
         selected = target
         persist()
     }
 
     fun remove() {
         if (busy || current == null) return
-        clips = clips.toMutableList().also { it.removeAt(selected) }
+        pushHistory();clips = clips.toMutableList().also { it.removeAt(selected) }
         selected = selected.coerceAtMost((clips.size - 1).coerceAtLeast(0))
         persist(); preview()
     }
@@ -426,7 +452,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         val ranges = clip.trim.split(player.currentPosition) ?: run {
             message = "Pause no ponto de corte, entre o início e o fim do clipe."; return
         }
-        val rightId=UUID.randomUUID().toString()
+        pushHistory();val rightId=UUID.randomUUID().toString()
         val motion=studio.motions[clip.id]
         if(motion!=null){val sourceCut=player.currentPosition;val outputCut=speedMap(clip).toOutput(sourceCut)
             val left=ClipMotion(splitCurve(motion.speed,sourceCut,false),splitCurve(motion.zoom,outputCut,false))
@@ -442,7 +468,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleMute() {
         if (busy) return
-        mute = !mute
+        pushHistory();mute = !mute
         player.volume = if (mute) 0f else 1f
         persist()
     }
@@ -470,15 +496,15 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun setExportFormat(isVertical: Boolean) { setCanvasRatio(if(isVertical)"9:16" else "16:9") }
     fun toggleSimpleLyrics() {
         if (busy) return
-        simpleLyrics = !simpleLyrics; prefs.edit().putBoolean("simpleLyrics", simpleLyrics).apply()
+        pushHistory();simpleLyrics = !simpleLyrics; prefs.edit().putBoolean("simpleLyrics", simpleLyrics).apply()
     }
     fun toggleLyricsColor() {
         if (busy) return
-        purpleLyrics = !purpleLyrics; prefs.edit().putBoolean("purpleLyrics", purpleLyrics).apply()
+        pushHistory();purpleLyrics = !purpleLyrics; prefs.edit().putBoolean("purpleLyrics", purpleLyrics).apply()
     }
     fun removeLyrics() {
         if (busy) return
-        lyrics = null; lyricsName = ""; persistCues(); File(context.filesDir,"lyrics.srt").delete()
+        pushHistory();lyrics = null; lyricsName = ""; persistCues(); File(context.filesDir,"lyrics.srt").delete()
         prefs.edit().remove("lyricsName").apply()
     }
     fun importLyrics(uri: Uri?) {
@@ -504,7 +530,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             } }
             importing = false
             result.onSuccess { (parsed,name,_) ->
-                lyrics = parsed.track; updateStudio(studio.copy(captionStyles=emptyMap()),false); persistCues(); lyricsName = name; prefs.edit().putString("lyricsName",name).apply()
+                pushHistory();lyrics = parsed.track; updateStudio(studio.copy(captionStyles=emptyMap()),false,false); persistCues(); lyricsName = name; prefs.edit().putString("lyricsName",name).apply()
                 message = "${parsed.track.cues.size} frases importadas." + if(parsed.skipped > 0) " ${parsed.skipped} blocos inválidos ignorados." else ""
             }.onFailure { message = "Não foi possível importar a legenda: ${it.localizedMessage}" }
         }
