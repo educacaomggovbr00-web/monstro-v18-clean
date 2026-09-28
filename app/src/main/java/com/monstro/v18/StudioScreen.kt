@@ -66,7 +66,7 @@ fun StudioScreen(m:EditorModel){
             TextButton(onClick={m.seekTimeline(m.playhead+100)},enabled=!m.busy,contentPadding=PaddingValues(5.dp)){Text("+.1")}
             TextButton(onClick={m.pauseAll();fullscreen=true},enabled=m.current!=null&&!m.busy,contentPadding=PaddingValues(5.dp)){Text("⛶",fontSize=18.sp)}
         }
-        AndroidView(factory={StudioTimeline(it)},update={it.model=m;it.invalidate()},modifier=Modifier.fillMaxWidth().height(191.dp))
+        AndroidView(factory={StudioTimeline(it)},update={it.model=m;it.invalidate()},modifier=Modifier.fillMaxWidth().height(224.dp))
         Text("Arraste a régua para buscar · dois dedos para ampliar",color=Color.Gray,fontSize=9.sp,modifier=Modifier.padding(horizontal=10.dp,vertical=2.dp))
         LazyRow(Modifier.fillMaxWidth().background(Color(0xff18151f)),horizontalArrangement=Arrangement.spacedBy(1.dp)){
             val tabs=listOf("✂ Editar" to "Vídeo","♪ Áudio" to "Áudio","T Texto" to "Texto","CC Legendas" to "Legenda","✦ Efeitos" to "FX","▱ Camada" to "Camada","◐ Filtros" to "Filtros","▣ Proporção" to "Proporção","☼ Ajustes" to "Ajustes")
