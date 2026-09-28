@@ -73,10 +73,13 @@ object FxCatalog {
     val categories=all.map {it.category}.distinct()
     private val index=all.associateBy {it.id}
 
-    fun get(id:String):FxPreset? = index[id] ?: parseLegacy(id)
+    fun allWith(custom:List<FxPreset>):List<FxPreset> = (all+custom).distinctBy {it.id}
 
-    fun search(query:String,category:String?=null):List<FxPreset> =
-        all.filter {
+    fun get(id:String):FxPreset? = index[id] ?: parseLegacy(id)
+    fun get(id:String,custom:List<FxPreset>):FxPreset? = custom.firstOrNull {it.id==id} ?: get(id)
+
+    fun search(query:String,category:String?=null,custom:List<FxPreset> = emptyList()):List<FxPreset> =
+        allWith(custom).filter {
             (category==null || it.category==category) &&
                 (query.isBlank() || it.name.contains(query,true) || it.category.contains(query,true))
         }
@@ -92,16 +95,19 @@ object FxCatalog {
     }
 
     fun sanitizeProject(project:StudioProject):StudioProject {
+        val custom=project.customFx.distinctBy {it.id}.take(200)
+        fun resolve(id:String):FxPreset? = custom.firstOrNull {it.id==id} ?: curatedReplacement(id)
         val remapped=project.fx.mapNotNull {layer->
-            curatedReplacement(layer.presetId)?.let {preset->
+            resolve(layer.presetId)?.let {preset->
                 layer.copy(presetId=preset.id,intensity=layer.intensity.coerceIn(.1f,1.35f))
             }
         }
-        fun remapIds(ids:Collection<String>)=ids.mapNotNull {curatedReplacement(it)?.id}.distinct()
+        fun remapIds(ids:Collection<String>)=ids.mapNotNull {resolve(it)?.id}.distinct()
         return project.copy(
             fx=remapped,
             favorites=remapIds(project.favorites).toSet(),
-            recent=remapIds(project.recent).take(20)
+            recent=remapIds(project.recent).take(20),
+            customFx=custom
         )
     }
 
