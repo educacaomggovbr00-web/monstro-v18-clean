@@ -3,6 +3,11 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Keep normal builds working until this app is registered in Firebase.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
 android {
     namespace 'com.monstro.v18'
     compileSdk 34
@@ -29,6 +34,10 @@ android {
 }
 
 dependencies {
+    implementation platform('com.google.firebase:firebase-bom:34.19.0')
+    implementation 'com.google.firebase:firebase-ai'
+    debugImplementation 'com.google.firebase:firebase-appcheck-debug'
+    releaseImplementation 'com.google.firebase:firebase-appcheck-playintegrity'
     implementation('com.alphacephei:vosk-android:0.3.45') { exclude group: 'net.java.dev.jna', module: 'jna' }
     implementation 'net.java.dev.jna:jna:5.13.0@aar'
     implementation 'androidx.core:core-ktx:1.12.0'
