@@ -98,7 +98,7 @@ data class StudioProject(
     val motions:Map<String,ClipMotion> = emptyMap(), val captionStyle:TextStyle=TextStyle(),
     val captionStyles:Map<Int,TextStyle> = emptyMap(),val favorites:Set<String> = emptySet(),val recent:List<String> = emptyList(),
     val adjustments:Map<String,ClipAdjust> = emptyMap(),val markers:List<TimelineMarker> = emptyList(),
-    val images:List<ImageLayer> = emptyList()
+    val images:List<ImageLayer> = emptyList(),val customFx:List<FxPreset> = emptyList()
 )
 
 private fun keysJson(keys:List<KeyPoint>)=JSONArray().also { a->keys.forEach { a.put(JSONArray().put(it.time).put(it.value.toDouble())) } }
@@ -120,6 +120,9 @@ object StudioCodec {
             .put("id",it.id).put("path",it.path).put("name",it.name).put("start",it.start).put("end",it.end)
             .put("x",it.x.toDouble()).put("y",it.y.toDouble()).put("scale",it.scale.toDouble()).put("rotation",it.rotation.toDouble()).put("opacity",it.opacity.toDouble())
             .put("xk",keysJson(it.xKeys)).put("yk",keysJson(it.yKeys)).put("sk",keysJson(it.scaleKeys)).put("rk",keysJson(it.rotationKeys)).put("ok",keysJson(it.opacityKeys))) } })
+        put("customFx",JSONArray().also { a->p.customFx.forEach { fx->a.put(JSONObject()
+            .put("id",fx.id).put("name",fx.name).put("category",fx.category)
+            .put("engine",fx.engine).put("recipe",fx.recipe).put("envelope",fx.envelope)) } })
     }.toString()
     fun decode(source:String):StudioProject {
         val o=JSONObject(source);val motions=mutableMapOf<String,ClipMotion>(); val styles=mutableMapOf<Int,TextStyle>();val adjustments=mutableMapOf<String,ClipAdjust>()
@@ -138,7 +141,11 @@ object StudioCodec {
                 rotation=it.optDouble("rotation",0.0).toFloat(),opacity=it.optDouble("opacity",1.0).toFloat(),
                 xKeys=readKeys(it.optJSONArray("xk")),yKeys=readKeys(it.optJSONArray("yk")),scaleKeys=readKeys(it.optJSONArray("sk")),
                 rotationKeys=readKeys(it.optJSONArray("rk")),opacityKeys=readKeys(it.optJSONArray("ok"))
-            ) })
+            ) },
+            o.optJSONArray("customFx").objects { FxPreset(
+                id=it.optString("id"),name=it.optString("name"),category=it.optString("category","Meus efeitos"),
+                engine=it.optInt("engine"),recipe=it.optInt("recipe"),envelope=it.optInt("envelope")
+            ) }
     }
 }
 
