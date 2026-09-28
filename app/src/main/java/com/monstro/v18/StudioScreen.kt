@@ -398,16 +398,15 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         )
     }
 
-    if(mediaDialog)AlertDialog(
-        onDismissRequest={mediaDialog=false},
-        title={Text("Adicionar mídia")},
-        text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-            Button(onClick={mediaDialog=false;videos.launch(arrayOf("video/*"))},modifier=Modifier.fillMaxWidth()){Text("Vídeo")}
-            OutlinedButton(onClick={mediaDialog=false;image.launch(arrayOf("image/*"))},modifier=Modifier.fillMaxWidth()){Text("Imagem")}
-            OutlinedButton(onClick={mediaDialog=false;audio.launch(arrayOf("audio/*"))},modifier=Modifier.fillMaxWidth()){Text("Áudio")}
-        }},
-        confirmButton={},
-        dismissButton={TextButton(onClick={mediaDialog=false}){Text("Cancelar")}}
+    if(mediaDialog)MonstroMediaPicker(
+        onDismiss={mediaDialog=false},
+        onVideos={uris->if(uris.isNotEmpty())m.importVideos(uris)},
+        onPhotos={uris->
+            if(m.clips.isEmpty())m.showMessage("Para usar fotos como camada, adicione um vídeo primeiro.")
+            else m.importImages(uris)
+        },
+        fallbackVideo={mediaDialog=false;videos.launch(arrayOf("video/*"))},
+        fallbackPhoto={mediaDialog=false;image.launch(arrayOf("image/*"))}
     )
 
     if(exportDialog)AlertDialog(
