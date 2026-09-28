@@ -179,10 +179,21 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         pauseAll();aiEditBusy=true;aiEditProgress=0;aiEditStatus="IA analisando cenas, fala e ritmo…"
         aiEditJob=viewModelScope.launch {
             try{
+                var contextCaptions=lyrics
+                val generatedCaptions=contextCaptions==null
+                if(contextCaptions==null && geminiReady){
+                    aiEditStatus="IA ouvindo a fala para entender o contexto…"
+                    contextCaptions=withContext(Dispatchers.IO){
+                        GeminiAudioCaptions(context).transcribe(clips,studio){p->
+                            viewModelScope.launch {aiEditProgress=(p*35/100).coerceIn(0,35);aiEditStatus="Entendendo a fala · $p%"}
+                        }
+                    }
+                }
                 val plan=withContext(Dispatchers.IO){
-                    GeminiAutoEdit(context).analyze(clips,studio,lyrics,style){p->
+                    GeminiAutoEdit(context).analyze(clips,studio,contextCaptions,style){p->
                         viewModelScope.launch {
-                            aiEditProgress=p.coerceIn(0,100)
+                            val mapped=35+p*65/100
+                            aiEditProgress=mapped.coerceIn(0,100)
                             aiEditStatus=when {
                                 p<30 -> "Extraindo e entendendo os quadros…"
                                 p<50 -> "Cruzando cenas, fala e beats…"
@@ -193,6 +204,9 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 applyAiEditPlan(plan)
+                if(generatedCaptions && contextCaptions!=null){
+                    lyrics=contextCaptions;lyricsName="Legendas IA · Auto Edit";persistCues()
+                }
                 aiEditStatus="Pronto · ${plan.summary}"
                 message="IA Auto Edit concluído. Você pode desfazer tudo com ↶."
             }catch(e:Exception){
