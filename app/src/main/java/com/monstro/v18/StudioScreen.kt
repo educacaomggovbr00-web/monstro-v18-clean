@@ -60,6 +60,7 @@ fun StudioScreen(m:EditorModel){
             Text(timeLabel(m.playhead),color=Color.White,fontSize=11.sp);Text(" / ${timeLabel(m.totalDuration)}",color=Color.Gray,fontSize=10.sp,modifier=Modifier.weight(1f))
             TextButton(onClick=m::undo,enabled=m.canUndo&&!m.busy,contentPadding=PaddingValues(5.dp)){Text("↶",fontSize=20.sp)}
             TextButton(onClick=m::redo,enabled=m.canRedo&&!m.busy,contentPadding=PaddingValues(5.dp)){Text("↷",fontSize=20.sp)}
+            TextButton(onClick=m::addTimelineMarker,enabled=m.current!=null&&!m.busy,contentPadding=PaddingValues(5.dp)){Text("◆+",fontSize=13.sp)}
             TextButton(onClick={m.seekTimeline(m.playhead-100)},enabled=!m.busy,contentPadding=PaddingValues(5.dp)){Text("−.1")}
             TextButton(onClick={if(m.player.isPlaying)m.pauseAll()else {if(m.player.playbackState==androidx.media3.common.Player.STATE_ENDED)m.seekTimeline(0);m.player.play()}},enabled=m.current!=null&&!m.busy,contentPadding=PaddingValues(5.dp)){Text(if(m.player.isPlaying)"Ⅱ" else "▶",fontSize=20.sp)}
             TextButton(onClick={m.seekTimeline(m.playhead+100)},enabled=!m.busy,contentPadding=PaddingValues(5.dp)){Text("+.1")}
@@ -156,7 +157,7 @@ private fun VideoInspector(m:EditorModel,importVideo:()->Unit){OutlinedButton(on
             Text(if(m.compatibilityPreview)"Ativado · efeitos ocultos na prévia" else "Desativado · efeitos visíveis no vídeo",color=Color.Gray,fontSize=11.sp)
         }
     }
-    Text("Ferramentas do clipe",fontWeight=FontWeight.Bold)
+    Row(verticalAlignment=Alignment.CenterVertically){Text("Ferramentas do clipe",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));TextButton(onClick=m::removeNearestMarker){Text("Remover marcador")}}
     LazyRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){
         item{AssistChip(onClick=m::split,label={Text("✂ Dividir")})}
         item{AssistChip(onClick=m::extractCurrentAudio,label={Text("♪ Extrair áudio")})}
