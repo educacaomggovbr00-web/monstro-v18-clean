@@ -25,7 +25,7 @@ import kotlin.math.max
  * High-quality cloud captioning through Firebase AI Logic.
  *
  * Firebase AI Logic currently exposes general Gemini models, not the dedicated
- * gemini-3.5-transcribe endpoint. Gemini 3.8 Flash handles the audio here and
+ * gemini-3.5-transcribe endpoint. Gemini 3.5 Flash Lite handles the audio here and
  * the local Vosk engine remains available as an offline fallback.
  */
 class GeminiAudioCaptions(private val context: Context) {
@@ -42,7 +42,7 @@ class GeminiAudioCaptions(private val context: Context) {
         }
 
         val model = Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel(
-            modelName = "gemini-3.8-flash",
+            modelName = "gemini-3.5-flash-lite",
             generationConfig = generationConfig {
                 responseMimeType = "application/json"
                 maxOutputTokens = 8192
