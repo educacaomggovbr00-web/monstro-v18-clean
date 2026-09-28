@@ -67,6 +67,14 @@ data class TextLayer(val id:String=UUID.randomUUID().toString(),val text:String=
 data class AudioLayer(val id:String=UUID.randomUUID().toString(),val uri:String,val name:String,val duration:Long,val start:Long=0,val trimStart:Long=0,val trimEnd:Long=duration,val volume:Float=1f,val pitch:Float=1f,val fadeIn:Long=0,val fadeOut:Long=0) { val end get()=start+trimEnd-trimStart }
 data class FxLayer(val id:String=UUID.randomUUID().toString(),val presetId:String,val start:Long,val end:Long,val intensity:Float=1f,val speed:Float=1f,val direction:Float=0f,val keys:List<KeyPoint> = emptyList())
 data class TimelineMarker(val id:String=UUID.randomUUID().toString(),val time:Long,val label:String="Marcador")
+data class ImageLayer(
+    val id:String=UUID.randomUUID().toString(),val path:String,val name:String,
+    val start:Long,val end:Long,val x:Float=.5f,val y:Float=.5f,val scale:Float=.35f,
+    val rotation:Float=0f,val opacity:Float=1f,
+    val xKeys:List<KeyPoint> = emptyList(),val yKeys:List<KeyPoint> = emptyList(),
+    val scaleKeys:List<KeyPoint> = emptyList(),val rotationKeys:List<KeyPoint> = emptyList(),
+    val opacityKeys:List<KeyPoint> = emptyList()
+)
 data class ClipMotion(val speed:List<KeyPoint> = emptyList(),val zoom:List<KeyPoint> = emptyList(),val rotation:List<KeyPoint> = emptyList(),val x:List<KeyPoint> = emptyList(),val y:List<KeyPoint> = emptyList())
 data class ClipAdjust(
     val brightness:Float=0f,val contrast:Float=0f,val saturation:Float=0f,
@@ -89,7 +97,8 @@ data class StudioProject(
     val texts:List<TextLayer> = emptyList(),val audio:List<AudioLayer> = emptyList(),val fx:List<FxLayer> = emptyList(),
     val motions:Map<String,ClipMotion> = emptyMap(), val captionStyle:TextStyle=TextStyle(),
     val captionStyles:Map<Int,TextStyle> = emptyMap(),val favorites:Set<String> = emptySet(),val recent:List<String> = emptyList(),
-    val adjustments:Map<String,ClipAdjust> = emptyMap(),val markers:List<TimelineMarker> = emptyList()
+    val adjustments:Map<String,ClipAdjust> = emptyMap(),val markers:List<TimelineMarker> = emptyList(),
+    val images:List<ImageLayer> = emptyList()
 )
 
 private fun keysJson(keys:List<KeyPoint>)=JSONArray().also { a->keys.forEach { a.put(JSONArray().put(it.time).put(it.value.toDouble())) } }
@@ -107,6 +116,10 @@ object StudioCodec {
         put("favorites",JSONArray(p.favorites.toList())); put("recent",JSONArray(p.recent))
         put("adjustments",JSONObject().also { o->p.adjustments.forEach { (id,a)->o.put(id,JSONObject().put("brightness",a.brightness.toDouble()).put("contrast",a.contrast.toDouble()).put("saturation",a.saturation.toDouble()).put("hue",a.hue.toDouble()).put("lightness",a.lightness.toDouble()).put("temperature",a.temperature.toDouble())) } })
         put("markers",JSONArray().also { a->p.markers.forEach { m->a.put(JSONObject().put("id",m.id).put("time",m.time).put("label",m.label)) } })
+        put("images",JSONArray().also { a->p.images.forEach { it->a.put(JSONObject()
+            .put("id",it.id).put("path",it.path).put("name",it.name).put("start",it.start).put("end",it.end)
+            .put("x",it.x.toDouble()).put("y",it.y.toDouble()).put("scale",it.scale.toDouble()).put("rotation",it.rotation.toDouble()).put("opacity",it.opacity.toDouble())
+            .put("xk",keysJson(it.xKeys)).put("yk",keysJson(it.yKeys)).put("sk",keysJson(it.scaleKeys)).put("rk",keysJson(it.rotationKeys)).put("ok",keysJson(it.opacityKeys))) } })
     }.toString()
     fun decode(source:String):StudioProject {
         val o=JSONObject(source);val motions=mutableMapOf<String,ClipMotion>(); val styles=mutableMapOf<Int,TextStyle>();val adjustments=mutableMapOf<String,ClipAdjust>()
@@ -117,7 +130,15 @@ object StudioCodec {
         return StudioProject(o.optJSONArray("texts").objects { TextLayer(it.getString("id"),it.getString("text"),it.getLong("start"),it.getLong("end"),style(it.optJSONObject("style"))) },
             o.optJSONArray("audio").objects { AudioLayer(it.getString("id"),it.getString("uri"),it.getString("name"),it.getLong("duration"),it.getLong("start"),it.getLong("in"),it.getLong("out"),it.optDouble("volume",1.0).toFloat(),it.optDouble("pitch",1.0).toFloat(),it.optLong("fadeIn",0),it.optLong("fadeOut",0)) },
             o.optJSONArray("fx").objects { FxLayer(it.getString("id"),it.getString("preset"),it.getLong("start"),it.getLong("end"),it.getDouble("intensity").toFloat(),it.getDouble("speed").toFloat(),it.getDouble("direction").toFloat(),readKeys(it.optJSONArray("keys"))) },motions,style(o.optJSONObject("caption")),styles,strings("favorites").toSet(),strings("recent"),adjustments,
-            o.optJSONArray("markers").objects { TimelineMarker(it.optString("id",UUID.randomUUID().toString()),it.optLong("time",0L),it.optString("label","Marcador")) })
+            o.optJSONArray("markers").objects { TimelineMarker(it.optString("id",UUID.randomUUID().toString()),it.optLong("time",0L),it.optString("label","Marcador")) },
+            o.optJSONArray("images").objects { ImageLayer(
+                id=it.optString("id",UUID.randomUUID().toString()),path=it.optString("path",""),name=it.optString("name","Imagem"),
+                start=it.optLong("start",0L),end=it.optLong("end",3000L),
+                x=it.optDouble("x",.5).toFloat(),y=it.optDouble("y",.5).toFloat(),scale=it.optDouble("scale",.35).toFloat(),
+                rotation=it.optDouble("rotation",0.0).toFloat(),opacity=it.optDouble("opacity",1.0).toFloat(),
+                xKeys=readKeys(it.optJSONArray("xk")),yKeys=readKeys(it.optJSONArray("yk")),scaleKeys=readKeys(it.optJSONArray("sk")),
+                rotationKeys=readKeys(it.optJSONArray("rk")),opacityKeys=readKeys(it.optJSONArray("ok"))
+            ) })
     }
 }
 
