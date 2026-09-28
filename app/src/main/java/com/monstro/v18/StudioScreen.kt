@@ -152,8 +152,8 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     val captionTools=listOf(
         StudioTool("CC+","Inserir legendas"){m.addManualCaption();panel="Legenda"},
         StudioTool("⌗","Legendas autom."){m.autoCaption()},
+        StudioTool("🌐","Traduzir IA"){openPanel("Legenda")},
         StudioTool("CC","Modelos"){openPanel("Legenda")},
-        StudioTool("♪CC","Letras autom."){m.autoCaption()},
         StudioTool("▱","Importar"){srt.launch(arrayOf("*/*"))}
     )
 
@@ -316,6 +316,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     val title=when{
                         m.speechBusy->"Analisando áudio"
+                        m.translationBusy->"Traduzindo legendas"
                         m.ttsBusy->"Criando narração IA"
                         m.aiEditBusy->"IA Auto Edit"
                         m.beatBusy->"Auto-Beats"
@@ -326,6 +327,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
                     LinearProgressIndicator(
                         progress=when{
                             m.speechProgress!=null->m.speechProgress!!/100f
+                            m.translationBusy->m.translationProgress/100f
                             m.aiEditBusy->m.aiEditProgress/100f
                             m.beatBusy->m.beatProgress/100f
                             m.progress!=null->m.progress!!/100f
@@ -336,6 +338,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
                     Text(
                         when{
                             m.speechBusy->m.speechStatus
+                            m.translationBusy->m.translationStatus
                             m.ttsBusy->m.ttsStatus
                             m.aiEditBusy->m.aiEditStatus
                             m.beatBusy->m.beatStatus
@@ -346,6 +349,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
                     TextButton(onClick={
                         when{
                             m.speechBusy->m.cancelSpeech()
+                            m.translationBusy->m.cancelTranslation()
                             m.ttsBusy->m.cancelNarration()
                             m.aiEditBusy->m.cancelAiAutoEdit()
                             m.beatBusy->m.cancelAutoBeats()
@@ -693,6 +697,16 @@ private fun CaptionInspector(m:EditorModel,import:()->Unit){
         }
     }
     if(m.speechStatus.isNotBlank())Text(m.speechStatus,fontSize=11.sp)
+    if(m.lyrics!=null){
+        Text("Tradução por IA",fontWeight=FontWeight.Bold)
+        Text("Traduz o texto e mantém o tempo das legendas na timeline.",fontSize=10.sp,color=Color.Gray)
+        LazyRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+            items(listOf("Português","Inglês","Espanhol","Francês","Alemão")){language->
+                AssistChip(onClick={m.translateCaptions(language)},label={Text(language,fontSize=11.sp)})
+            }
+        }
+        if(m.translationStatus.isNotBlank())Text(m.translationStatus,fontSize=11.sp)
+    }
     Text("Gemini IA: leitura avançada do áudio. Offline: Vosk no aparelho. Word Sync usa os tempos por palavra gerados pelo motor.",fontSize=10.sp,color=Color.Gray)
     val index=m.focusedId.toIntOrNull() ?: m.lyrics?.cues?.indexOf(m.lyrics?.at(m.playhead)) ?: -1
     val cue=m.lyrics?.cues?.getOrNull(index)
