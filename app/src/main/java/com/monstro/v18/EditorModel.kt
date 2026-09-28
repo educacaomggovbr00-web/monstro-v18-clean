@@ -3,6 +3,8 @@ package com.monstro.v18
 import android.app.Application
 import android.content.Intent
 import android.media.MediaMetadataRetriever
+import android.media.MediaRecorder
+import android.os.Build
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.*
@@ -144,6 +146,11 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var speechBusy by mutableStateOf(false); private set
     var ttsBusy by mutableStateOf(false); private set
     var ttsStatus by mutableStateOf(""); private set
+    var voiceoverRecording by mutableStateOf(false); private set
+    var voiceoverStatus by mutableStateOf(""); private set
+    private var voiceoverRecorder:MediaRecorder?=null
+    private var voiceoverFile:File?=null
+    private var voiceoverStart=0L
     var modelReady by mutableStateOf(AutoCaptions(context).ready); private set
     var captionEngine by mutableStateOf(prefs.getString("captionEngine","gemini") ?: "gemini"); private set
     val geminiReady get()=GeminiAudioCaptions(context).configured
@@ -205,6 +212,43 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun addManualCaption(){if(busy || totalDuration<=0)return;pushHistory();val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0));val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1);val cue=SrtCue(start,end,"NOVA LEGENDA");val cues=(lyrics?.cues.orEmpty()+cue).sortedBy {it.startMs};lyrics=SrtTrack(cues);lyricsName="Legendas manuais";persistCues();focus("Legenda",cues.indexOf(cue).toString())}
     fun addFx(preset:FxPreset){val clip=current ?: return;val start=timelineOffset;val end=start+speedMap(clip).outputDuration;if(end<=start)return;val layer=FxLayer(presetId=preset.id,start=start,end=end);if(compatibilityPreview){compatibilityPreview=false;prefs.edit().putBoolean("compatibilityPreview",false).apply()};updateStudio(studio.copy(fx=studio.fx+layer,recent=(listOf(preset.id)+studio.recent).distinct().take(30)),true);focus("FX",layer.id)}
     fun favorite(id:String){updateStudio(studio.copy(favorites=if(id in studio.favorites)studio.favorites-id else studio.favorites+id),false,false)}
+    @Suppress("DEPRECATION")
+    fun startVoiceover(){
+        if(busy || voiceoverRecording || clips.isEmpty())return
+        pauseAll()
+        val dir=File(context.filesDir,"voiceover").apply {mkdirs()}
+        val file=File(dir,"voice-${System.currentTimeMillis()}.m4a")
+        val recorder=if(Build.VERSION.SDK_INT>=31)MediaRecorder(context) else MediaRecorder()
+        try{
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            recorder.setAudioSamplingRate(44100)
+            recorder.setAudioEncodingBitRate(128000)
+            recorder.setOutputFile(file.absolutePath)
+            recorder.prepare();recorder.start()
+            voiceoverRecorder=recorder;voiceoverFile=file;voiceoverStart=playhead.coerceIn(0,totalDuration)
+            voiceoverRecording=true;voiceoverStatus="Gravando dublagem…"
+            player.play()
+        }catch(e:Exception){
+            runCatching {recorder.release()};file.delete()
+            voiceoverStatus="Não foi possível iniciar o microfone: ${e.localizedMessage}"
+        }
+    }
+    fun stopVoiceover(){
+        if(!voiceoverRecording)return
+        val recorder=voiceoverRecorder;val file=voiceoverFile
+        voiceoverRecorder=null;voiceoverFile=null;voiceoverRecording=false;pauseAll()
+        val stopped=runCatching {recorder?.stop();recorder?.release();true}.getOrElse {runCatching {recorder?.release()};false}
+        if(!stopped || file==null || !file.isFile || file.length()==0L){file?.delete();voiceoverStatus="Gravação muito curta ou interrompida.";return}
+        val duration=runCatching {MediaMetadataRetriever().let {r->try{r.setDataSource(file.absolutePath);r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L}finally{r.release()}}}.getOrDefault(0L)
+        if(duration<150){file.delete();voiceoverStatus="Gravação muito curta.";return}
+        val available=(totalDuration-voiceoverStart).coerceAtLeast(1)
+        val trimEnd=minOf(duration,available).coerceAtLeast(1)
+        val layer=AudioLayer(uri=file.toURI().toString(),name="Dublagem",duration=duration,start=voiceoverStart,trimEnd=trimEnd)
+        updateStudio(studio.copy(audio=studio.audio+layer),false)
+        focus("Áudio",layer.id);voiceoverStatus="Dublagem adicionada · ${timeLabel(trimEnd)}"
+    }
     fun importAudio(uri:Uri?){if(uri==null || busy)return;importing=true;viewModelScope.launch {
         val result=withContext(Dispatchers.IO){runCatching {context.contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);val r=MediaMetadataRetriever();val duration=try{r.setDataSource(context,uri);r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()}finally{r.release()};require(duration>0);val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {if(it.moveToFirst())it.getString(0)else null} ?: "Áudio";AudioLayer(uri=uri.toString(),name=name,duration=duration,start=playhead,trimEnd=if(totalDuration>playhead)minOf(duration,totalDuration-playhead)else duration)}}
         importing=false;result.onSuccess {updateStudio(studio.copy(audio=studio.audio+it),false);focus("Áudio",it.id)}.onFailure {message="Não foi possível importar o áudio: ${it.localizedMessage}"}
@@ -667,7 +711,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        speechJob?.cancel();ttsJob?.cancel(); audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
+        speechJob?.cancel();ttsJob?.cancel(); if(voiceoverRecording)runCatching {voiceoverRecorder?.stop()};runCatching {voiceoverRecorder?.release()}; audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
         super.onCleared()
     }
 }
