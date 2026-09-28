@@ -1,5 +1,11 @@
 package com.monstro.v18
 
+import androidx.media3.common.Effect
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.Brightness
+import androidx.media3.effect.Contrast
+import androidx.media3.effect.HslAdjustment
+import androidx.media3.effect.RgbAdjustment
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -61,10 +67,28 @@ data class TextLayer(val id:String=UUID.randomUUID().toString(),val text:String=
 data class AudioLayer(val id:String=UUID.randomUUID().toString(),val uri:String,val name:String,val duration:Long,val start:Long=0,val trimStart:Long=0,val trimEnd:Long=duration,val volume:Float=1f) { val end get()=start+trimEnd-trimStart }
 data class FxLayer(val id:String=UUID.randomUUID().toString(),val presetId:String,val start:Long,val end:Long,val intensity:Float=1f,val speed:Float=1f,val direction:Float=0f,val keys:List<KeyPoint> = emptyList())
 data class ClipMotion(val speed:List<KeyPoint> = emptyList(),val zoom:List<KeyPoint> = emptyList())
+data class ClipAdjust(
+    val brightness:Float=0f,val contrast:Float=0f,val saturation:Float=0f,
+    val hue:Float=0f,val lightness:Float=0f,val temperature:Float=0f
+)
+@UnstableApi
+fun colorAdjustEffects(a:ClipAdjust):List<Effect> = buildList {
+    if(abs(a.brightness)>.001f)add(Brightness(a.brightness.coerceIn(-1f,1f)))
+    if(abs(a.contrast)>.001f)add(Contrast(a.contrast.coerceIn(-1f,1f)))
+    if(abs(a.saturation)>.001f || abs(a.hue)>.001f || abs(a.lightness)>.001f)
+        add(HslAdjustment.Builder().adjustSaturation(a.saturation.coerceIn(-100f,100f))
+            .adjustHue(a.hue.coerceIn(-180f,180f)).adjustLightness(a.lightness.coerceIn(-100f,100f)).build())
+    if(abs(a.temperature)>.001f){
+        val t=a.temperature.coerceIn(-1f,1f)
+        add(RgbAdjustment.Builder().setRedScale((1f+t*.18f).coerceAtLeast(.1f))
+            .setGreenScale(1f).setBlueScale((1f-t*.18f).coerceAtLeast(.1f)).build())
+    }
+}
 data class StudioProject(
     val texts:List<TextLayer> = emptyList(),val audio:List<AudioLayer> = emptyList(),val fx:List<FxLayer> = emptyList(),
     val motions:Map<String,ClipMotion> = emptyMap(), val captionStyle:TextStyle=TextStyle(),
-    val captionStyles:Map<Int,TextStyle> = emptyMap(),val favorites:Set<String> = emptySet(),val recent:List<String> = emptyList()
+    val captionStyles:Map<Int,TextStyle> = emptyMap(),val favorites:Set<String> = emptySet(),val recent:List<String> = emptyList(),
+    val adjustments:Map<String,ClipAdjust> = emptyMap()
 )
 
 private fun keysJson(keys:List<KeyPoint>)=JSONArray().also { a->keys.forEach { a.put(JSONArray().put(it.time).put(it.value.toDouble())) } }
@@ -80,15 +104,17 @@ object StudioCodec {
         put("motions",JSONObject().also { o->p.motions.forEach { (id,m)->o.put(id,JSONObject().put("speed",keysJson(m.speed)).put("zoom",keysJson(m.zoom))) } })
         put("caption",p.captionStyle.json()); put("styles",JSONObject().also { o->p.captionStyles.forEach { (i,s)->o.put(i.toString(),s.json()) } })
         put("favorites",JSONArray(p.favorites.toList())); put("recent",JSONArray(p.recent))
+        put("adjustments",JSONObject().also { o->p.adjustments.forEach { (id,a)->o.put(id,JSONObject().put("brightness",a.brightness.toDouble()).put("contrast",a.contrast.toDouble()).put("saturation",a.saturation.toDouble()).put("hue",a.hue.toDouble()).put("lightness",a.lightness.toDouble()).put("temperature",a.temperature.toDouble())) } })
     }.toString()
     fun decode(source:String):StudioProject {
-        val o=JSONObject(source);val motions=mutableMapOf<String,ClipMotion>(); val styles=mutableMapOf<Int,TextStyle>()
+        val o=JSONObject(source);val motions=mutableMapOf<String,ClipMotion>(); val styles=mutableMapOf<Int,TextStyle>();val adjustments=mutableMapOf<String,ClipAdjust>()
+        o.optJSONObject("adjustments")?.let { m->m.keys().forEach { id->val a=m.getJSONObject(id);adjustments[id]=ClipAdjust(a.optDouble("brightness",0.0).toFloat(),a.optDouble("contrast",0.0).toFloat(),a.optDouble("saturation",0.0).toFloat(),a.optDouble("hue",0.0).toFloat(),a.optDouble("lightness",0.0).toFloat(),a.optDouble("temperature",0.0).toFloat()) } }
         o.optJSONObject("motions")?.let { m->m.keys().forEach { id-> val j=m.getJSONObject(id); motions[id]=ClipMotion(readKeys(j.optJSONArray("speed")),readKeys(j.optJSONArray("zoom"))) } }
         o.optJSONObject("styles")?.let { m->m.keys().forEach { id->id.toIntOrNull()?.let { styles[it]=style(m.getJSONObject(id)) } } }
         fun strings(name:String)=o.optJSONArray(name)?.let { a->(0 until a.length()).map { a.getString(it) } } ?: emptyList()
         return StudioProject(o.optJSONArray("texts").objects { TextLayer(it.getString("id"),it.getString("text"),it.getLong("start"),it.getLong("end"),style(it.optJSONObject("style"))) },
             o.optJSONArray("audio").objects { AudioLayer(it.getString("id"),it.getString("uri"),it.getString("name"),it.getLong("duration"),it.getLong("start"),it.getLong("in"),it.getLong("out"),it.getDouble("volume").toFloat()) },
-            o.optJSONArray("fx").objects { FxLayer(it.getString("id"),it.getString("preset"),it.getLong("start"),it.getLong("end"),it.getDouble("intensity").toFloat(),it.getDouble("speed").toFloat(),it.getDouble("direction").toFloat(),readKeys(it.optJSONArray("keys"))) },motions,style(o.optJSONObject("caption")),styles,strings("favorites").toSet(),strings("recent"))
+            o.optJSONArray("fx").objects { FxLayer(it.getString("id"),it.getString("preset"),it.getLong("start"),it.getLong("end"),it.getDouble("intensity").toFloat(),it.getDouble("speed").toFloat(),it.getDouble("direction").toFloat(),readKeys(it.optJSONArray("keys"))) },motions,style(o.optJSONObject("caption")),styles,strings("favorites").toSet(),strings("recent"),adjustments)
     }
 }
 
