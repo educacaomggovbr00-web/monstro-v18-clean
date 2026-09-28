@@ -20,12 +20,33 @@ import kotlin.math.*
 
 class StudioPainter {
     private val paint=TextPaint(Paint.ANTI_ALIAS_FLAG)
+    private val imagePaint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val imageCache=linkedMapOf<String,Bitmap>()
     fun draw(canvas:Canvas,w:Int,h:Int,project:StudioProject,track:SrtTrack?,time:Long,simple:Boolean) {
+        project.images.filter {time in it.start until it.end}.forEach {drawImage(canvas,w,h,it,time-it.start)}
         project.texts.filter { time in it.start until it.end }.forEach { drawText(canvas,w,h,it.text,it.style,time-it.start,simple) }
         val cue=track?.at(time) ?: return
         val i=track.cues.indexOf(cue);val style=project.captionStyles[i] ?: project.captionStyle
         drawCaption(canvas,w,h,cue,style,time,simple)
     }
+    private fun drawImage(c:Canvas,w:Int,h:Int,layer:ImageLayer,time:Long){
+        val bitmap=imageCache[layer.path] ?: BitmapFactory.decodeFile(layer.path)?.also {b->
+            imageCache[layer.path]=b
+            while(imageCache.size>8){val key=imageCache.keys.first();imageCache.remove(key)?.recycle()}
+        } ?: return
+        val x=animated(layer.xKeys,time,layer.x).coerceIn(-1f,2f)*w
+        val y=animated(layer.yKeys,time,layer.y).coerceIn(-1f,2f)*h
+        val scale=animated(layer.scaleKeys,time,layer.scale).coerceIn(.03f,2f)
+        val rotation=animated(layer.rotationKeys,time,layer.rotation)
+        val opacity=animated(layer.opacityKeys,time,layer.opacity).coerceIn(0f,1f)
+        val dw=w*scale
+        val dh=dw*bitmap.height.toFloat()/bitmap.width.coerceAtLeast(1)
+        imagePaint.alpha=(opacity*255).toInt()
+        c.save();c.translate(x,y);c.rotate(rotation)
+        c.drawBitmap(bitmap,null,RectF(-dw/2,-dh/2,dw/2,dh/2),imagePaint)
+        c.restore()
+    }
+    fun release(){imageCache.values.forEach {if(!it.isRecycled)it.recycle()};imageCache.clear()}
     private fun drawCaption(c:Canvas,w:Int,h:Int,cue:SrtCue,s:TextStyle,time:Long,simple:Boolean) {
         val word=cue.wordAt(time)
         val styled=SpannableString(cue.text)
@@ -93,13 +114,16 @@ class StudioPreview(context:Context):View(context) {
         if(event.action!=MotionEvent.ACTION_UP)return true
         val m=model ?: return false
         val cue=m.lyrics?.at(m.playhead)
+        val image=m.studio.images.lastOrNull {layer->m.playhead in layer.start until layer.end && abs(event.x/width-animated(layer.xKeys,m.playhead-layer.start,layer.x))<animated(layer.scaleKeys,m.playhead-layer.start,layer.scale)/2f && abs(event.y/height-animated(layer.yKeys,m.playhead-layer.start,layer.y))<animated(layer.scaleKeys,m.playhead-layer.start,layer.scale)/2f}
         val text=m.studio.texts.lastOrNull { m.playhead in it.start until it.end && abs(event.y/height-it.style.y)<.18f }
-        if(text!=null)m.focus("Texto",text.id)
+        if(image!=null)m.focus("Camada",image.id)
+        else if(text!=null)m.focus("Texto",text.id)
         else if(cue!=null)m.focus("Legenda",m.lyrics!!.cues.indexOf(cue).toString())
         else m.focus("Vídeo")
         performClick();return true
     }
     override fun performClick():Boolean {super.performClick();return true}
+    override fun onDetachedFromWindow(){painter.release();super.onDetachedFromWindow()}
 }
 @UnstableApi
 class StudioOverlay(private val project:StudioProject,private val track:SrtTrack?,private val simple:Boolean,private val clock:FrameClock):TextureOverlay() {
@@ -113,5 +137,5 @@ class StudioOverlay(private val project:StudioProject,private val track:SrtTrack
     }
     override fun getTextureSize(presentationTimeUs:Long)=Size(bitmap!!.width,bitmap!!.height)
     override fun getOverlaySettings(presentationTimeUs:Long)=OverlaySettings.Builder().setScale(size.width.toFloat()/bitmap!!.width,size.height.toFloat()/bitmap!!.height).build()
-    override fun release(){if(texture!=0){GlUtil.deleteTexture(texture);texture=0};bitmap?.recycle();bitmap=null}
+    override fun release(){if(texture!=0){GlUtil.deleteTexture(texture);texture=0};bitmap?.recycle();bitmap=null;painter.release()}
 }
