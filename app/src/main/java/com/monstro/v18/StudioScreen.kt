@@ -115,6 +115,8 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     )
 
     val clipTools=listOf(
+        StudioTool(if(m.mute)"🔇" else "🔊","Silenciar áudio"){m.toggleMute()},
+        StudioTool("✂","Cortador de IA"){aiDialog=true},
         StudioTool("✂","Dividir"){m.split()},
         StudioTool("◖","Volume"){openPanel("Vídeo")},
         StudioTool("▣","Animações"){openPanel("Vídeo")},
@@ -156,8 +158,10 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
 
     val fxTools=listOf(
         StudioTool("✦","Efeitos de vídeo"){library=true},
-        StudioTool("◉","1000 FX"){library=true},
-        StudioTool("◇","FX inteligente"){aiDialog=true}
+        StudioTool("◉","Efeitos corpo"){library=true},
+        StudioTool("▣","Efeitos de foto"){library=true},
+        StudioTool("◇","Efeitos de IA"){aiDialog=true},
+        StudioTool("1000","Biblioteca FX"){library=true}
     )
 
     val layerTools=listOf(
