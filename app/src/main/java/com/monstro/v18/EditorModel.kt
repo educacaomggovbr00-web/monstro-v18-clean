@@ -108,6 +108,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var playhead by mutableStateOf(0L); private set
     @Volatile private var shaderPlayhead=0L
     var speechStatus by mutableStateOf(""); private set
+    var speechProgress by mutableStateOf<Int?>(null); private set
     var speechBusy by mutableStateOf(false); private set
     var modelReady by mutableStateOf(AutoCaptions(context).ready); private set
     private var speechJob:Job?=null
@@ -165,15 +166,15 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     private fun recognizeCaptions(inputs:List<VideoClip>,project:StudioProject,offset:Long) {
         if(busy || inputs.isEmpty())return
         if(!modelReady){message="Na aba Legenda, toque em Baixar português (31 MB) primeiro.";return}
-        pauseAll();speechBusy=true;speechStatus="Reconhecendo fala…"
+        pauseAll();speechBusy=true;speechProgress=0;speechStatus="Preparando áudio…"
         speechJob=viewModelScope.launch {
             try {
-                val result=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechStatus="Reconhecendo fala: $percent%"}}}
+                val result=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechProgress=percent.coerceIn(0,100);speechStatus="Reconhecendo fala: ${percent.coerceIn(0,100)}%"}}}
                 val track=if(offset==0L)result else SrtTrack(result.cues.map {cue->cue.copy(startMs=cue.startMs+offset,endMs=cue.endMs+offset,wordTimes=cue.wordTimes.map {WordTime(it.start+offset,it.end+offset)})})
                 lyrics=track;studio=studio.copy(captionStyles=emptyMap());prefs.edit().putString("studio",StudioCodec.encode(studio)).apply()
                 lyricsName="Legendas automáticas · português";persistCues();speechStatus="${track.cues.size} frases. Toque nas legendas para revisar.";focus("Legenda")
             } catch(e:Exception) {speechStatus=if(e is kotlinx.coroutines.CancellationException)"Reconhecimento cancelado" else "Não foi possível legendar: ${e.localizedMessage}"}
-            finally {speechBusy=false}
+            finally {speechBusy=false;speechProgress=null}
         }
     }
     fun cancelSpeech(){speechJob?.cancel()}
