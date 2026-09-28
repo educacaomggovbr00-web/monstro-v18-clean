@@ -274,10 +274,11 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
     fun cancelSpeech(){speechJob?.cancel()}
     private fun studioPreviewEffects(clip:VideoClip):List<Effect>{
-        val clock=FrameClock(preview={shaderPlayhead});val zoom=studio.motions[clip.id]?.zoom ?: emptyList()
+        val clock=FrameClock(preview={shaderPlayhead});val motion=studio.motions[clip.id] ?: ClipMotion();val zoom=motion.zoom
         val base=clip.copy(chaos=clip.chaos.copy(enabled=clip.chaos.enabled-ChaosFx.MOTION_BLUR.id,zoom=if(zoom.isEmpty())clip.chaos.zoom else 1f))
         val adjust=studio.adjustments[clip.id] ?: ClipAdjust()
-        return listOf(Presentation.createForHeight(480))+colorAdjustEffects(adjust)+previewEffects(base)+(if(zoom.isEmpty())emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset)))+
+        val hasTransform=zoom.isNotEmpty() || motion.rotation.isNotEmpty() || motion.x.isNotEmpty() || motion.y.isNotEmpty()
+        return listOf(Presentation.createForHeight(480))+colorAdjustEffects(adjust)+previewEffects(base)+(if(!hasTransform)emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset,motion.rotation,motion.x,motion.y)))+
             studio.fx.filter {it.end>timelineOffset && it.start<timelineOffset+speedMap(clip).outputDuration}.map {StudioEffect(it,emptyList(),clock)}+
             (if(clip.chaos.has(ChaosFx.MOTION_BLUR))listOf(ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id))))else emptyList())+
             AspectBackgroundEffect(ExportFormat(canvasRatio,true,canvasBackground))
@@ -462,8 +463,8 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         val motion=studio.motions[clip.id]
         var nextStudio=studio
         if(motion!=null){val sourceCut=player.currentPosition;val outputCut=speedMap(clip).toOutput(sourceCut)
-            val left=ClipMotion(splitCurve(motion.speed,sourceCut,false),splitCurve(motion.zoom,outputCut,false))
-            val right=ClipMotion(splitCurve(motion.speed,sourceCut,true),splitCurve(motion.zoom,outputCut,true))
+            val left=ClipMotion(splitCurve(motion.speed,sourceCut,false),splitCurve(motion.zoom,outputCut,false),splitCurve(motion.rotation,outputCut,false),splitCurve(motion.x,outputCut,false),splitCurve(motion.y,outputCut,false))
+            val right=ClipMotion(splitCurve(motion.speed,sourceCut,true),splitCurve(motion.zoom,outputCut,true),splitCurve(motion.rotation,outputCut,true),splitCurve(motion.x,outputCut,true),splitCurve(motion.y,outputCut,true))
             nextStudio=nextStudio.copy(motions=nextStudio.motions+(clip.id to left)+(rightId to right))
         }
         studio.adjustments[clip.id]?.let {nextStudio=nextStudio.copy(adjustments=nextStudio.adjustments+(rightId to it))}
