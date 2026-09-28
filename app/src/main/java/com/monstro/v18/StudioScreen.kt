@@ -105,12 +105,12 @@ fun StudioScreen(m:EditorModel){
     }
     if(library)FxLibrary(m){library=false}
     if(exportDialog)AlertDialog(onDismissRequest={exportDialog=false},title={Text("Exportar edit")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("Proporção",fontWeight=FontWeight.Bold);Choices(listOf("9:16","16:9","1:1","4:5"),m.canvasRatio,m::setCanvasRatio)
-        Text("Fundo",fontWeight=FontWeight.Bold);Choices(listOf("Desfoque","Cor sólida","Padrão"),when(m.canvasBackground){"solid"->"Cor sólida";"pattern"->"Padrão";else->"Desfoque"}){m.setCanvasBackground(when(it){"Cor sólida"->"solid";"Padrão"->"pattern";else->"blur"})}
+        Text("Proporção",fontWeight=FontWeight.Bold);Choices(listOf("9:16","16:9","1:1","4:5"),m.canvasRatio,m::selectCanvasRatio)
+        Text("Fundo",fontWeight=FontWeight.Bold);Choices(listOf("Desfoque","Cor sólida","Padrão"),when(m.canvasBackground){"solid"->"Cor sólida";"pattern"->"Padrão";else->"Desfoque"}){m.selectCanvasBackground(when(it){"Cor sólida"->"solid";"Padrão"->"pattern";else->"blur"})}
         Text("Resolução",fontWeight=FontWeight.Bold)
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=m.safeMode,onClick={if(!m.safeMode)m::toggleSafeMode else ({})},label={Text("540p · leve")});FilterChip(selected=!m.safeMode,onClick={if(m.safeMode)m::toggleSafeMode else ({})},label={Text("1080p · 30fps")})}
-        Text("Bitrate",fontWeight=FontWeight.Bold);Choices(listOf("Baixo","Recomendado","Alto"),when(m.bitrateMode){"low"->"Baixo";"high"->"Alto";else->"Recomendado"}){m.setBitrateMode(when(it){"Baixo"->"low";"Alto"->"high";else->"recommended"})}
-        Text("Codec",fontWeight=FontWeight.Bold);Choices(if(m.hevcSupported)listOf("H.264","HEVC") else listOf("H.264"),if(m.exportCodec=="HEVC")"HEVC" else "H.264"){m.setExportCodec(if(it=="HEVC")"HEVC" else "H264")}
+        Text("Bitrate",fontWeight=FontWeight.Bold);Choices(listOf("Baixo","Recomendado","Alto"),when(m.bitrateMode){"low"->"Baixo";"high"->"Alto";else->"Recomendado"}){m.selectBitrateMode(when(it){"Baixo"->"low";"Alto"->"high";else->"recommended"})}
+        Text("Codec",fontWeight=FontWeight.Bold);Choices(if(m.hevcSupported)listOf("H.264","HEVC") else listOf("H.264"),if(m.exportCodec=="HEVC")"HEVC" else "H.264"){m.selectExportCodec(if(it=="HEVC")"HEVC" else "H264")}
         Text("${m.exportFormat.width} × ${m.exportFormat.height} · 30 fps · ${String.format(java.util.Locale.US,"%.1f",m.exportFormat.bitrate/1_000_000f)} Mbps",fontSize=11.sp,color=Color.Gray)
     }},confirmButton={Button(onClick={exportDialog=false;m.export()}){Text("Gerar MP4")}},dismissButton={TextButton(onClick={exportDialog=false}){Text("Voltar")}})
     if(fullscreen && m.current!=null)Dialog(onDismissRequest={fullscreen=false},properties=DialogProperties(usePlatformDefaultWidth=false)){
@@ -223,9 +223,9 @@ private fun FilterInspector(m:EditorModel){
 @UnstableApi @Composable
 private fun RatioInspector(m:EditorModel){
     Text("Canvas e proporção",fontWeight=FontWeight.Bold)
-    Choices(listOf("9:16","16:9","1:1","4:5"),m.canvasRatio,m::setCanvasRatio)
+    Choices(listOf("9:16","16:9","1:1","4:5"),m.canvasRatio,m::selectCanvasRatio)
     Text("Fundo",fontWeight=FontWeight.Bold)
-    Choices(listOf("Desfoque","Cor sólida","Padrão"),when(m.canvasBackground){"solid"->"Cor sólida";"pattern"->"Padrão";else->"Desfoque"}){m.setCanvasBackground(when(it){"Cor sólida"->"solid";"Padrão"->"pattern";else->"blur"})}
+    Choices(listOf("Desfoque","Cor sólida","Padrão"),when(m.canvasBackground){"solid"->"Cor sólida";"pattern"->"Padrão";else->"Desfoque"}){m.selectCanvasBackground(when(it){"Cor sólida"->"solid";"Padrão"->"pattern";else->"blur"})}
     Text("Saída atual: ${m.exportFormat.width} × ${m.exportFormat.height}",fontSize=11.sp,color=Color.Gray)
 }
 
