@@ -42,7 +42,7 @@ class GeminiAudioCaptions(private val context: Context) {
         }
 
         val model = Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel(
-            modelName = "gemini-3.5-flash-lite",
+            modelName = GeminiSupport.GENERAL_MODEL,
             generationConfig = generationConfig {
                 responseMimeType = "application/json"
                 maxOutputTokens = 8192
