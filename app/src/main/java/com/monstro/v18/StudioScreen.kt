@@ -29,130 +29,375 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import kotlinx.coroutines.delay
 
+private data class StudioTool(val glyph:String,val label:String,val action:()->Unit)
+
+@Composable
+private fun ToolCell(tool:StudioTool,wide:Boolean=false){
+    Column(
+        Modifier.width(if(wide)92.dp else 76.dp).height(76.dp).clickable(onClick=tool.action).padding(horizontal=4.dp,vertical=7.dp),
+        horizontalAlignment=Alignment.CenterHorizontally,
+        verticalArrangement=Arrangement.spacedBy(5.dp)
+    ){
+        Text(tool.glyph,fontSize=25.sp,color=Color(0xffe4e4e4))
+        Text(tool.label,fontSize=10.sp,color=Color(0xffe8e8e8),maxLines=2)
+    }
+}
+
+@Composable
+private fun ToolStrip(tools:List<StudioTool>,back:(()->Unit)?=null){
+    Surface(color=Color(0xff242424),modifier=Modifier.fillMaxWidth().height(86.dp)){
+        Row(verticalAlignment=Alignment.CenterVertically){
+            if(back!=null){
+                Box(
+                    Modifier.padding(start=9.dp,end=6.dp).size(width=48.dp,height=68.dp)
+                        .background(Color(0xff3b3b3b),RoundedCornerShape(5.dp)).clickable(onClick=back),
+                    contentAlignment=Alignment.Center
+                ){Text("‹",fontSize=36.sp,color=Color.LightGray)}
+            }
+            LazyRow(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically){
+                items(tools){tool->ToolCell(tool)}
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
 fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     val videos=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(),m::importVideos)
     val audio=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importAudio)
     val image=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importImage)
-    val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)m.startVoiceover()else m.showMessage("Permita acesso ao microfone para gravar dublagem.")}
+    val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
+        if(granted)m.startVoiceover() else m.showMessage("Permita acesso ao microfone para gravar dublagem.")
+    }
     val srt=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importLyrics)
     val save=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"),m::saveOutput)
-    var library by remember {mutableStateOf(false)};var exportDialog by remember {mutableStateOf(false)};var mediaDialog by remember {mutableStateOf(false)};var aiDialog by remember {mutableStateOf(false)};var accountDialog by remember {mutableStateOf(false)};var fullscreen by remember {mutableStateOf(false)}
+
+    var library by remember {mutableStateOf(false)}
+    var exportDialog by remember {mutableStateOf(false)}
+    var mediaDialog by remember {mutableStateOf(false)}
+    var aiDialog by remember {mutableStateOf(false)}
+    var fullscreen by remember {mutableStateOf(false)}
+    var menuMode by remember {mutableStateOf("main")}
+    var panel by remember {mutableStateOf<String?>(null)}
+
     val owner=LocalLifecycleOwner.current
-    DisposableEffect(owner,m){val listener=LifecycleEventObserver {_,event->if(event==Lifecycle.Event.ON_STOP)m.pauseAll()};owner.lifecycle.addObserver(listener);onDispose{owner.lifecycle.removeObserver(listener)}}
-    LaunchedEffect(m){while(true){m.tick();delay(if(m.player.isPlaying || m.busy)33 else 120)}}
-    Column(Modifier.fillMaxSize().background(Color(0xff09090f)).systemBarsPadding()){
-        Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal=10.dp),verticalAlignment=Alignment.CenterVertically){
-            if(onBack!=null)TextButton(onClick={m.pauseAll();onBack()},contentPadding=PaddingValues(horizontal=3.dp)){Text("‹",fontSize=28.sp)}
-            Column(Modifier.weight(1f)){Text("MONSTRO",fontWeight=FontWeight.Black,letterSpacing=2.sp,fontSize=17.sp);Text("V18  /  STUDIO",color=MaterialTheme.colorScheme.primary,fontSize=8.sp,letterSpacing=2.sp)}
-            TextButton(onClick={accountDialog=true},contentPadding=PaddingValues(horizontal=8.dp)){Text("Conta",fontSize=11.sp)}
-            Button(onClick={exportDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy,contentPadding=PaddingValues(horizontal=11.dp)){Text("Exportar")}
-        }
-        LazyRow(Modifier.fillMaxWidth().height(38.dp).background(Color(0xff111119)),horizontalArrangement=Arrangement.spacedBy(2.dp),verticalAlignment=Alignment.CenterVertically){
-            item{TextButton(onClick={mediaDialog=true},enabled=!m.busy){Text("+ Mídia",fontSize=11.sp)}}
-            item{TextButton(onClick={aiDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy){Text("✦ IA Auto Edit",fontSize=11.sp,fontWeight=FontWeight.Bold)}}
-            item{TextButton(onClick={exportDialog=true},enabled=!m.busy){Text("${m.exportFormat.resolutionLabel} · ${m.exportFps} fps",fontSize=10.sp)}}
-            item{Text("${m.canvasRatio} · ${m.studio.fx.size} FX",fontSize=10.sp,color=Color.Gray,modifier=Modifier.padding(horizontal=8.dp))}
-        }
-        Box(Modifier.fillMaxWidth().heightIn(min=140.dp,max=320.dp).weight(1.65f).clipToBounds().background(Color.Black),contentAlignment=Alignment.Center){
-            if(m.current==null)Column(horizontalAlignment=Alignment.CenterHorizontally){Text("Seu próximo edit começa aqui",fontWeight=FontWeight.Bold);TextButton(onClick={videos.launch(arrayOf("video/*"))}){Text("+ Importar vídeos")}}
-            else if(fullscreen)Box(Modifier.fillMaxHeight().aspectRatio(m.exportFormat.aspect),contentAlignment=Alignment.Center){Text("PRÉVIA EM TELA CHEIA",color=Color.DarkGray,fontSize=10.sp)}
-            else Box(Modifier.fillMaxHeight().aspectRatio(m.exportFormat.aspect)){
-                key(m.player,fullscreen){AndroidView(factory={EditorPlayerView(it).apply {useController=false;resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT}},update={it.bind(m.player,!m.compatibilityPreview)},modifier=Modifier.fillMaxSize())}
-                AndroidView(factory={StudioPreview(it)},update={it.model=m;it.invalidate()},modifier=Modifier.fillMaxSize())
-            }
-        }
-        Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){
-            Text(timeLabel(m.playhead),color=Color.White,fontSize=11.sp);Text(" / ${timeLabel(m.totalDuration)}",color=Color.Gray,fontSize=10.sp,modifier=Modifier.weight(1f))
-            TextButton(onClick=m::undo,enabled=m.canUndo&&!m.busy,contentPadding=PaddingValues(5.dp)){Text("↶",fontSize=20.sp)}
-            TextButton(onClick=m::redo,enabled=m.canRedo&&!m.busy,contentPadding=PaddingValues(5.dp)){Text("↷",fontSize=20.sp)}
-            TextButton(onClick=m::addTimelineMarker,enabled=m.current!=null&&!m.busy,contentPadding=PaddingValues(5.dp)){Text("◆+",fontSize=13.sp)}
-            TextButton(onClick={m.seekTimeline(m.playhead-100)},enabled=!m.busy,contentPadding=PaddingValues(5.dp)){Text("−.1")}
-            TextButton(onClick={if(m.player.isPlaying)m.pauseAll()else {if(m.player.playbackState==androidx.media3.common.Player.STATE_ENDED)m.seekTimeline(0);m.player.play()}},enabled=m.current!=null&&!m.busy,contentPadding=PaddingValues(5.dp)){Text(if(m.player.isPlaying)"Ⅱ" else "▶",fontSize=20.sp)}
-            TextButton(onClick={m.seekTimeline(m.playhead+100)},enabled=!m.busy,contentPadding=PaddingValues(5.dp)){Text("+.1")}
-            TextButton(onClick={m.pauseAll();fullscreen=true},enabled=m.current!=null&&!m.busy,contentPadding=PaddingValues(5.dp)){Text("⛶",fontSize=18.sp)}
-        }
-        AndroidView(factory={StudioTimeline(it)},update={it.model=m;it.invalidate()},modifier=Modifier.fillMaxWidth().height(224.dp))
-        Text("Arraste a régua para buscar · dois dedos para ampliar",color=Color.Gray,fontSize=9.sp,modifier=Modifier.padding(horizontal=10.dp,vertical=2.dp))
-        LazyRow(Modifier.fillMaxWidth().background(Color(0xff18151f)),horizontalArrangement=Arrangement.spacedBy(1.dp)){
-            val tabs=listOf("✂ Editar" to "Vídeo","♪ Áudio" to "Áudio","T Texto" to "Texto","CC Legendas" to "Legenda","✦ Efeitos" to "FX","▱ Camada" to "Camada","◐ Filtros" to "Filtros","▣ Proporção" to "Proporção","☼ Ajustes" to "Ajustes")
-            items(tabs){(label,kind)->TextButton(onClick={m.focus(kind)},enabled=!m.busy,contentPadding=PaddingValues(horizontal=9.dp,vertical=6.dp)){Text(label,color=if(m.inspector==kind)MaterialTheme.colorScheme.primary else Color.LightGray,fontWeight=FontWeight.Bold,fontSize=11.sp)}}
-        }
-        Column(Modifier.fillMaxWidth().weight(1.35f).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-            if(m.busy){
-                if(m.speechBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
-                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                        Text("Analisando áudio",fontWeight=FontWeight.Bold,fontSize=18.sp)
-                        Text("Reconhecendo a fala e sincronizando as palavras com o vídeo.",color=Color.LightGray,fontSize=12.sp)
-                        m.speechProgress?.let {p->
-                            LinearProgressIndicator(progress=p/100f,modifier=Modifier.fillMaxWidth())
-                            Text("$p%",color=MaterialTheme.colorScheme.primary,fontWeight=FontWeight.Bold)
-                        } ?: LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
-                        Text(m.speechStatus,color=Color.Gray,fontSize=11.sp)
-                        TextButton(onClick=m::cancelSpeech){Text("Cancelar")}
-                    }
-                } else if(m.ttsBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
-                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                        Text("Criando narração IA",fontWeight=FontWeight.Bold,fontSize=18.sp)
-                        Text("Gemini está sintetizando a voz em português do Brasil.",color=Color.LightGray,fontSize=12.sp)
-                        LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
-                        Text(m.ttsStatus,color=Color.Gray,fontSize=11.sp)
-                        TextButton(onClick=m::cancelNarration){Text("Cancelar")}
-                    }
-                } else if(m.aiEditBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
-                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                        Text("IA Auto Edit",fontWeight=FontWeight.Bold,fontSize=18.sp)
-                        Text("Entendendo cenas, fala, ritmo e escolhendo os efeitos do Monstro.",color=Color.LightGray,fontSize=12.sp)
-                        LinearProgressIndicator(progress=m.aiEditProgress/100f,modifier=Modifier.fillMaxWidth())
-                        Text("${m.aiEditProgress}% · ${m.aiEditStatus}",color=Color.Gray,fontSize=11.sp)
-                        TextButton(onClick=m::cancelAiAutoEdit){Text("Cancelar")}
-                    }
-                } else if(m.beatBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
-                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                        Text("Auto-Beats",fontWeight=FontWeight.Bold,fontSize=18.sp)
-                        Text("Detectando picos e criando marcadores magnéticos.",color=Color.LightGray,fontSize=12.sp)
-                        LinearProgressIndicator(progress=m.beatProgress/100f,modifier=Modifier.fillMaxWidth())
-                        Text(m.beatStatus,color=Color.Gray,fontSize=11.sp)
-                        TextButton(onClick=m::cancelAutoBeats){Text("Cancelar")}
-                    }
-                } else {
-                    LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
-                    Text(if(m.exporting)"Renderizando ${m.progress?.let {"$it%"} ?: "…"}" else "Preparando…")
-                    TextButton(onClick=m::cancelExport){Text("Cancelar")}
-                }
-            }
-            else when(m.inspector){
-                "Vídeo"->VideoInspector(m){videos.launch(arrayOf("video/*"))}
-                "Áudio"->AudioInspector(m,{audio.launch(arrayOf("audio/*"))},{mic.launch(android.Manifest.permission.RECORD_AUDIO)})
-                "Texto"->TextInspector(m)
-                "Legenda"->CaptionInspector(m){srt.launch(arrayOf("*/*"))}
-                "FX"->FxInspector(m){library=true}
-                "Camada"->LayerInspector(m,{videos.launch(arrayOf("video/*"))},{image.launch(arrayOf("image/*"))},{audio.launch(arrayOf("audio/*"))})
-                "Filtros"->FilterInspector(m)
-                "Proporção"->RatioInspector(m)
-                "Ajustes"->AdjustInspector(m)
-            }
-            if(m.output!=null)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={save.launch("MONSTRO_Studio.mp4")},enabled=!m.busy,modifier=Modifier.weight(1f)){Text("Salvar MP4")};Button(onClick=m::shareOutput,enabled=!m.busy,modifier=Modifier.weight(1f)){Text("Compartilhar")}}
+    DisposableEffect(owner,m){
+        val listener=LifecycleEventObserver {_,event->if(event==Lifecycle.Event.ON_STOP)m.pauseAll()}
+        owner.lifecycle.addObserver(listener)
+        onDispose{owner.lifecycle.removeObserver(listener)}
+    }
+    LaunchedEffect(m){
+        while(true){
+            m.tick()
+            delay(if(m.player.isPlaying || m.busy)33 else 120)
         }
     }
+
+    fun openPanel(kind:String){
+        m.focus(kind)
+        panel=kind
+    }
+
+    val mainTools=listOf(
+        StudioTool("✂","Editar"){m.focus("Vídeo");menuMode="clip"},
+        StudioTool("♪","Áudio"){m.focus("Áudio");menuMode="audio"},
+        StudioTool("T","Texto"){m.focus("Texto");menuMode="text"},
+        StudioTool("✦","Efeitos"){m.focus("FX");menuMode="fx"},
+        StudioTool("▣","Camada"){m.focus("Camada");menuMode="layer"},
+        StudioTool("CC","Legendas"){m.focus("Legenda");menuMode="caption"},
+        StudioTool("◌","Filtros"){openPanel("Filtros")},
+        StudioTool("☷","Ajustar"){openPanel("Ajustes")},
+        StudioTool("◒","Stickers"){image.launch(arrayOf("image/*"))},
+        StudioTool("✧","Gerar mídia"){aiDialog=true},
+        StudioTool("▭","Proporção"){openPanel("Proporção")}
+    )
+
+    val clipTools=listOf(
+        StudioTool("✂","Dividir"){m.split()},
+        StudioTool("◖","Volume"){openPanel("Vídeo")},
+        StudioTool("▣","Animações"){openPanel("Vídeo")},
+        StudioTool("✦","Efeitos"){library=true},
+        StudioTool("⌫","Excluir"){m.remove();menuMode="main"},
+        StudioTool("◴","Velocidade"){openPanel("Vídeo")},
+        StudioTool("♪","Extrair áudio"){m.extractCurrentAudio()},
+        StudioTool("⇆","Espelhar"){m.toggleMirror()},
+        StudioTool("◇","Transformar"){openPanel("Vídeo")},
+        StudioTool("◆+","Keyframe"){m.addTimelineMarker()},
+        StudioTool("◩","Filtros"){openPanel("Filtros")},
+        StudioTool("☷","Ajustar"){openPanel("Ajustes")}
+    )
+
+    val audioTools=listOf(
+        StudioTool("+","Importar"){audio.launch(arrayOf("audio/*"))},
+        StudioTool("●","Gravar"){mic.launch(android.Manifest.permission.RECORD_AUDIO)},
+        StudioTool("♬","Auto-Beats"){m.studio.audio.firstOrNull()?.let {m.autoBeatsAudio(it.id)} ?: m.showMessage("Importe ou selecione um áudio primeiro.")},
+        StudioTool("CC","Legendar"){m.studio.audio.firstOrNull()?.let {m.autoCaptionAudio(it.id)} ?: m.showMessage("Importe ou selecione um áudio primeiro.")},
+        StudioTool("◖","Volume / voz"){openPanel("Áudio")},
+        StudioTool("T♪","Texto em áudio"){m.focus("Texto");panel="Texto"}
+    )
+
+    val textTools=listOf(
+        StudioTool("A+","Adicionar texto"){m.addText();panel="Texto"},
+        StudioTool("CC","Legendas autom."){m.autoCaption()},
+        StudioTool("◒","Stickers"){image.launch(arrayOf("image/*"))},
+        StudioTool("✎","Editar texto"){openPanel("Texto")},
+        StudioTool("T♪","Texto em áudio"){openPanel("Texto")}
+    )
+
+    val captionTools=listOf(
+        StudioTool("CC+","Inserir legendas"){m.addManualCaption();panel="Legenda"},
+        StudioTool("⌗","Legendas autom."){m.autoCaption()},
+        StudioTool("CC","Modelos"){openPanel("Legenda")},
+        StudioTool("♪CC","Letras autom."){m.autoCaption()},
+        StudioTool("▱","Importar"){srt.launch(arrayOf("*/*"))}
+    )
+
+    val fxTools=listOf(
+        StudioTool("✦","Efeitos de vídeo"){library=true},
+        StudioTool("◉","1000 FX"){library=true},
+        StudioTool("◇","FX inteligente"){aiDialog=true}
+    )
+
+    val layerTools=listOf(
+        StudioTool("+","Adicionar camada"){image.launch(arrayOf("image/*"))},
+        StudioTool("▣+","Adicionar vídeo"){videos.launch(arrayOf("video/*"))},
+        StudioTool("▱","Editar camada"){openPanel("Camada")}
+    )
+
+    Box(Modifier.fillMaxSize().background(Color(0xff121212)).systemBarsPadding()){
+        Column(Modifier.fillMaxSize()){
+            // Minimal top bar from the reference layout.
+            Row(
+                Modifier.fillMaxWidth().height(64.dp).padding(horizontal=10.dp),
+                verticalAlignment=Alignment.CenterVertically
+            ){
+                TextButton(
+                    onClick={m.pauseAll();onBack?.invoke()},
+                    contentPadding=PaddingValues(5.dp)
+                ){Text("×",fontSize=38.sp,fontWeight=FontWeight.Light,color=Color(0xffdedede))}
+                TextButton(onClick={library=true},contentPadding=PaddingValues(5.dp)){
+                    Text("⌕",fontSize=38.sp,color=Color(0xffdedede))
+                }
+                Spacer(Modifier.weight(1f))
+                Surface(
+                    color=Color(0xff2b2b2b),
+                    shape=RoundedCornerShape(11.dp),
+                    modifier=Modifier.clickable {exportDialog=true}
+                ){
+                    Text(
+                        if(m.safeMode)"540p · ${m.exportFps}" else "1080p · ${m.exportFps}",
+                        modifier=Modifier.padding(horizontal=14.dp,vertical=11.dp),
+                        color=Color.White,fontSize=13.sp,fontWeight=FontWeight.Bold
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick={exportDialog=true},
+                    enabled=m.clips.isNotEmpty()&&!m.busy,
+                    colors=ButtonDefaults.buttonColors(containerColor=Color(0xff12cfe0),contentColor=Color(0xff101010)),
+                    shape=RoundedCornerShape(10.dp),
+                    contentPadding=PaddingValues(horizontal=16.dp,vertical=10.dp)
+                ){Text("Exportar",fontWeight=FontWeight.Bold)}
+            }
+
+            // Large breathing room above preview, matching the supplied mobile reference.
+            Spacer(Modifier.height(64.dp))
+
+            Box(
+                Modifier.fillMaxWidth().aspectRatio(m.exportFormat.aspect)
+                    .clipToBounds().background(Color.Black),
+                contentAlignment=Alignment.Center
+            ){
+                if(m.current==null){
+                    Column(horizontalAlignment=Alignment.CenterHorizontally){
+                        Text("Adicione um vídeo",color=Color.LightGray,fontWeight=FontWeight.Bold)
+                        TextButton(onClick={mediaDialog=true}){Text("+ Mídia")}
+                    }
+                }else{
+                    key(m.player,fullscreen){
+                        AndroidView(
+                            factory={EditorPlayerView(it).apply {useController=false;resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT}},
+                            update={it.bind(m.player,!m.compatibilityPreview)},
+                            modifier=Modifier.fillMaxSize()
+                        )
+                    }
+                    AndroidView(
+                        factory={StudioPreview(it)},
+                        update={it.model=m;it.invalidate()},
+                        modifier=Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            Spacer(Modifier.weight(.12f))
+
+            // Playback / project controls.
+            Row(
+                Modifier.fillMaxWidth().height(58.dp).padding(horizontal=14.dp),
+                verticalAlignment=Alignment.CenterVertically
+            ){
+                TextButton(onClick={fullscreen=true},enabled=m.current!=null,contentPadding=PaddingValues(4.dp)){Text("⛶",fontSize=24.sp,color=Color.LightGray)}
+                Spacer(Modifier.weight(1f))
+                TextButton(
+                    onClick={
+                        if(m.player.isPlaying)m.pauseAll()
+                        else{
+                            if(m.player.playbackState==androidx.media3.common.Player.STATE_ENDED)m.seekTimeline(0)
+                            m.player.play()
+                        }
+                    },
+                    enabled=m.current!=null&&!m.busy,
+                    contentPadding=PaddingValues(4.dp)
+                ){Text(if(m.player.isPlaying)"Ⅱ" else "▷",fontSize=30.sp,color=Color(0xffe8e8e8))}
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick=m::addTimelineMarker,enabled=m.current!=null&&!m.busy,contentPadding=PaddingValues(4.dp)){Text("◇+",fontSize=22.sp,color=Color.LightGray)}
+                TextButton(onClick=m::undo,enabled=m.canUndo&&!m.busy,contentPadding=PaddingValues(4.dp)){Text("↶",fontSize=25.sp,color=Color.LightGray)}
+                TextButton(onClick=m::redo,enabled=m.canRedo&&!m.busy,contentPadding=PaddingValues(4.dp)){Text("↷",fontSize=25.sp,color=Color.LightGray)}
+            }
+
+            // Timeline: centered fixed playhead; the content scrolls underneath.
+            Box(Modifier.fillMaxWidth().weight(1f).background(Color(0xff1b1b1b))){
+                AndroidView(
+                    factory={ctx->StudioTimeline(ctx).also {view->
+                        view.onAddMedia={mediaDialog=true}
+                        view.onFocusChanged={kind,_->
+                            menuMode=when(kind){
+                                "Vídeo"->"clip";"Áudio"->"audio";"Texto"->"text";"Legenda"->"caption";"FX"->"fx";"Camada"->"layer";else->"main"
+                            }
+                        }
+                    }},
+                    update={view->
+                        view.model=m
+                        view.onAddMedia={mediaDialog=true}
+                        view.onFocusChanged={kind,_->
+                            menuMode=when(kind){
+                                "Vídeo"->"clip";"Áudio"->"audio";"Texto"->"text";"Legenda"->"caption";"FX"->"fx";"Camada"->"layer";else->"main"
+                            }
+                        }
+                        view.invalidate()
+                    },
+                    modifier=Modifier.fillMaxSize()
+                )
+
+                // MONSTRO AI quick action in the same ergonomic position as the floating editor action.
+                Surface(
+                    modifier=Modifier.align(Alignment.BottomStart).padding(start=18.dp,bottom=18.dp)
+                        .size(52.dp).clickable(enabled=m.clips.isNotEmpty()&&!m.busy){aiDialog=true},
+                    color=Color(0xff263239),
+                    shape=RoundedCornerShape(26.dp),
+                    shadowElevation=5.dp
+                ){
+                    Box(contentAlignment=Alignment.Center){Text("✦",fontSize=25.sp,color=Color(0xff13d5e5))}
+                }
+            }
+
+            val activeTools=when(menuMode){
+                "clip"->clipTools
+                "audio"->audioTools
+                "text"->textTools
+                "caption"->captionTools
+                "fx"->fxTools
+                "layer"->layerTools
+                else->mainTools
+            }
+            ToolStrip(activeTools,if(menuMode=="main")null else {{menuMode="main";panel=null}})
+        }
+
+        if(m.busy){
+            Surface(
+                modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=96.dp,horizontal=20.dp).fillMaxWidth(),
+                color=Color(0xee242424),shape=RoundedCornerShape(16.dp),shadowElevation=8.dp
+            ){
+                Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                    val title=when{
+                        m.speechBusy->"Analisando áudio"
+                        m.ttsBusy->"Criando narração IA"
+                        m.aiEditBusy->"IA Auto Edit"
+                        m.beatBusy->"Auto-Beats"
+                        m.exporting->"Exportando"
+                        else->"Preparando"
+                    }
+                    Text(title,fontWeight=FontWeight.Bold)
+                    LinearProgressIndicator(
+                        progress=when{
+                            m.speechProgress!=null->m.speechProgress!!/100f
+                            m.aiEditBusy->m.aiEditProgress/100f
+                            m.beatBusy->m.beatProgress/100f
+                            m.progress!=null->m.progress!!/100f
+                            else->0f
+                        },
+                        modifier=Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        when{
+                            m.speechBusy->m.speechStatus
+                            m.ttsBusy->m.ttsStatus
+                            m.aiEditBusy->m.aiEditStatus
+                            m.beatBusy->m.beatStatus
+                            else->m.progress?.let{"$it%"} ?: ""
+                        },
+                        color=Color.LightGray,fontSize=11.sp
+                    )
+                    TextButton(onClick={
+                        when{
+                            m.speechBusy->m.cancelSpeech()
+                            m.ttsBusy->m.cancelNarration()
+                            m.aiEditBusy->m.cancelAiAutoEdit()
+                            m.beatBusy->m.cancelAutoBeats()
+                            m.exporting->m.cancelExport()
+                        }
+                    }){Text("Cancelar")}
+                }
+            }
+        }
+    }
+
+    // Existing professional controls remain available, but now as a bottom sheet.
+    panel?.let {kind->
+        ModalBottomSheet(
+            onDismissRequest={panel=null},
+            containerColor=Color(0xff202020),
+            contentColor=Color.White,
+            dragHandle={Box(Modifier.padding(10.dp).size(width=44.dp,height=4.dp).background(Color(0xff737373),RoundedCornerShape(2.dp)))}
+        ){
+            Column(
+                Modifier.fillMaxWidth().heightIn(max=360.dp).verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=6.dp),
+                verticalArrangement=Arrangement.spacedBy(8.dp)
+            ){
+                when(kind){
+                    "Vídeo"->VideoInspector(m){videos.launch(arrayOf("video/*"))}
+                    "Áudio"->AudioInspector(m,{audio.launch(arrayOf("audio/*"))},{mic.launch(android.Manifest.permission.RECORD_AUDIO)})
+                    "Texto"->TextInspector(m)
+                    "Legenda"->CaptionInspector(m){srt.launch(arrayOf("*/*"))}
+                    "FX"->FxInspector(m){library=true}
+                    "Camada"->LayerInspector(m,{videos.launch(arrayOf("video/*"))},{image.launch(arrayOf("image/*"))},{audio.launch(arrayOf("audio/*"))})
+                    "Filtros"->FilterInspector(m)
+                    "Proporção"->RatioInspector(m)
+                    "Ajustes"->AdjustInspector(m)
+                }
+                Spacer(Modifier.height(20.dp))
+            }
+        }
+    }
+
     if(library)FxLibrary(m){library=false}
-    if(accountDialog)AccountDialog{accountDialog=false}
+
     if(aiDialog){
         var style by remember {mutableStateOf("Automático")}
         AlertDialog(
             onDismissRequest={aiDialog=false},
             title={Text("✦ Monstro IA Auto Edit")},
             text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
-                Text("A IA analisa os quadros, a fala e os beats e aplica uma edição que você pode desfazer com ↶.",fontSize=12.sp,color=Color.LightGray)
-                Text("Estilo",fontWeight=FontWeight.Bold)
+                Text("A IA entende os quadros, fala e ritmo e monta uma edição editável.",fontSize=12.sp,color=Color.LightGray)
                 Choices(listOf("Automático","Trap / Música","Cinemático","Vlog / Conversa","Gameplay / Ação","Anime / Edit"),style){style=it}
-                Text("Ela não apaga seus efeitos existentes: adiciona e ajusta em cima do projeto atual.",fontSize=10.sp,color=Color.Gray)
             }},
             confirmButton={Button(onClick={aiDialog=false;m.runAiAutoEdit(style)}){Text("Analisar e editar")}},
             dismissButton={TextButton(onClick={aiDialog=false}){Text("Cancelar")}}
         )
     }
+
     if(mediaDialog)AlertDialog(
         onDismissRequest={mediaDialog=false},
         title={Text("Adicionar mídia")},
@@ -164,37 +409,72 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         confirmButton={},
         dismissButton={TextButton(onClick={mediaDialog=false}){Text("Cancelar")}}
     )
-    if(exportDialog)AlertDialog(onDismissRequest={exportDialog=false},title={Text("Exportar edit")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("Proporção",fontWeight=FontWeight.Bold);Choices(listOf("9:16","16:9","1:1","4:5"),m.canvasRatio,m::selectCanvasRatio)
-        Text("Fundo",fontWeight=FontWeight.Bold);Choices(listOf("Desfoque","Cor sólida","Padrão"),when(m.canvasBackground){"solid"->"Cor sólida";"pattern"->"Padrão";else->"Desfoque"}){m.selectCanvasBackground(when(it){"Cor sólida"->"solid";"Padrão"->"pattern";else->"blur"})}
-        Text("Resolução",fontWeight=FontWeight.Bold)
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=m.safeMode,onClick={if(!m.safeMode)m.toggleSafeMode()},label={Text("540p · leve")});FilterChip(selected=!m.safeMode,onClick={if(m.safeMode)m.toggleSafeMode()},label={Text("1080p · 30fps")})}
-        Text("Bitrate",fontWeight=FontWeight.Bold);Choices(listOf("Baixo","Recomendado","Alto"),when(m.bitrateMode){"low"->"Baixo";"high"->"Alto";else->"Recomendado"}){m.selectBitrateMode(when(it){"Baixo"->"low";"Alto"->"high";else->"recommended"})}
-        Text("Codec",fontWeight=FontWeight.Bold);Choices(if(m.hevcSupported)listOf("H.264","HEVC") else listOf("H.264"),if(m.exportCodec=="HEVC")"HEVC" else "H.264"){m.selectExportCodec(if(it=="HEVC")"HEVC" else "H264")}
-        Text("Frame rate",fontWeight=FontWeight.Bold);Choices(listOf("24 fps","30 fps","60 fps"),"${m.exportFps} fps"){m.selectExportFps(it.substringBefore(" ").toInt())}
-        Text("${m.exportFormat.width} × ${m.exportFormat.height} · ${m.exportFps} fps · ${String.format(java.util.Locale.US,"%.1f",m.exportFormat.bitrate/1_000_000f)} Mbps",fontSize=11.sp,color=Color.Gray)
-    }},confirmButton={Button(onClick={exportDialog=false;m.export()}){Text("Gerar MP4")}},dismissButton={TextButton(onClick={exportDialog=false}){Text("Voltar")}})
+
+    if(exportDialog)AlertDialog(
+        onDismissRequest={exportDialog=false},
+        title={Text("Exportar")},
+        text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Text("Proporção",fontWeight=FontWeight.Bold)
+            Choices(listOf("9:16","16:9","1:1","4:5"),m.canvasRatio,m::selectCanvasRatio)
+            Text("Fundo",fontWeight=FontWeight.Bold)
+            Choices(listOf("Desfoque","Cor sólida","Padrão"),when(m.canvasBackground){"solid"->"Cor sólida";"pattern"->"Padrão";else->"Desfoque"}) {
+                m.selectCanvasBackground(when(it){"Cor sólida"->"solid";"Padrão"->"pattern";else->"blur"})
+            }
+            Text("Resolução",fontWeight=FontWeight.Bold)
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                FilterChip(selected=m.safeMode,onClick={if(!m.safeMode)m.toggleSafeMode()},label={Text("540p")})
+                FilterChip(selected=!m.safeMode,onClick={if(m.safeMode)m.toggleSafeMode()},label={Text("1080p")})
+            }
+            Text("Frame rate",fontWeight=FontWeight.Bold)
+            Choices(listOf("24 fps","30 fps","60 fps"),"${m.exportFps} fps"){m.selectExportFps(it.substringBefore(" ").toInt())}
+            Text("Bitrate",fontWeight=FontWeight.Bold)
+            Choices(listOf("Baixo","Recomendado","Alto"),when(m.bitrateMode){"low"->"Baixo";"high"->"Alto";else->"Recomendado"}){
+                m.selectBitrateMode(when(it){"Baixo"->"low";"Alto"->"high";else->"recommended"})
+            }
+            Text("Codec",fontWeight=FontWeight.Bold)
+            Choices(if(m.hevcSupported)listOf("H.264","HEVC") else listOf("H.264"),if(m.exportCodec=="HEVC")"HEVC" else "H.264"){
+                m.selectExportCodec(if(it=="HEVC")"HEVC" else "H264")
+            }
+            Text("${m.exportFormat.width} × ${m.exportFormat.height} · ${m.exportFps} fps",fontSize=11.sp,color=Color.Gray)
+        }},
+        confirmButton={Button(onClick={exportDialog=false;m.export()},colors=ButtonDefaults.buttonColors(containerColor=Color(0xff12cfe0),contentColor=Color.Black)){Text("Exportar")}},
+        dismissButton={TextButton(onClick={exportDialog=false}){Text("Voltar")}}
+    )
+
     if(fullscreen && m.current!=null)Dialog(onDismissRequest={fullscreen=false},properties=DialogProperties(usePlatformDefaultWidth=false)){
         Box(Modifier.fillMaxSize().background(Color.Black).systemBarsPadding(),contentAlignment=Alignment.Center){
-            Box(Modifier.fillMaxSize().padding(8.dp),contentAlignment=Alignment.Center){
-                Box(Modifier.fillMaxWidth().aspectRatio(m.exportFormat.aspect)){
-                    key(m.player,fullscreen){AndroidView(factory={EditorPlayerView(it).apply {useController=false;resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT}},update={it.bind(m.player,!m.compatibilityPreview)},modifier=Modifier.fillMaxSize())}
-                    AndroidView(factory={StudioPreview(it)},update={it.model=m;it.invalidate()},modifier=Modifier.fillMaxSize())
+            Box(Modifier.fillMaxWidth().aspectRatio(m.exportFormat.aspect)){
+                key(m.player,fullscreen){
+                    AndroidView(
+                        factory={EditorPlayerView(it).apply {useController=false;resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT}},
+                        update={it.bind(m.player,!m.compatibilityPreview)},
+                        modifier=Modifier.fillMaxSize()
+                    )
                 }
+                AndroidView(factory={StudioPreview(it)},update={it.model=m;it.invalidate()},modifier=Modifier.fillMaxSize())
             }
-            TextButton(onClick={fullscreen=false},modifier=Modifier.align(Alignment.TopEnd).padding(8.dp)){Text("Fechar ⛶")}
-            Surface(modifier=Modifier.align(Alignment.BottomCenter).padding(18.dp),shape=RoundedCornerShape(24.dp),color=Color(0xaa15151c)){
-                Row(Modifier.padding(horizontal=12.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically){
-                    Text(timeLabel(m.playhead),fontSize=11.sp)
-                    TextButton(onClick={m.seekTimeline(m.playhead-1000)}){Text("−1s")}
-                    TextButton(onClick={if(m.player.isPlaying)m.pauseAll()else m.player.play()}){Text(if(m.player.isPlaying)"Ⅱ" else "▶",fontSize=22.sp)}
-                    TextButton(onClick={m.seekTimeline(m.playhead+1000)}){Text("+1s")}
-                    Text(timeLabel(m.totalDuration),fontSize=11.sp,color=Color.Gray)
-                }
-            }
+            TextButton(onClick={fullscreen=false},modifier=Modifier.align(Alignment.TopEnd).padding(8.dp)){Text("×",fontSize=32.sp)}
         }
     }
-    m.message?.let {AlertDialog(onDismissRequest=m::clearMessage,title={Text("Monstro Studio")},text={Text(it)},confirmButton={TextButton(onClick=m::clearMessage){Text("OK")}})}
+
+    if(m.output!=null){
+        AlertDialog(
+            onDismissRequest={},
+            title={Text("Vídeo pronto")},
+            text={Text("A exportação terminou.")},
+            confirmButton={Button(onClick={save.launch("MONSTRO_Studio.mp4")}){Text("Salvar MP4")}},
+            dismissButton={TextButton(onClick=m::shareOutput){Text("Compartilhar")}}
+        )
+    }
+
+    m.message?.let {
+        AlertDialog(
+            onDismissRequest=m::clearMessage,
+            title={Text("Monstro")},
+            text={Text(it)},
+            confirmButton={TextButton(onClick=m::clearMessage){Text("OK")}}
+        )
+    }
 }
 
 @Composable
