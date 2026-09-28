@@ -72,7 +72,7 @@ class GeminiAutoEdit(private val context:Context){
         require(samples.isNotEmpty()){"Não consegui extrair quadros para a análise de IA."}
         try{
             val model=Firebase.ai(backend=GenerativeBackend.googleAI()).generativeModel(
-                modelName="gemini-3.8-flash",
+                modelName="gemini-3.5-flash-lite",
                 generationConfig=generationConfig {
                     responseMimeType="application/json"
                     maxOutputTokens=8192
