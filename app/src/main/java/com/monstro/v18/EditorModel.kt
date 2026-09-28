@@ -52,7 +52,9 @@ data class VideoClip(
     val duration: Long,
     val trim: TrimRange = TrimRange(0, duration),
     val preset: String = "raw",
-    val chaos: ChaosSettings = ChaosSettings()
+    val chaos: ChaosSettings = ChaosSettings(),
+    val volume: Float = 1f,
+    val mirror: Boolean = false
 )
 
 @UnstableApi
@@ -61,7 +63,8 @@ fun videoEffects(preset: String): List<Effect> = if (preset == "raw") emptyList(
 // Preview only applies visual effects. Frame dropping and output sizing belong to export.
 @UnstableApi
 fun previewEffects(clip: VideoClip): List<Effect> = videoEffects(clip.preset) +
-    if (clip.chaos.isIdentity) emptyList() else listOf(ChaosEffect(clip.chaos))
+    (if(clip.mirror) listOf(MirrorEffect()) else emptyList()) +
+    (if (clip.chaos.isIdentity) emptyList() else listOf(ChaosEffect(clip.chaos)))
 
 @UnstableApi
 fun buildClipEffects(clip: VideoClip, safeMode: Boolean): List<Effect> = listOf(
@@ -332,7 +335,8 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 VideoClip(c.getString("id"), c.getString("uri"), c.getString("name"),
                     c.getLong("duration"), TrimRange(c.getLong("start"), c.getLong("end")), c.getString("preset"),
                     ChaosSettings.restore(c.optJSONArray("fx")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
-                        c.optDouble("zoom", 1.0).toFloat()))
+                        c.optDouble("zoom", 1.0).toFloat()),
+                    c.optDouble("volume",1.0).toFloat(),c.optBoolean("mirror",false))
             }
             mute = prefs.getBoolean("mute", false)
             safeMode = prefs.getBoolean("safeMode", true)
@@ -352,7 +356,8 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         clips.forEach { c -> data.put(JSONObject().put("id", c.id).put("uri", c.uri)
             .put("name", c.name).put("duration", c.duration).put("start", c.trim.start)
             .put("end", c.trim.end).put("preset", c.preset)
-            .put("fx", JSONArray(c.chaos.enabled.toList())).put("zoom", c.chaos.zoom.toDouble())) }
+            .put("fx", JSONArray(c.chaos.enabled.toList())).put("zoom", c.chaos.zoom.toDouble())
+            .put("volume",c.volume.toDouble()).put("mirror",c.mirror)) }
         prefs.edit().putString("clips", data.toString()).putBoolean("mute", mute).putBoolean("safeMode", safeMode).apply()
     }
 
@@ -366,7 +371,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             val effects = if (compatibilityPreview) emptyList() else studioPreviewEffects(it)
             // Even an empty setVideoEffects call can initialize the frame processor.
             if (effects.isNotEmpty()) player.setVideoEffects(effects)
-            player.volume = if (mute) 0f else 1f
+            player.volume = if (mute) 0f else it.volume.coerceIn(0f,1f)
             player.setMediaItem(it.mediaItem(), position.coerceIn(0, it.trim.duration - 1))
             player.prepare()
             player.playWhenReady = resume
@@ -421,13 +426,13 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         edit(chaos = clip.chaos.toggle(fx))
     }
 
-    fun edit(trim: TrimRange? = null, preset: String? = null, chaos: ChaosSettings? = null) {
+    fun edit(trim: TrimRange? = null, preset: String? = null, chaos: ChaosSettings? = null, volume:Float?=null) {
         if (busy) return
         val old = current ?: return
         if (trim != null && trim.end > old.duration) return
         val position = if (trim == null) player.currentPosition else 0L
         val playing = player.playWhenReady
-        pushHistory();clips = clips.toMutableList().also { it[selected] = old.copy(trim = trim ?: old.trim, preset = preset ?: old.preset, chaos = chaos ?: old.chaos) }
+        pushHistory();clips = clips.toMutableList().also { it[selected] = old.copy(trim = trim ?: old.trim, preset = preset ?: old.preset, chaos = chaos ?: old.chaos, volume=volume ?: old.volume) }
         persist(); preview(position, playing)
     }
 
@@ -469,8 +474,23 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun toggleMute() {
         if (busy) return
         pushHistory();mute = !mute
-        player.volume = if (mute) 0f else 1f
+        player.volume = if (mute) 0f else (current?.volume ?: 1f).coerceIn(0f,1f)
         persist()
+    }
+    fun setClipVolume(value:Float){
+        val clip=current ?: return;if(busy)return
+        edit(chaos=clip.chaos,volume=value.coerceIn(0f,2f))
+    }
+    fun toggleMirror(){
+        val clip=current ?: return;if(busy)return
+        val position=player.currentPosition;val playing=player.playWhenReady
+        pushHistory();clips=clips.toMutableList().also {it[selected]=clip.copy(mirror=!clip.mirror)}
+        persist();preview(position,playing)
+    }
+    fun extractCurrentAudio(){
+        val clip=current ?: return;if(busy)return
+        val layer=AudioLayer(uri=clip.uri,name="${clip.name} · áudio",duration=clip.duration,start=timelineOffset,trimStart=clip.trim.start,trimEnd=clip.trim.end,volume=clip.volume)
+        updateStudio(studio.copy(audio=studio.audio+layer),false);focus("Áudio",layer.id)
     }
 
     fun setCanvasRatio(ratio:String) {
