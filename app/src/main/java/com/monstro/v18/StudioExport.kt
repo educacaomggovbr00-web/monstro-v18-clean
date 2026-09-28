@@ -27,7 +27,7 @@ fun EditorModel.studioComposition():Composition {
             visual+=TimelineSpeedEffect(slice.speed,clipOffset+slice.outputStart,sourceOffset+slice.sourceStart,frameGate)
             
             EditedMediaItem.Builder(clip.copy(trim=TrimRange(clip.trim.start+slice.sourceStart,clip.trim.start+slice.sourceEnd)).mediaItem())
-                .setRemoveAudio(mute).setEffects(Effects(canonicalAudio(slice.speed),visual)).build()
+                .setRemoveAudio(mute).setEffects(Effects(canonicalAudio(slice.speed,clip.volume),visual)).build()
         }
         offset+=map.outputDuration;sourceOffset+=clip.trim.duration;parts
     }
