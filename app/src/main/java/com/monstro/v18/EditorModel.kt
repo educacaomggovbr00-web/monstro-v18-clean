@@ -653,7 +653,13 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             lyricsName = prefs.getString("lyricsName", "") ?: ""
             val subtitleFile = File(context.filesDir, "lyrics.srt")
             if (subtitleFile.isFile) runCatching { lyrics = SrtParser.parse(subtitleFile.readText()).track }
-            restoreCues(); preview()
+            restoreCues()
+            val cleanedStudio=FxCatalog.sanitizeProject(studio)
+            if(cleanedStudio!=studio){
+                studio=cleanedStudio
+                prefs.edit().putString("studio",StudioCodec.encode(studio)).apply()
+            }
+            preview()
         }.onFailure { clips = emptyList(); message = "Não foi possível restaurar o projeto. Importe os vídeos novamente." }
     }
 
