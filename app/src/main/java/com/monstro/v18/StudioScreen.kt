@@ -31,7 +31,7 @@ import kotlinx.coroutines.delay
 
 @UnstableApi
 @Composable
-fun StudioScreen(m:EditorModel){
+fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     val videos=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(),m::importVideos)
     val audio=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importAudio)
     val image=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importImage)
@@ -44,6 +44,7 @@ fun StudioScreen(m:EditorModel){
     LaunchedEffect(m){while(true){m.tick();delay(if(m.player.isPlaying || m.busy)33 else 120)}}
     Column(Modifier.fillMaxSize().background(Color(0xff09090f)).systemBarsPadding()){
         Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal=10.dp),verticalAlignment=Alignment.CenterVertically){
+            if(onBack!=null)TextButton(onClick={m.pauseAll();onBack()},contentPadding=PaddingValues(horizontal=3.dp)){Text("‹",fontSize=28.sp)}
             Column(Modifier.weight(1f)){Text("MONSTRO",fontWeight=FontWeight.Black,letterSpacing=2.sp,fontSize=17.sp);Text("V18  /  STUDIO",color=MaterialTheme.colorScheme.primary,fontSize=8.sp,letterSpacing=2.sp)}
             TextButton(onClick={accountDialog=true},contentPadding=PaddingValues(horizontal=8.dp)){Text("Conta",fontSize=11.sp)}
             Button(onClick={exportDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy,contentPadding=PaddingValues(horizontal=11.dp)){Text("Exportar")}
