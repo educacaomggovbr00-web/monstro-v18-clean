@@ -19,8 +19,8 @@ import androidx.media3.common.util.UnstableApi
 
 @UnstableApi
 @Composable
-fun MonstroApp(model:EditorModel){
-    var screen by remember {mutableStateOf("home")}
+fun MonstroApp(model:EditorModel,startInStudio:Boolean=false){
+    var screen by remember(startInStudio) {mutableStateOf(if(startInStudio)"studio" else "home")}
     var tab by remember {mutableStateOf("Editar")}
     var accountDialog by remember {mutableStateOf(false)}
     var pendingAction by remember {mutableStateOf<String?>(null)}
