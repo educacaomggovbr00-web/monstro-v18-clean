@@ -38,14 +38,14 @@ fun StudioScreen(m:EditorModel){
     val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)m.startVoiceover()else m.showMessage("Permita acesso ao microfone para gravar dublagem.")}
     val srt=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importLyrics)
     val save=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"),m::saveOutput)
-    var library by remember {mutableStateOf(false)};var exportDialog by remember {mutableStateOf(false)};var fullscreen by remember {mutableStateOf(false)}
+    var library by remember {mutableStateOf(false)};var exportDialog by remember {mutableStateOf(false)};var mediaDialog by remember {mutableStateOf(false)};var fullscreen by remember {mutableStateOf(false)}
     val owner=LocalLifecycleOwner.current
     DisposableEffect(owner,m){val listener=LifecycleEventObserver {_,event->if(event==Lifecycle.Event.ON_STOP)m.pauseAll()};owner.lifecycle.addObserver(listener);onDispose{owner.lifecycle.removeObserver(listener)}}
     LaunchedEffect(m){while(true){m.tick();delay(if(m.player.isPlaying || m.busy)33 else 120)}}
     Column(Modifier.fillMaxSize().background(Color(0xff09090f)).systemBarsPadding()){
         Row(Modifier.fillMaxWidth().height(50.dp).padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){Text("MONSTRO",fontWeight=FontWeight.Black,letterSpacing=2.sp,fontSize=18.sp);Text("V18  /  STUDIO",color=MaterialTheme.colorScheme.primary,fontSize=9.sp,letterSpacing=2.sp)}
-            TextButton(onClick={videos.launch(arrayOf("video/*"))},enabled=!m.busy){Text("+ Mídia")}
+            TextButton(onClick={mediaDialog=true},enabled=!m.busy){Text("+ Mídia")}
             TextButton(onClick={exportDialog=true},enabled=!m.busy){Text("${m.exportFormat.resolutionLabel} · 30",fontSize=10.sp)}
             Button(onClick={exportDialog=true},enabled=m.clips.isNotEmpty()&&!m.busy,contentPadding=PaddingValues(horizontal=12.dp)){Text("Exportar")}
         }
@@ -115,6 +115,17 @@ fun StudioScreen(m:EditorModel){
         }
     }
     if(library)FxLibrary(m){library=false}
+    if(mediaDialog)AlertDialog(
+        onDismissRequest={mediaDialog=false},
+        title={Text("Adicionar mídia")},
+        text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Button(onClick={mediaDialog=false;videos.launch(arrayOf("video/*"))},modifier=Modifier.fillMaxWidth()){Text("Vídeo")}
+            OutlinedButton(onClick={mediaDialog=false;image.launch(arrayOf("image/*"))},modifier=Modifier.fillMaxWidth()){Text("Imagem")}
+            OutlinedButton(onClick={mediaDialog=false;audio.launch(arrayOf("audio/*"))},modifier=Modifier.fillMaxWidth()){Text("Áudio")}
+        }},
+        confirmButton={},
+        dismissButton={TextButton(onClick={mediaDialog=false}){Text("Cancelar")}}
+    )
     if(exportDialog)AlertDialog(onDismissRequest={exportDialog=false},title={Text("Exportar edit")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Proporção",fontWeight=FontWeight.Bold);Choices(listOf("9:16","16:9","1:1","4:5"),m.canvasRatio,m::selectCanvasRatio)
         Text("Fundo",fontWeight=FontWeight.Bold);Choices(listOf("Desfoque","Cor sólida","Padrão"),when(m.canvasBackground){"solid"->"Cor sólida";"pattern"->"Padrão";else->"Desfoque"}){m.selectCanvasBackground(when(it){"Cor sólida"->"solid";"Padrão"->"pattern";else->"blur"})}
