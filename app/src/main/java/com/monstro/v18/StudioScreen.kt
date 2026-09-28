@@ -311,7 +311,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
 
         if(m.busy){
             Surface(
-                modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=96.dp,horizontal=20.dp).fillMaxWidth(),
+                modifier=Modifier.align(Alignment.BottomCenter).padding(horizontal=20.dp).padding(bottom=96.dp).fillMaxWidth(),
                 color=Color(0xee242424),shape=RoundedCornerShape(16.dp),shadowElevation=8.dp
             ){
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
