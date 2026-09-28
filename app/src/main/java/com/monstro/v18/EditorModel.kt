@@ -277,13 +277,13 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 val bitmap=if(Build.VERSION.SDK_INT>=28){
                     ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver,uri)){decoder,info,_->
                         val w=info.size.width;val h=info.size.height;val maxSide=maxOf(w,h)
-                        if(maxSide>2048){val ratio=2048f/maxSide;decoder.setTargetSize((w*ratio).toInt().coerceAtLeast(1),(h*ratio).toInt().coerceAtLeast(1))}
+                        if(maxSide>1440){val ratio=1440f/maxSide;decoder.setTargetSize((w*ratio).toInt().coerceAtLeast(1),(h*ratio).toInt().coerceAtLeast(1))}
                         decoder.allocator=ImageDecoder.ALLOCATOR_SOFTWARE
                     }
                 }else{
                     val bounds=BitmapFactory.Options().apply {inJustDecodeBounds=true}
                     context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,bounds)}
-                    var sample=1;while(maxOf(bounds.outWidth,bounds.outHeight)/sample>2048)sample*=2
+                    var sample=1;while(maxOf(bounds.outWidth,bounds.outHeight)/sample>1440)sample*=2
                     val options=BitmapFactory.Options().apply {inSampleSize=sample}
                     context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,options)} ?: error("Não foi possível abrir a imagem.")
                 }
