@@ -129,7 +129,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var progress by mutableStateOf<Int?>(null); private set
     var message by mutableStateOf<String?>(null); private set
     var output by mutableStateOf<File?>(null); private set
-    val busy get() = importing || exporting || saving || speechBusy
+    val busy get() = importing || exporting || saving || speechBusy || ttsBusy
     val current get() = clips.getOrNull(selected)
     var compatibilityPreview by mutableStateOf(prefs.getBoolean("compatibilityPreview", false)); private set
     var player by mutableStateOf(createPlayer()); private set
@@ -142,11 +142,14 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var speechStatus by mutableStateOf(""); private set
     var speechProgress by mutableStateOf<Int?>(null); private set
     var speechBusy by mutableStateOf(false); private set
+    var ttsBusy by mutableStateOf(false); private set
+    var ttsStatus by mutableStateOf(""); private set
     var modelReady by mutableStateOf(AutoCaptions(context).ready); private set
     var captionEngine by mutableStateOf(prefs.getString("captionEngine","gemini") ?: "gemini"); private set
     val geminiReady get()=GeminiAudioCaptions(context).configured
     fun selectCaptionEngine(engine:String){if(engine !in listOf("gemini","offline") || busy)return;captionEngine=engine;prefs.edit().putString("captionEngine",engine).apply()}
     private var speechJob:Job?=null
+    private var ttsJob:Job?=null
     private val audioPlayers=mutableMapOf<String,ExoPlayer>()
     fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
     val totalDuration get()=clips.sumOf { speedMap(it).outputDuration }
@@ -179,6 +182,26 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun pauseAll(){player.pause();audioPlayers.values.forEach {it.pause()}}
     fun setMotion(motion:ClipMotion){val clip=current ?: return;updateStudio(studio.copy(motions=studio.motions+(clip.id to motion)))}
     fun addText(){val start=if(playhead>=totalDuration)(totalDuration-3000).coerceAtLeast(0)else playhead;val end=minOf(totalDuration,start+3000);if(end<=start)return;val layer=TextLayer(start=start,end=end);updateStudio(studio.copy(texts=studio.texts+layer),false);focus("Texto",layer.id)}
+    fun generateNarration(text:String,voice:String,style:String){
+        if(busy || clips.isEmpty())return
+        if(!GeminiTts(context).configured){message="Firebase AI Logic ainda não está disponível neste APK.";return}
+        val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0))
+        pauseAll();ttsBusy=true;ttsStatus="Gemini está criando a narração…"
+        ttsJob=viewModelScope.launch {
+            try {
+                val generated=withContext(Dispatchers.IO){GeminiTts(context).generate(text,voice,style)}
+                val available=(totalDuration-start).coerceAtLeast(1)
+                val end=minOf(generated.durationMs,available).coerceAtLeast(1)
+                ttsBusy=false
+                val layer=AudioLayer(uri=generated.file.toURI().toString(),name="Narração IA · $voice",duration=generated.durationMs,start=start,trimEnd=end)
+                updateStudio(studio.copy(audio=studio.audio+layer),false)
+                focus("Áudio",layer.id);ttsStatus="Narração pronta · ${timeLabel(end)}"
+            } catch(e:Exception) {
+                ttsStatus=if(e is kotlinx.coroutines.CancellationException)"Narração cancelada" else "Falha na narração: ${e.localizedMessage}"
+            } finally {ttsBusy=false}
+        }
+    }
+    fun cancelNarration(){ttsJob?.cancel()}
     fun addManualCaption(){if(busy || totalDuration<=0)return;pushHistory();val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0));val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1);val cue=SrtCue(start,end,"NOVA LEGENDA");val cues=(lyrics?.cues.orEmpty()+cue).sortedBy {it.startMs};lyrics=SrtTrack(cues);lyricsName="Legendas manuais";persistCues();focus("Legenda",cues.indexOf(cue).toString())}
     fun addFx(preset:FxPreset){val clip=current ?: return;val start=timelineOffset;val end=start+speedMap(clip).outputDuration;if(end<=start)return;val layer=FxLayer(presetId=preset.id,start=start,end=end);if(compatibilityPreview){compatibilityPreview=false;prefs.edit().putBoolean("compatibilityPreview",false).apply()};updateStudio(studio.copy(fx=studio.fx+layer,recent=(listOf(preset.id)+studio.recent).distinct().take(30)),true);focus("FX",layer.id)}
     fun favorite(id:String){updateStudio(studio.copy(favorites=if(id in studio.favorites)studio.favorites-id else studio.favorites+id),false,false)}
@@ -644,7 +667,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        speechJob?.cancel(); audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
+        speechJob?.cancel();ttsJob?.cancel(); audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
         super.onCleared()
     }
 }
