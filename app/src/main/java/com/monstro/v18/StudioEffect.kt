@@ -12,7 +12,7 @@ class FrameClock(private val start:Long=0,private val speed:Float=1f,private val
     fun reset(){first=sourceStart?.times(1000)}
 }
 @UnstableApi
-class StudioEffect(private val layer:FxLayer?,private val zoom:List<KeyPoint>,private val clock:FrameClock,private val clipStart:Long=0):GlEffect {
+class StudioEffect(private val layer:FxLayer?,private val zoom:List<KeyPoint>,private val clock:FrameClock,private val clipStart:Long=0,private val rotation:List<KeyPoint> = emptyList(),private val x:List<KeyPoint> = emptyList(),private val y:List<KeyPoint> = emptyList()):GlEffect {
     override fun toGlShaderProgram(context:Context,useHdr:Boolean):GlShaderProgram = object:BaseGlShaderProgram(useHdr,1) {
         val gl=GlProgram(context,"shaders/chaos.vert","shaders/studio.frag").apply { setBufferAttribute("aPosition",GlUtil.getNormalizedCoordinateBounds(),4) }
         override fun configure(inputWidth:Int,inputHeight:Int)=Size(inputWidth,inputHeight)
@@ -20,7 +20,11 @@ class StudioEffect(private val layer:FxLayer?,private val zoom:List<KeyPoint>,pr
             val time=clock.at(presentationTimeUs); val preset=layer?.let { FxCatalog.get(it.presetId) }
             val active=layer!=null && time>=layer.start && time<layer.end
             gl.use();gl.setSamplerTexIdUniform("uInput",inputTexId,0)
-            gl.setFloatUniform("uZoom",animated(zoom,time-clipStart,1f).coerceIn(1f,4f))
+            val local=time-clipStart
+            gl.setFloatUniform("uZoom",animated(zoom,local,1f).coerceIn(.25f,4f))
+            gl.setFloatUniform("uRotation",animated(rotation,local,0f))
+            gl.setFloatUniform("uTranslateX",animated(x,local,0f).coerceIn(-1f,1f))
+            gl.setFloatUniform("uTranslateY",animated(y,local,0f).coerceIn(-1f,1f))
             gl.setFloatUniform("uEngine",preset?.engine?.toFloat() ?: 0f)
             gl.setFloatUniform("uRecipe",preset?.recipe?.toFloat() ?: 0f)
             gl.setFloatUniform("uEnvelope",preset?.envelope?.toFloat() ?: 0f)
