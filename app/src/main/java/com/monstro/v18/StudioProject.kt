@@ -143,10 +143,10 @@ object StudioCodec {
 }
 
 /** Immediate frame selection: unlike Media3 1.2's cached dropper, no tail frame is lost at EOS. */
-class FrameRateGate {
+class FrameRateGate(private val fps:Int=30) {
     private var lastSlot=Long.MIN_VALUE
     @Synchronized fun accept(timeUs:Long):Boolean {
-        val slot=(timeUs+500)*30/1_000_000
+        val slot=(timeUs+500)*fps.coerceIn(1,120)/1_000_000
         if(slot<=lastSlot)return false
         lastSlot=slot;return true
     }
