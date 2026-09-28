@@ -135,7 +135,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var progress by mutableStateOf<Int?>(null); private set
     var message by mutableStateOf<String?>(null); private set
     var output by mutableStateOf<File?>(null); private set
-    val busy get() = importing || exporting || saving || speechBusy || ttsBusy || beatBusy || aiEditBusy
+    val busy get() = importing || exporting || saving || speechBusy || translationBusy || ttsBusy || beatBusy || aiEditBusy
     val current get() = clips.getOrNull(selected)
     var compatibilityPreview by mutableStateOf(prefs.getBoolean("compatibilityPreview", false)); private set
     var player by mutableStateOf(createPlayer()); private set
@@ -148,6 +148,9 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var speechStatus by mutableStateOf(""); private set
     var speechProgress by mutableStateOf<Int?>(null); private set
     var speechBusy by mutableStateOf(false); private set
+    var translationBusy by mutableStateOf(false); private set
+    var translationStatus by mutableStateOf(""); private set
+    var translationProgress by mutableStateOf(0); private set
     var ttsBusy by mutableStateOf(false); private set
     var ttsStatus by mutableStateOf(""); private set
     var voiceoverRecording by mutableStateOf(false); private set
@@ -166,6 +169,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     val geminiReady get()=GeminiAudioCaptions(context).configured
     fun selectCaptionEngine(engine:String){if(engine !in listOf("gemini","offline") || busy)return;captionEngine=engine;prefs.edit().putString("captionEngine",engine).apply()}
     private var speechJob:Job?=null
+    private var translationJob:Job?=null
     private var ttsJob:Job?=null
     private var beatJob:Job?=null
     private var aiEditJob:Job?=null
@@ -605,6 +609,27 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         }
     }
     fun cancelSpeech(){speechJob?.cancel()}
+    fun translateCaptions(targetLanguage:String){
+        val source=lyrics ?: run {message="Crie ou importe legendas antes de traduzir.";return}
+        if(busy)return
+        if(!GeminiCaptionTranslation(context).configured){message="Gemini IA não está conectado neste APK.";return}
+        pauseAll();translationBusy=true;translationProgress=0;translationStatus="Traduzindo para $targetLanguage…"
+        translationJob=viewModelScope.launch {
+            try{
+                val translated=withContext(Dispatchers.IO){
+                    GeminiCaptionTranslation(context).translate(source,targetLanguage){p->
+                        viewModelScope.launch {translationProgress=p;translationStatus="Traduzindo para $targetLanguage · $p%"}
+                    }
+                }
+                pushHistory();lyrics=translated;lyricsName="Tradução IA · $targetLanguage";persistCues()
+                translationProgress=100;translationStatus="Tradução pronta · $targetLanguage"
+                message="Legendas traduzidas para $targetLanguage mantendo os mesmos tempos."
+            }catch(e:Exception){
+                translationStatus=if(e is kotlinx.coroutines.CancellationException)"Tradução cancelada" else GeminiSupport.userMessage(e)
+            }finally{translationBusy=false}
+        }
+    }
+    fun cancelTranslation(){translationJob?.cancel()}
     private fun studioPreviewEffects(clip:VideoClip):List<Effect>{
         val clock=FrameClock(preview={shaderPlayhead});val motion=studio.motions[clip.id] ?: ClipMotion();val zoom=motion.zoom
         val base=clip.copy(chaos=clip.chaos.copy(enabled=clip.chaos.enabled-ChaosFx.MOTION_BLUR.id,zoom=if(zoom.isEmpty())clip.chaos.zoom else 1f))
@@ -994,7 +1019,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        speechJob?.cancel();ttsJob?.cancel();beatJob?.cancel();aiEditJob?.cancel(); if(voiceoverRecording)runCatching {voiceoverRecorder?.stop()};runCatching {voiceoverRecorder?.release()}; audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
+        speechJob?.cancel();translationJob?.cancel();ttsJob?.cancel();beatJob?.cancel();aiEditJob?.cancel(); if(voiceoverRecording)runCatching {voiceoverRecorder?.stop()};runCatching {voiceoverRecorder?.release()}; audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
         super.onCleared()
     }
 }
