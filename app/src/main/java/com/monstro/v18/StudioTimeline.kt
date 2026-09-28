@@ -47,13 +47,15 @@ class StudioTimeline(context:Context):View(context) {
         var offset=0L
         m.clips.forEachIndexed {i,clip->val end=offset+m.speedMap(clip).outputDuration;val key="${clip.id}:${clip.trim.start}";requestThumbnail(clip,key);block(offset,end,0,clip.name,0xff493170.toInt(),i==m.selected,key);offset=end}
         m.studio.audio.forEach {block(it.start,it.end,1,it.name,0xff205c54.toInt(),m.focusedId==it.id)}
-        m.studio.texts.forEach {block(it.start,it.end,2,it.text,0xff71501b.toInt(),m.focusedId==it.id)}
-        m.lyrics?.cues?.forEachIndexed {i,it->block(it.startMs,it.endMs,3,it.text,0xff433880.toInt(),m.inspector=="Legenda" && m.focusedId==i.toString())}
-        m.studio.fx.forEach {block(it.start,it.end,4,FxCatalog.get(it.presetId)?.name ?: "FX",0xff752b62.toInt(),m.focusedId==it.id)}
+        m.studio.images.forEach {block(it.start,it.end,2,it.name,0xff365d8d.toInt(),m.focusedId==it.id)}
+        m.studio.texts.forEach {block(it.start,it.end,3,it.text,0xff71501b.toInt(),m.focusedId==it.id)}
+        m.lyrics?.cues?.forEachIndexed {i,it->block(it.startMs,it.endMs,4,it.text,0xff433880.toInt(),m.inspector=="Legenda" && m.focusedId==i.toString())}
+        m.studio.fx.forEach {block(it.start,it.end,5,FxCatalog.get(it.presetId)?.name ?: "FX",0xff752b62.toInt(),m.focusedId==it.id)}
         fun diamond(time:Long,lane:Int){val cx=x(time);val cy=ruler+lane*row+5*density;paint.color=0xffffd23f.toInt();val path=Path().apply{moveTo(cx,cy-4*density);lineTo(cx+4*density,cy);lineTo(cx,cy+4*density);lineTo(cx-4*density,cy);close()};c.drawPath(path,paint)}
         offset=0L;m.clips.forEach {clip->val map=m.speedMap(clip);m.studio.motions[clip.id]?.let {motion->(motion.zoom+motion.rotation+motion.x+motion.y).map {it.time}.distinct().forEach {diamond(offset+it,0)};motion.speed.forEach {diamond(offset+map.toOutput(it.time),0)}};offset+=map.outputDuration}
-        m.studio.fx.forEach {layer->layer.keys.forEach {diamond(layer.start+it.time,4)}}
-        m.studio.texts.forEach {layer->(layer.style.xKeys+layer.style.yKeys+layer.style.scaleKeys).map {it.time}.distinct().forEach {diamond(layer.start+it,2)}}
+        m.studio.fx.forEach {layer->layer.keys.forEach {diamond(layer.start+it.time,5)}}
+        m.studio.images.forEach {layer->(layer.xKeys+layer.yKeys+layer.scaleKeys+layer.rotationKeys+layer.opacityKeys).map {it.time}.distinct().forEach {diamond(layer.start+it,2)}}
+        m.studio.texts.forEach {layer->(layer.style.xKeys+layer.style.yKeys+layer.style.scaleKeys).map {it.time}.distinct().forEach {diamond(layer.start+it,3)}}
         m.studio.markers.forEach {mark->
             val mx=x(mark.time)
             if(mx>=labelWidth && mx<=width){
@@ -66,7 +68,7 @@ class StudioTimeline(context:Context):View(context) {
         trimPreviewTime?.let {preview->val px=x(preview);paint.color=0xffffd23f.toInt();paint.strokeWidth=2*density;c.drawLine(px,ruler,px,ruler+row,paint)}
         val play=x(m.playhead);paint.color=Color.WHITE;paint.strokeWidth=2*density;c.drawLine(play,0f,play,height.toFloat(),paint);c.drawCircle(play,7*density,6*density,paint)
         c.restore();paint.color=0xff161720.toInt();c.drawRect(0f,0f,labelWidth,height.toFloat(),paint)
-        listOf("VÍDEO","ÁUDIO","TEXTO","SRT","FX").forEachIndexed {i,label->paint.color=0xffb1aabd.toInt();paint.textSize=9*density;c.drawText(label,5*density,ruler+i*row+21*density,paint)}
+        listOf("VÍDEO","ÁUDIO","IMG","TEXTO","SRT","FX").forEachIndexed {i,label->paint.color=0xffb1aabd.toInt();paint.textSize=9*density;c.drawText(label,5*density,ruler+i*row+21*density,paint)}
     }
     private fun requestThumbnail(clip:VideoClip,key:String){if(thumbnails.containsKey(key) || !pending.add(key))return
         worker.submit {var image:Bitmap?=null;try{val r=MediaMetadataRetriever();try{r.setDataSource(context,Uri.parse(clip.uri));val full=if(android.os.Build.VERSION.SDK_INT>=27)r.getScaledFrameAtTime(clip.trim.start*1000,MediaMetadataRetriever.OPTION_CLOSEST_SYNC,120,80)else r.getFrameAtTime(clip.trim.start*1000);image=full?.let {Bitmap.createScaledBitmap(it,120,80,true).also {small->if(small!==it)it.recycle()}}}finally{r.release()}}catch(_:Exception){}
@@ -78,6 +80,7 @@ class StudioTimeline(context:Context):View(context) {
         var offset=0L
         m.clips.forEach {clip->points+=offset;offset+=m.speedMap(clip).outputDuration;points+=offset}
         m.studio.audio.forEach {points+=it.start;points+=it.end}
+        m.studio.images.forEach {points+=it.start;points+=it.end}
         m.studio.texts.forEach {points+=it.start;points+=it.end}
         m.studio.fx.forEach {points+=it.start;points+=it.end}
         m.lyrics?.cues?.forEach {points+=it.startMs;points+=it.endMs}
@@ -124,7 +127,7 @@ class StudioTimeline(context:Context):View(context) {
                     trimEdge=0;trimPreviewTime=null;snappedAt=null
                 }else if(!moved && !scrubbing){
                     val t=time(e.x);val lane=((downY-ruler)/row).toInt();m.seekTimeline(t)
-                    when(lane){0->m.focus("Vídeo");1->m.focus("Áudio",m.studio.audio.lastOrNull {t in it.start until it.end}?.id ?: "");2->m.focus("Texto",m.studio.texts.lastOrNull {t in it.start until it.end}?.id ?: "");3->m.focus("Legenda",m.lyrics?.cues?.indexOfLast {t in it.startMs until it.endMs}?.toString() ?: "");4->m.focus("FX",m.studio.fx.lastOrNull {t in it.start until it.end}?.id ?: "")}
+                    when(lane){0->m.focus("Vídeo");1->m.focus("Áudio",m.studio.audio.lastOrNull {t in it.start until it.end}?.id ?: "");2->m.focus("Camada",m.studio.images.lastOrNull {t in it.start until it.end}?.id ?: "");3->m.focus("Texto",m.studio.texts.lastOrNull {t in it.start until it.end}?.id ?: "");4->m.focus("Legenda",m.lyrics?.cues?.indexOfLast {t in it.startMs until it.endMs}?.toString() ?: "");5->m.focus("FX",m.studio.fx.lastOrNull {t in it.start until it.end}?.id ?: "")}
                 }
                 scrubbing=false;performClick();parent.requestDisallowInterceptTouchEvent(false);invalidate()
             }
