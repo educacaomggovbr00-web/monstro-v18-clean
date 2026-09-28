@@ -7,11 +7,17 @@ uniform float uTime;
 uniform float uIntensity;
 uniform float uDirection;
 uniform float uZoom;
+uniform float uRotation;
+uniform float uTranslateX;
+uniform float uTranslateY;
 varying vec2 vUv;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 vec3 sampleAt(vec2 p){return texture2D(uInput,clamp(p,vec2(.001),vec2(.999))).rgb;}
 void main(){
- vec2 p=(vUv-.5)/uZoom+.5;
+ vec2 q=vUv-.5-vec2(uTranslateX,uTranslateY);
+ float baseAngle=-uRotation*0.01745329252;
+ q=mat2(cos(baseAngle),-sin(baseAngle),sin(baseAngle),cos(baseAngle))*q;
+ vec2 p=q/uZoom+.5;
  float t=uTime; float r=uRecipe; float e=uEnvelope;
  float phase=fract(t*.6); float wave=.5+.5*sin(t*6.283185);
  float env=.35+.65*wave;
