@@ -54,6 +54,15 @@ class StudioTimeline(context:Context):View(context) {
         offset=0L;m.clips.forEach {clip->val map=m.speedMap(clip);m.studio.motions[clip.id]?.let {motion->(motion.zoom+motion.rotation+motion.x+motion.y).map {it.time}.distinct().forEach {diamond(offset+it,0)};motion.speed.forEach {diamond(offset+map.toOutput(it.time),0)}};offset+=map.outputDuration}
         m.studio.fx.forEach {layer->layer.keys.forEach {diamond(layer.start+it.time,4)}}
         m.studio.texts.forEach {layer->(layer.style.xKeys+layer.style.yKeys+layer.style.scaleKeys).map {it.time}.distinct().forEach {diamond(layer.start+it,2)}}
+        m.studio.markers.forEach {mark->
+            val mx=x(mark.time)
+            if(mx>=labelWidth && mx<=width){
+                paint.color=0xffffd23f.toInt()
+                val tri=Path().apply{moveTo(mx-5*density,2*density);lineTo(mx+5*density,2*density);lineTo(mx,10*density);close()}
+                c.drawPath(tri,paint);paint.textSize=8*density;c.drawText(mark.label,mx+4*density,10*density,paint)
+                paint.strokeWidth=1*density;c.drawLine(mx,10*density,mx,height.toFloat(),paint)
+            }
+        }
         trimPreviewTime?.let {preview->val px=x(preview);paint.color=0xffffd23f.toInt();paint.strokeWidth=2*density;c.drawLine(px,ruler,px,ruler+row,paint)}
         val play=x(m.playhead);paint.color=Color.WHITE;paint.strokeWidth=2*density;c.drawLine(play,0f,play,height.toFloat(),paint);c.drawCircle(play,7*density,6*density,paint)
         c.restore();paint.color=0xff161720.toInt();c.drawRect(0f,0f,labelWidth,height.toFloat(),paint)
@@ -72,6 +81,7 @@ class StudioTimeline(context:Context):View(context) {
         m.studio.texts.forEach {points+=it.start;points+=it.end}
         m.studio.fx.forEach {points+=it.start;points+=it.end}
         m.lyrics?.cues?.forEach {points+=it.startMs;points+=it.endMs}
+        m.studio.markers.forEach {points+=it.time}
         val threshold=(12*density/pixelsPerSecond*1000f).toLong().coerceAtLeast(25L)
         val target=points.minByOrNull {kotlin.math.abs(it-raw)}
         if(target!=null && kotlin.math.abs(target-raw)<=threshold){
