@@ -64,7 +64,7 @@ data class TextStyle(
     val xKeys: List<KeyPoint> = emptyList(), val yKeys: List<KeyPoint> = emptyList(), val scaleKeys: List<KeyPoint> = emptyList()
 )
 data class TextLayer(val id:String=UUID.randomUUID().toString(),val text:String="MONSTRO",val start:Long=0,val end:Long=3000,val style:TextStyle=TextStyle())
-data class AudioLayer(val id:String=UUID.randomUUID().toString(),val uri:String,val name:String,val duration:Long,val start:Long=0,val trimStart:Long=0,val trimEnd:Long=duration,val volume:Float=1f) { val end get()=start+trimEnd-trimStart }
+data class AudioLayer(val id:String=UUID.randomUUID().toString(),val uri:String,val name:String,val duration:Long,val start:Long=0,val trimStart:Long=0,val trimEnd:Long=duration,val volume:Float=1f,val pitch:Float=1f,val fadeIn:Long=0,val fadeOut:Long=0) { val end get()=start+trimEnd-trimStart }
 data class FxLayer(val id:String=UUID.randomUUID().toString(),val presetId:String,val start:Long,val end:Long,val intensity:Float=1f,val speed:Float=1f,val direction:Float=0f,val keys:List<KeyPoint> = emptyList())
 data class ClipMotion(val speed:List<KeyPoint> = emptyList(),val zoom:List<KeyPoint> = emptyList(),val rotation:List<KeyPoint> = emptyList(),val x:List<KeyPoint> = emptyList(),val y:List<KeyPoint> = emptyList())
 data class ClipAdjust(
@@ -99,7 +99,7 @@ private fun <T> JSONArray?.objects(f:(JSONObject)->T):List<T> = if(this==null) e
 object StudioCodec {
     fun encode(p:StudioProject):String = JSONObject().apply {
         put("texts",JSONArray().also { a->p.texts.forEach { a.put(JSONObject().put("id",it.id).put("text",it.text).put("start",it.start).put("end",it.end).put("style",it.style.json())) } })
-        put("audio",JSONArray().also { a->p.audio.forEach { a.put(JSONObject().put("id",it.id).put("uri",it.uri).put("name",it.name).put("duration",it.duration).put("start",it.start).put("in",it.trimStart).put("out",it.trimEnd).put("volume",it.volume.toDouble())) } })
+        put("audio",JSONArray().also { a->p.audio.forEach { a.put(JSONObject().put("id",it.id).put("uri",it.uri).put("name",it.name).put("duration",it.duration).put("start",it.start).put("in",it.trimStart).put("out",it.trimEnd).put("volume",it.volume.toDouble()).put("pitch",it.pitch.toDouble()).put("fadeIn",it.fadeIn).put("fadeOut",it.fadeOut)) } })
         put("fx",JSONArray().also { a->p.fx.forEach { a.put(JSONObject().put("id",it.id).put("preset",it.presetId).put("start",it.start).put("end",it.end).put("intensity",it.intensity.toDouble()).put("speed",it.speed.toDouble()).put("direction",it.direction.toDouble()).put("keys",keysJson(it.keys))) } })
         put("motions",JSONObject().also { o->p.motions.forEach { (id,m)->o.put(id,JSONObject().put("speed",keysJson(m.speed)).put("zoom",keysJson(m.zoom)).put("rotation",keysJson(m.rotation)).put("x",keysJson(m.x)).put("y",keysJson(m.y))) } })
         put("caption",p.captionStyle.json()); put("styles",JSONObject().also { o->p.captionStyles.forEach { (i,s)->o.put(i.toString(),s.json()) } })
@@ -113,7 +113,7 @@ object StudioCodec {
         o.optJSONObject("styles")?.let { m->m.keys().forEach { id->id.toIntOrNull()?.let { styles[it]=style(m.getJSONObject(id)) } } }
         fun strings(name:String)=o.optJSONArray(name)?.let { a->(0 until a.length()).map { a.getString(it) } } ?: emptyList()
         return StudioProject(o.optJSONArray("texts").objects { TextLayer(it.getString("id"),it.getString("text"),it.getLong("start"),it.getLong("end"),style(it.optJSONObject("style"))) },
-            o.optJSONArray("audio").objects { AudioLayer(it.getString("id"),it.getString("uri"),it.getString("name"),it.getLong("duration"),it.getLong("start"),it.getLong("in"),it.getLong("out"),it.getDouble("volume").toFloat()) },
+            o.optJSONArray("audio").objects { AudioLayer(it.getString("id"),it.getString("uri"),it.getString("name"),it.getLong("duration"),it.getLong("start"),it.getLong("in"),it.getLong("out"),it.optDouble("volume",1.0).toFloat(),it.optDouble("pitch",1.0).toFloat(),it.optLong("fadeIn",0),it.optLong("fadeOut",0)) },
             o.optJSONArray("fx").objects { FxLayer(it.getString("id"),it.getString("preset"),it.getLong("start"),it.getLong("end"),it.getDouble("intensity").toFloat(),it.getDouble("speed").toFloat(),it.getDouble("direction").toFloat(),readKeys(it.optJSONArray("keys"))) },motions,style(o.optJSONObject("caption")),styles,strings("favorites").toSet(),strings("recent"),adjustments)
     }
 }
