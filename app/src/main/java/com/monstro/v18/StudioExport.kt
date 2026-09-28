@@ -39,7 +39,7 @@ fun EditorModel.studioComposition():Composition {
         if(layer.start>0)audio+=EditedMediaItem.Builder(MediaItem.fromUri(silenceFile(context.cacheDir,layer.start).toURI().toString())).setRemoveVideo(true).setEffects(Effects(canonicalAudio(),emptyList())).build()
         val end=minOf(layer.trimEnd,layer.trimStart+totalDuration-layer.start)
         val item=MediaItem.Builder().setUri(layer.uri).setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionMs(layer.trimStart).setEndPositionMs(end).build()).build()
-        audio+=EditedMediaItem.Builder(item).setRemoveVideo(true).setEffects(Effects(canonicalAudio(volume=layer.volume),emptyList())).build()
+        audio+=EditedMediaItem.Builder(item).setRemoveVideo(true).setEffects(Effects(canonicalAudio(volume=layer.volume,pitch=layer.pitch,fadeInMs=layer.fadeIn,fadeOutMs=layer.fadeOut,durationMs=(end-layer.trimStart).coerceAtLeast(1)),emptyList())).build()
         sequences+=EditedMediaItemSequence(audio)
     }
     return Composition.Builder(sequences).experimentalSetForceAudioTrack(!mute || studio.audio.isNotEmpty())
