@@ -7,3 +7,7 @@ local.properties
 # Firebase config is environment/project-specific. Keep it out of Git.
 app/google-services.json
 google-services.json
+
+# Never commit Android signing keys.
+*.jks
+*.keystore
