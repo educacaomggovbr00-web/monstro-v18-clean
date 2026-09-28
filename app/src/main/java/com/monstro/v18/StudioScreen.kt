@@ -147,7 +147,16 @@ private fun VideoInspector(m:EditorModel,importVideo:()->Unit){OutlinedButton(on
             Text(if(m.compatibilityPreview)"Ativado · efeitos ocultos na prévia" else "Desativado · efeitos visíveis no vídeo",color=Color.Gray,fontSize=11.sp)
         }
     }
-    Row{TextButton(onClick=m::split){Text("Dividir")};TextButton(onClick={m.move(-1)}){Text("←")};TextButton(onClick={m.move(1)}){Text("→")};TextButton(onClick=m::remove){Text("Excluir")}}
+    Text("Ferramentas do clipe",fontWeight=FontWeight.Bold)
+    LazyRow(horizontalArrangement=Arrangement.spacedBy(4.dp)){
+        item{AssistChip(onClick=m::split,label={Text("✂ Dividir")})}
+        item{AssistChip(onClick=m::extractCurrentAudio,label={Text("♪ Extrair áudio")})}
+        item{AssistChip(onClick=m::toggleMirror,label={Text(if(clip.mirror)"⇆ Espelhado" else "⇆ Espelhar")})}
+        item{AssistChip(onClick={m.move(-1)},label={Text("← Mover")})}
+        item{AssistChip(onClick={m.move(1)},label={Text("Mover →")})}
+        item{AssistChip(onClick=m::remove,label={Text("Excluir")})}
+    }
+    Adjust("Volume do clipe",clip.volume,0f..2f,"×",m::setClipVolume)
     Timing(clip.trim.start,clip.trim.end,clip.duration){a,b->m.edit(trim=TrimRange(a,b))}
     Choices(listOf("raw","neon","trap","dark","cinema"),clip.preset){m.edit(preset=it)}
     val motion=m.studio.motions[clip.id] ?: ClipMotion();val local=m.playhead-m.timelineOffset
@@ -185,6 +194,56 @@ private fun TextInspector(m:EditorModel){OutlinedButton(onClick=m::addText){Text
     StyleInspector(layer.style,m.playhead-layer.start){style->m.updateStudio(m.studio.copy(texts=m.studio.texts.map {if(it.id==layer.id)it.copy(style=style)else it}),false)}
     TextButton(onClick={m.updateStudio(m.studio.copy(texts=m.studio.texts-layer),false)}){Text("Excluir texto")}
 }
+@UnstableApi @Composable
+private fun LayerInspector(m:EditorModel,importVideo:()->Unit,importAudio:()->Unit){
+    Text("Mídia e camadas do projeto",fontWeight=FontWeight.Bold)
+    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+        OutlinedButton(onClick=importVideo){Text("+ Vídeo")}
+        OutlinedButton(onClick=importAudio){Text("+ Áudio")}
+        OutlinedButton(onClick=m::addText){Text("+ Texto")}
+    }
+    Text("${m.clips.size} vídeo(s) · ${m.studio.audio.size} áudio(s) · ${m.studio.texts.size} texto(s) · ${m.lyrics?.cues?.size ?: 0} legenda(s) · ${m.studio.fx.size} FX",fontSize=10.sp,color=Color.Gray)
+    m.clips.take(12).forEachIndexed {index,clip->
+        OutlinedButton(onClick={m.select(index);m.focus("Vídeo")},modifier=Modifier.fillMaxWidth()){Text("VÍDEO  ${index+1} · ${clip.name}",maxLines=1)}
+    }
+    m.studio.audio.take(8).forEach {layer->OutlinedButton(onClick={m.focus("Áudio",layer.id)},modifier=Modifier.fillMaxWidth()){Text("ÁUDIO  ${layer.name}",maxLines=1)}}
+    m.studio.texts.take(8).forEach {layer->OutlinedButton(onClick={m.focus("Texto",layer.id)},modifier=Modifier.fillMaxWidth()){Text("TEXTO  ${layer.text}",maxLines=1)}}
+    m.studio.fx.take(8).forEach {layer->OutlinedButton(onClick={m.focus("FX",layer.id)},modifier=Modifier.fillMaxWidth()){Text("FX  ${FxCatalog.get(layer.presetId)?.name ?: layer.presetId}",maxLines=1)}}
+}
+
+@UnstableApi @Composable
+private fun FilterInspector(m:EditorModel){
+    val clip=m.current ?: run {Text("Importe um vídeo para usar filtros.");return}
+    Text("Filtros do clipe",fontWeight=FontWeight.Bold)
+    Text("Aplicação por GPU e visível também no MP4.",fontSize=10.sp,color=Color.Gray)
+    val names=mapOf("Original" to "raw","Neon" to "neon","Trap" to "trap","Dark" to "dark","Cinema" to "cinema")
+    Choices(names.keys.toList(),names.entries.firstOrNull {it.value==clip.preset}?.key ?: "Original"){label->m.edit(preset=names[label] ?: "raw")}
+}
+
+@UnstableApi @Composable
+private fun RatioInspector(m:EditorModel){
+    Text("Canvas e proporção",fontWeight=FontWeight.Bold)
+    Choices(listOf("9:16","16:9","1:1","4:5"),m.canvasRatio,m::setCanvasRatio)
+    Text("Fundo",fontWeight=FontWeight.Bold)
+    Choices(listOf("Desfoque","Cor sólida","Padrão"),when(m.canvasBackground){"solid"->"Cor sólida";"pattern"->"Padrão";else->"Desfoque"}){m.setCanvasBackground(when(it){"Cor sólida"->"solid";"Padrão"->"pattern";else->"blur"})}
+    Text("Saída atual: ${m.exportFormat.width} × ${m.exportFormat.height}",fontSize=11.sp,color=Color.Gray)
+}
+
+@UnstableApi @Composable
+private fun AdjustInspector(m:EditorModel){
+    val clip=m.current ?: run {Text("Selecione um vídeo para ajustar a cor.");return}
+    val a=m.studio.adjustments[clip.id] ?: ClipAdjust()
+    fun update(next:ClipAdjust){m.updateStudio(m.studio.copy(adjustments=m.studio.adjustments+(clip.id to next)))}
+    Text("Ajustes de cor",fontWeight=FontWeight.Bold)
+    Adjust("Brilho",a.brightness,-1f..1f){update(a.copy(brightness=it))}
+    Adjust("Contraste",a.contrast,-1f..1f){update(a.copy(contrast=it))}
+    Adjust("Saturação",a.saturation,-100f..100f){update(a.copy(saturation=it))}
+    Adjust("Matiz",a.hue,-180f..180f,"°"){update(a.copy(hue=it))}
+    Adjust("Luminosidade",a.lightness,-100f..100f){update(a.copy(lightness=it))}
+    Adjust("Temperatura",a.temperature,-1f..1f){update(a.copy(temperature=it))}
+    OutlinedButton(onClick={update(ClipAdjust())},modifier=Modifier.fillMaxWidth()){Text("Redefinir ajustes")}
+}
+
 @UnstableApi @Composable
 private fun CaptionInspector(m:EditorModel,import:()->Unit){
     Row {OutlinedButton(onClick={m.addManualCaption()}){Text("+ Legenda")};Spacer(Modifier.width(6.dp));OutlinedButton(onClick=import){Text("+ SRT")}}
