@@ -419,36 +419,43 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         }
     }
     fun cancelAutoBeats(){beatJob?.cancel()}
-    fun importImage(uri:Uri?){
-        if(uri==null || busy || totalDuration<=0)return
+    fun importImage(uri:Uri?){if(uri!=null)importImages(listOf(uri))}
+    fun importImages(uris:List<Uri>){
+        if(uris.isEmpty() || busy || totalDuration<=0)return
         importing=true
         viewModelScope.launch {
             val result=withContext(Dispatchers.IO){runCatching {
-                val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {if(it.moveToFirst())it.getString(0)else null} ?: "Imagem"
-                val dir=File(context.filesDir,"images").apply {mkdirs()}
-                val file=File(dir,"image-${UUID.randomUUID()}.png")
-                val bitmap=if(Build.VERSION.SDK_INT>=28){
-                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver,uri)){decoder,info,_->
-                        val w=info.size.width;val h=info.size.height;val maxSide=maxOf(w,h)
-                        if(maxSide>1440){val ratio=1440f/maxSide;decoder.setTargetSize((w*ratio).toInt().coerceAtLeast(1),(h*ratio).toInt().coerceAtLeast(1))}
-                        decoder.allocator=ImageDecoder.ALLOCATOR_SOFTWARE
+                uris.take(20).map {uri->
+                    val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {if(it.moveToFirst())it.getString(0)else null} ?: "Imagem"
+                    val dir=File(context.filesDir,"images").apply {mkdirs()}
+                    val file=File(dir,"image-${UUID.randomUUID()}.png")
+                    val bitmap=if(Build.VERSION.SDK_INT>=28){
+                        ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver,uri)){decoder,info,_->
+                            val w=info.size.width;val h=info.size.height;val maxSide=maxOf(w,h)
+                            if(maxSide>1440){val ratio=1440f/maxSide;decoder.setTargetSize((w*ratio).toInt().coerceAtLeast(1),(h*ratio).toInt().coerceAtLeast(1))}
+                            decoder.allocator=ImageDecoder.ALLOCATOR_SOFTWARE
+                        }
+                    }else{
+                        val bounds=BitmapFactory.Options().apply {inJustDecodeBounds=true}
+                        context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,bounds)}
+                        var sample=1;while(maxOf(bounds.outWidth,bounds.outHeight)/sample>1440)sample*=2
+                        val options=BitmapFactory.Options().apply {inSampleSize=sample}
+                        context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,options)} ?: error("Não foi possível abrir a imagem.")
                     }
-                }else{
-                    val bounds=BitmapFactory.Options().apply {inJustDecodeBounds=true}
-                    context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,bounds)}
-                    var sample=1;while(maxOf(bounds.outWidth,bounds.outHeight)/sample>1440)sample*=2
-                    val options=BitmapFactory.Options().apply {inSampleSize=sample}
-                    context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,options)} ?: error("Não foi possível abrir a imagem.")
+                    file.outputStream().use {out->check(bitmap.compress(Bitmap.CompressFormat.PNG,100,out)){"Não foi possível salvar a imagem."}}
+                    bitmap.recycle()
+                    val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0))
+                    val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1)
+                    ImageLayer(path=file.absolutePath,name=name,start=start,end=end)
                 }
-                file.outputStream().use {out->check(bitmap.compress(Bitmap.CompressFormat.PNG,100,out)){"Não foi possível salvar a imagem."}}
-                bitmap.recycle()
-                val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0))
-                val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1)
-                ImageLayer(path=file.absolutePath,name=name,start=start,end=end)
             }}
             importing=false
-            result.onSuccess {layer->updateStudio(studio.copy(images=studio.images+layer),false);focus("Camada",layer.id)}
-                .onFailure {message="Não foi possível importar a imagem: ${it.localizedMessage}"}
+            result.onSuccess {layers->
+                if(layers.isNotEmpty()){
+                    updateStudio(studio.copy(images=studio.images+layers),false)
+                    focus("Camada",layers.last().id)
+                }
+            }.onFailure {message="Não foi possível importar a imagem: ${it.localizedMessage}"}
         }
     }
     fun importAudio(uri:Uri?){if(uri==null || busy)return;importing=true;viewModelScope.launch {
