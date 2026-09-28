@@ -72,6 +72,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         if(granted)m.startVoiceover() else m.showMessage("Permita acesso ao microfone para gravar dublagem.")
     }
     val srt=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importLyrics)
+    val fxPack=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importFxPack)
     val save=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"),m::saveOutput)
 
     var library by remember {mutableStateOf(false)}
@@ -158,8 +159,8 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
 
     val fxTools=listOf(
         StudioTool("✦","Efeitos"){library=true},
-        StudioTool("◇","IA sugerir"){aiDialog=true},
-        StudioTool("☷","Editar FX"){openPanel("FX")}
+        StudioTool("↓","Importar FX"){fxPack.launch(arrayOf("application/json","text/plain","application/octet-stream"))},
+        StudioTool("◇","IA sugerir"){aiDialog=true}
     )
 
     val layerTools=listOf(
@@ -384,7 +385,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         }
     }
 
-    if(library)FxLibrary(m){library=false}
+    if(library)FxLibrary(m,{fxPack.launch(arrayOf("application/json","text/plain","application/octet-stream"))}){library=false}
 
     if(aiDialog){
         var style by remember {mutableStateOf("Automático")}
@@ -716,23 +717,58 @@ private fun StyleInspector(s:TextStyle,time:Long,change:(TextStyle)->Unit){
     Row{TextButton(onClick={change(s.copy(xKeys=putKey(s.xKeys,time.coerceAtLeast(0),s.x),yKeys=putKey(s.yKeys,time.coerceAtLeast(0),s.y),scaleKeys=putKey(s.scaleKeys,time.coerceAtLeast(0),s.size)))}){Text("◇ Keyframe posição / escala")};TextButton(onClick={change(s.copy(xKeys=emptyList(),yKeys=emptyList(),scaleKeys=emptyList()))}){Text("Limpar")}}
 }
 @UnstableApi @Composable
-private fun FxInspector(m:EditorModel,library:()->Unit){OutlinedButton(onClick=library,modifier=Modifier.fillMaxWidth()){Text("+ Biblioteca · ${FxCatalog.all.size} FX")};val layer=m.studio.fx.find {it.id==m.focusedId} ?: return
-    Text(FxCatalog.get(layer.presetId)?.name ?: "FX",fontWeight=FontWeight.Bold)
-    fun update(next:FxLayer){m.updateStudio(m.studio.copy(fx=m.studio.fx.map {if(it.id==layer.id)next else it}))}
-    Adjust("Intensidade",layer.intensity,0f..2f){update(layer.copy(intensity=it,keys=if(layer.keys.isEmpty())emptyList()else putKey(layer.keys,(m.playhead-layer.start).coerceAtLeast(0),it)))};Adjust("Velocidade",layer.speed,.1f..4f){update(layer.copy(speed=it))};if(FxCatalog.get(layer.presetId)?.engine in listOf(1,5,18))Adjust("Direção",layer.direction,0f..360f,"°"){update(layer.copy(direction=it))}
-    Timing(layer.start,layer.end,m.totalDuration){a,b->update(layer.copy(start=a,end=b))}
-    Row{TextButton(onClick={update(layer.copy(keys=putKey(layer.keys,(m.playhead-layer.start).coerceAtLeast(0),layer.intensity)))}){Text("◇ Keyframe intensidade")};TextButton(onClick={update(layer.copy(keys=emptyList()))}){Text("Limpar")}}
-    TextButton(onClick={m.updateStudio(m.studio.copy(fx=m.studio.fx-layer))}){Text("Excluir FX")}
+private fun FxInspector(m:EditorModel,library:()->Unit){
+    OutlinedButton(onClick=library,modifier=Modifier.fillMaxWidth()){Text("+ Biblioteca de efeitos")}
+    val layer=m.studio.fx.find {it.id==m.focusedId} ?: return
+    val preset=FxCatalog.get(layer.presetId,m.studio.customFx)
+    Text(preset?.name ?: "FX",fontWeight=FontWeight.Bold)
+    Text("Efeito pronto aplicado ao clipe. Não precisa configurar parâmetros.",fontSize=11.sp,color=Color.Gray)
+    TextButton(onClick={m.updateStudio(m.studio.copy(fx=m.studio.fx-layer))}){Text("Excluir efeito")}
 }
 @UnstableApi @Composable
-private fun FxLibrary(m:EditorModel,close:()->Unit){var query by remember{mutableStateOf("")};var category by remember{mutableStateOf("Todos")}
-    val results=remember(query,category,m.studio.favorites,m.studio.recent){FxCatalog.search(query,category.takeIf {it !in listOf("Todos","Favoritos","Recentes")}).filter {when(category){"Favoritos"->it.id in m.studio.favorites;"Recentes"->it.id in m.studio.recent;else->true}}.let {if(category=="Recentes")it.sortedBy {p->m.studio.recent.indexOf(p.id)}else it}}
-    Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false)){Surface(Modifier.fillMaxSize().systemBarsPadding(),color=Color(0xff101017)){Column(Modifier.padding(16.dp)){
-        Row(verticalAlignment=Alignment.CenterVertically){Text("CHAOS LIBRARY",fontWeight=FontWeight.Black,modifier=Modifier.weight(1f));TextButton(onClick=close){Text("Fechar")}}
-        Text("20 motores · 1.000 receitas animadas",fontSize=12.sp,color=Color.Gray)
-        OutlinedTextField(value=query,onValueChange={query=it},label={Text("Pesquisar FX")},singleLine=true,modifier=Modifier.fillMaxWidth())
-        Choices(listOf("Todos","Favoritos","Recentes")+FxCatalog.categories,category){category=it}
-        Text("${results.size} resultados",fontSize=11.sp,color=Color.Gray)
-        LazyColumn {items(results,key={it.id}){preset->Row(Modifier.fillMaxWidth().clickable {m.addFx(preset);close()}.padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(42.dp).background(Color.hsv(preset.engine*18f,.65f,.65f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Text("FX",fontWeight=FontWeight.Black)};Column(Modifier.weight(1f).padding(start=12.dp)){Text(preset.name,fontSize=13.sp);Text(preset.category,fontSize=10.sp,color=Color.Gray)};TextButton(onClick={m.favorite(preset.id)}){Text(if(preset.id in m.studio.favorites)"★" else "☆",fontSize=22.sp)}}}}
-    }}}
+private fun FxLibrary(m:EditorModel,importPack:()->Unit,close:()->Unit){
+    var query by remember{mutableStateOf("")}
+    var category by remember{mutableStateOf("Todos")}
+    val customIds=remember(m.studio.customFx){m.studio.customFx.map {it.id}.toSet()}
+    val categories=remember(m.studio.customFx){(FxCatalog.categories+m.studio.customFx.map {it.category}).distinct()}
+    val results=remember(query,category,m.studio.favorites,m.studio.recent,m.studio.customFx){
+        FxCatalog.search(query,category.takeIf {it !in listOf("Todos","Favoritos","Recentes","Meus efeitos")},m.studio.customFx)
+            .filter {preset->when(category){
+                "Favoritos"->preset.id in m.studio.favorites
+                "Recentes"->preset.id in m.studio.recent
+                "Meus efeitos"->preset.id in customIds
+                else->true
+            }}
+            .let {list->if(category=="Recentes")list.sortedBy {p->m.studio.recent.indexOf(p.id)} else list}
+    }
+    Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false)){
+        Surface(Modifier.fillMaxSize().systemBarsPadding(),color=Color(0xff101017)){
+            Column(Modifier.padding(16.dp)){
+                Row(verticalAlignment=Alignment.CenterVertically){
+                    Text("EFEITOS",fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
+                    TextButton(onClick=importPack){Text("↓ Importar")}
+                    TextButton(onClick=close){Text("Fechar")}
+                }
+                Text("Toque em um efeito e ele é aplicado pronto. Pacotes baixados ficam em Meus efeitos.",fontSize=12.sp,color=Color.Gray)
+                OutlinedTextField(value=query,onValueChange={query=it},label={Text("Pesquisar FX")},singleLine=true,modifier=Modifier.fillMaxWidth())
+                Choices(listOf("Todos","Meus efeitos","Favoritos","Recentes")+categories,category){category=it}
+                Text("${results.size} resultados",fontSize=11.sp,color=Color.Gray)
+                LazyColumn {
+                    items(results,key={it.id}){preset->
+                        Row(
+                            Modifier.fillMaxWidth().clickable {m.addFx(preset);close()}.padding(vertical=7.dp),
+                            verticalAlignment=Alignment.CenterVertically
+                        ){
+                            Box(Modifier.size(42.dp).background(Color.hsv(preset.engine*18f,.65f,.65f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Text("FX",fontWeight=FontWeight.Black)}
+                            Column(Modifier.weight(1f).padding(start=12.dp)){
+                                Text(preset.name,fontSize=13.sp)
+                                Text(if(preset.id in customIds)"Importado · ${preset.category}" else preset.category,fontSize=10.sp,color=Color.Gray)
+                            }
+                            TextButton(onClick={m.favorite(preset.id)}){Text(if(preset.id in m.studio.favorites)"★" else "☆",fontSize=22.sp)}
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
