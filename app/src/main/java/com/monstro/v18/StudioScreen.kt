@@ -164,7 +164,7 @@ private fun TextInspector(m:EditorModel){OutlinedButton(onClick=m::addText){Text
 private fun CaptionInspector(m:EditorModel,import:()->Unit){
     Row {OutlinedButton(onClick={m.addManualCaption()}){Text("+ Legenda")};Spacer(Modifier.width(6.dp));OutlinedButton(onClick=import){Text("+ SRT")}}
     Text("Motor de legenda",fontWeight=FontWeight.Bold)
-    Choices(listOf("Gemini IA","Offline"),if(m.captionEngine=="gemini")"Gemini IA" else "Offline"){m.setCaptionEngine(if(it=="Gemini IA")"gemini" else "offline")}
+    Choices(listOf("Gemini IA","Offline"),if(m.captionEngine=="gemini")"Gemini IA" else "Offline"){m.selectCaptionEngine(if(it=="Gemini IA")"gemini" else "offline")}
     if(m.captionEngine=="gemini"){
         Text(if(m.geminiReady)"Gemini IA conectado · usa internet" else "Gemini IA aguardando configuração do Firebase",fontSize=10.sp,color=if(m.geminiReady)Color.LightGray else Color(0xffffb86b))
         OutlinedButton(onClick=m::autoCaption,modifier=Modifier.fillMaxWidth()){Text("Legendar com Gemini IA")}
