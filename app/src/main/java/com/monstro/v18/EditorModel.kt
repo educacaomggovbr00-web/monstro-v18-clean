@@ -248,9 +248,9 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             recorder.setAudioEncodingBitRate(128000)
             recorder.setOutputFile(file.absolutePath)
             recorder.prepare();recorder.start()
-            voiceoverRecorder=recorder;voiceoverFile=file;voiceoverStart=playhead.coerceIn(0,totalDuration)
+            voiceoverRecorder=recorder;voiceoverFile=file;voiceoverStart=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0))
             voiceoverRecording=true;voiceoverStatus="Gravando dublagem…"
-            player.play()
+            seekTimeline(voiceoverStart);player.play()
         }catch(e:Exception){
             runCatching {recorder.release()};file.delete()
             voiceoverStatus="Não foi possível iniciar o microfone: ${e.localizedMessage}"
