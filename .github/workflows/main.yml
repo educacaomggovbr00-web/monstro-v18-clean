@@ -43,13 +43,34 @@ jobs:
       - name: Preparar fala sintética para testar legendas automáticas
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y espeak-ng ffmpeg libegl1 libgl1-mesa-dri
+          sudo apt-get install -y espeak-ng ffmpeg libegl1 libgl1 libgl1-mesa-dri
           espeak-ng -v pt-br -s 130 -w /tmp/voice.wav 'Olá mundo. Este é um vídeo de teste. Vamos fazer uma legenda com palavras e música. O editor de vídeo está funcionando.'
           ffmpeg -y -f lavfi -i color=c=black:s=160x90:r=15 -i /tmp/voice.wav -c:v libx264 -c:a aac -shortest app/src/androidTest/assets/voice.mp4
       - name: Verificar pixels dos 1000 presets OpenGL
         run: python3 tools/check_shaders.py
       - name: Testar e compilar o código do repositório
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Gerar APK de produção assinado (quando configurado)
+        env:
+          MONSTRO_RELEASE_KEYSTORE_B64: ${{ secrets.MONSTRO_RELEASE_KEYSTORE_B64 }}
+          MONSTRO_RELEASE_STORE_PASSWORD: ${{ secrets.MONSTRO_RELEASE_STORE_PASSWORD }}
+          MONSTRO_RELEASE_KEY_ALIAS: ${{ secrets.MONSTRO_RELEASE_KEY_ALIAS }}
+          MONSTRO_RELEASE_KEY_PASSWORD: ${{ secrets.MONSTRO_RELEASE_KEY_PASSWORD }}
+          MONSTRO_RELEASE_KEYSTORE: ${{ runner.temp }}/monstro-v18-release.jks
+        run: |
+          if [ -n "$MONSTRO_RELEASE_KEYSTORE_B64" ] &&
+             [ -n "$MONSTRO_RELEASE_STORE_PASSWORD" ] &&
+             [ -n "$MONSTRO_RELEASE_KEY_ALIAS" ] &&
+             [ -n "$MONSTRO_RELEASE_KEY_PASSWORD" ]; then
+            echo "$MONSTRO_RELEASE_KEYSTORE_B64" | base64 --decode > "$MONSTRO_RELEASE_KEYSTORE"
+            keytool -list -keystore "$MONSTRO_RELEASE_KEYSTORE" -storepass "$MONSTRO_RELEASE_STORE_PASSWORD" -alias "$MONSTRO_RELEASE_KEY_ALIAS" >/dev/null
+            gradle :app:assembleRelease --no-daemon --stacktrace
+            echo "APK release assinado gerado."
+          else
+            echo "Segredos de assinatura ainda não configurados; pulando APK release."
+          fi
+
       - name: Habilitar emulador Android
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -70,6 +91,11 @@ jobs:
           name: MonstroV18-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MonstroV18-APK-release
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
         with:
