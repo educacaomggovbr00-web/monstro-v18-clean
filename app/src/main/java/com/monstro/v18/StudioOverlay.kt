@@ -87,7 +87,7 @@ class StudioPreview(context:Context):View(context) {
     init {setLayerType(LAYER_TYPE_SOFTWARE,null)}
     override fun onDraw(canvas:Canvas) {
         super.onDraw(canvas);model?.let { painter.draw(canvas,width,height,it.studio,it.lyrics,it.playhead,it.simpleLyrics) }
-        postInvalidateDelayed(33)
+        postInvalidateDelayed(if(model?.player?.isPlaying==true)33 else 100)
     }
     override fun onTouchEvent(event:MotionEvent):Boolean {
         if(event.action!=MotionEvent.ACTION_UP)return true
