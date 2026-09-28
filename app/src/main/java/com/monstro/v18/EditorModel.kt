@@ -83,12 +83,17 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var selected by mutableStateOf(0); private set
     var mute by mutableStateOf(false); private set
     var safeMode by mutableStateOf(true); private set
-    var vertical by mutableStateOf(true); private set
+    var canvasRatio by mutableStateOf(prefs.getString("canvasRatio",if(prefs.getBoolean("vertical",true))"9:16" else "16:9") ?: "9:16"); private set
+    var canvasBackground by mutableStateOf(prefs.getString("canvasBackground","blur") ?: "blur"); private set
+    var bitrateMode by mutableStateOf(prefs.getString("bitrateMode","recommended") ?: "recommended"); private set
+    var exportCodec by mutableStateOf(prefs.getString("exportCodec","H264") ?: "H264"); private set
+    var vertical by mutableStateOf(canvasRatio=="9:16" || canvasRatio=="4:5"); private set
     var lyrics by mutableStateOf<SrtTrack?>(null); private set
     var lyricsName by mutableStateOf(""); private set
     var simpleLyrics by mutableStateOf(false); private set
     var purpleLyrics by mutableStateOf(true); private set
-    val exportFormat get() = ExportFormat(vertical, safeMode)
+    val exportFormat get() = ExportFormat(canvasRatio,safeMode,canvasBackground,bitrateMode,exportCodec)
+    val hevcSupported get() = runCatching { android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos.any { info->info.isEncoder && info.supportedTypes.any { it.equals(MimeTypes.VIDEO_H265,true) } } }.getOrDefault(false)
     val timelineOffset get() = clips.take(selected).sumOf { speedMap(it).outputDuration }
 
     var importing by mutableStateOf(false); private set
@@ -246,7 +251,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         return listOf(Presentation.createForHeight(480))+previewEffects(base)+(if(zoom.isEmpty())emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset)))+
             studio.fx.filter {it.end>timelineOffset && it.start<timelineOffset+speedMap(clip).outputDuration}.map {StudioEffect(it,emptyList(),clock)}+
             (if(clip.chaos.has(ChaosFx.MOTION_BLUR))listOf(ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id))))else emptyList())+
-            AspectBackgroundEffect(ExportFormat(vertical,true))
+            AspectBackgroundEffect(ExportFormat(canvasRatio,true,canvasBackground))
     }
 
     private fun createPlayer(): ExoPlayer {
@@ -307,7 +312,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             mute = prefs.getBoolean("mute", false)
             safeMode = prefs.getBoolean("safeMode", true)
             output = prefs.getString("output", null)?.let { File(it) }?.takeIf { it.isFile && it.length() > 0 }
-            vertical = prefs.getBoolean("vertical", true)
+            vertical = canvasRatio=="9:16" || canvasRatio=="4:5"
             simpleLyrics = prefs.getBoolean("simpleLyrics", false)
             purpleLyrics = prefs.getBoolean("purpleLyrics", true)
             lyricsName = prefs.getString("lyricsName", "") ?: ""
@@ -442,10 +447,27 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         persist()
     }
 
-    fun setExportFormat(isVertical: Boolean) {
-        if (busy) return
-        vertical = isVertical; prefs.edit().putBoolean("vertical", vertical).apply(); preview(player.currentPosition,player.playWhenReady)
+    fun setCanvasRatio(ratio:String) {
+        if(busy || ratio !in listOf("9:16","16:9","1:1","4:5"))return
+        canvasRatio=ratio;vertical=ratio=="9:16" || ratio=="4:5"
+        prefs.edit().putString("canvasRatio",ratio).putBoolean("vertical",vertical).apply()
+        preview(player.currentPosition,player.playWhenReady)
     }
+    fun setCanvasBackground(mode:String) {
+        if(busy || mode !in listOf("blur","solid","pattern"))return
+        canvasBackground=mode;prefs.edit().putString("canvasBackground",mode).apply()
+        preview(player.currentPosition,player.playWhenReady)
+    }
+    fun setBitrateMode(mode:String) {
+        if(busy || mode !in listOf("low","recommended","high"))return
+        bitrateMode=mode;prefs.edit().putString("bitrateMode",mode).apply()
+    }
+    fun setExportCodec(codec:String) {
+        if(busy || codec !in listOf("H264","HEVC"))return
+        if(codec=="HEVC" && !hevcSupported){message="Este aparelho não oferece encoder HEVC/H.265. Mantive H.264.";return}
+        exportCodec=codec;prefs.edit().putString("exportCodec",codec).apply()
+    }
+    fun setExportFormat(isVertical: Boolean) { setCanvasRatio(if(isVertical)"9:16" else "16:9") }
     fun toggleSimpleLyrics() {
         if (busy) return
         simpleLyrics = !simpleLyrics; prefs.edit().putBoolean("simpleLyrics", simpleLyrics).apply()
@@ -505,7 +527,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 .setEnableFallback(true).build()
             val job = Transformer.Builder(context)
                 .setEncoderFactory(encoderFactory)
-                .setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC)
+                .setVideoMimeType(exportFormat.videoMime).setAudioMimeType(MimeTypes.AUDIO_AAC)
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                         polling?.cancel()
