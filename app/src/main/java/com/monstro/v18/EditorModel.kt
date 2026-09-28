@@ -166,8 +166,14 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         studio.audio.forEach { layer->
             val active=playhead>=layer.start && playhead<layer.end && playhead<totalDuration
             val p=audioPlayers[layer.id] ?: if(active) ExoPlayer.Builder(context).build().also {p->p.setMediaItem(MediaItem.fromUri(layer.uri));p.prepare();audioPlayers[layer.id]=p} else return@forEach
-            p.volume=layer.volume.coerceIn(0f,1f)
-            if(active){val target=layer.trimStart+playhead-layer.start;if(kotlin.math.abs(p.currentPosition-target)>150)p.seekTo(target);p.playWhenReady=player.isPlaying && !busy}else p.pause()
+            p.setPlaybackParameters(androidx.media3.common.PlaybackParameters(1f,layer.pitch.coerceIn(.5f,2f)))
+            if(active){
+                val local=playhead-layer.start;val duration=(layer.end-layer.start).coerceAtLeast(1)
+                val inGain=if(layer.fadeIn<=0)1f else (local.toFloat()/layer.fadeIn).coerceIn(0f,1f)
+                val outGain=if(layer.fadeOut<=0)1f else ((duration-local).toFloat()/layer.fadeOut).coerceIn(0f,1f)
+                p.volume=(layer.volume*minOf(inGain,outGain)).coerceIn(0f,1f)
+                val target=layer.trimStart+local;if(kotlin.math.abs(p.currentPosition-target)>150)p.seekTo(target);p.playWhenReady=player.isPlaying && !busy
+            }else {p.volume=layer.volume.coerceIn(0f,1f);p.pause()}
         }
     }
     fun pauseAll(){player.pause();audioPlayers.values.forEach {it.pause()}}
