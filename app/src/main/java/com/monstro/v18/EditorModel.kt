@@ -497,27 +497,27 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         updateStudio(studio.copy(audio=studio.audio+layer),false);focus("Áudio",layer.id)
     }
 
-    fun setCanvasRatio(ratio:String) {
+    fun selectCanvasRatio(ratio:String) {
         if(busy || ratio !in listOf("9:16","16:9","1:1","4:5"))return
         canvasRatio=ratio;vertical=ratio=="9:16" || ratio=="4:5"
         prefs.edit().putString("canvasRatio",ratio).putBoolean("vertical",vertical).apply()
         preview(player.currentPosition,player.playWhenReady)
     }
-    fun setCanvasBackground(mode:String) {
+    fun selectCanvasBackground(mode:String) {
         if(busy || mode !in listOf("blur","solid","pattern"))return
         canvasBackground=mode;prefs.edit().putString("canvasBackground",mode).apply()
         preview(player.currentPosition,player.playWhenReady)
     }
-    fun setBitrateMode(mode:String) {
+    fun selectBitrateMode(mode:String) {
         if(busy || mode !in listOf("low","recommended","high"))return
         bitrateMode=mode;prefs.edit().putString("bitrateMode",mode).apply()
     }
-    fun setExportCodec(codec:String) {
+    fun selectExportCodec(codec:String) {
         if(busy || codec !in listOf("H264","HEVC"))return
         if(codec=="HEVC" && !hevcSupported){message="Este aparelho não oferece encoder HEVC/H.265. Mantive H.264.";return}
         exportCodec=codec;prefs.edit().putString("exportCodec",codec).apply()
     }
-    fun setExportFormat(isVertical: Boolean) { setCanvasRatio(if(isVertical)"9:16" else "16:9") }
+    fun setExportFormat(isVertical: Boolean) { selectCanvasRatio(if(isVertical)"9:16" else "16:9") }
     fun toggleSimpleLyrics() {
         if (busy) return
         pushHistory();simpleLyrics = !simpleLyrics; prefs.edit().putBoolean("simpleLyrics", simpleLyrics).apply()
