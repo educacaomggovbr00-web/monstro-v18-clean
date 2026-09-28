@@ -157,11 +157,9 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     )
 
     val fxTools=listOf(
-        StudioTool("✦","Efeitos de vídeo"){library=true},
-        StudioTool("◉","Efeitos corpo"){library=true},
-        StudioTool("▣","Efeitos de foto"){library=true},
-        StudioTool("◇","Efeitos de IA"){aiDialog=true},
-        StudioTool("1000","Biblioteca FX"){library=true}
+        StudioTool("✦","Efeitos"){library=true},
+        StudioTool("◇","IA sugerir"){aiDialog=true},
+        StudioTool("☷","Editar FX"){openPanel("FX")}
     )
 
     val layerTools=listOf(
@@ -394,7 +392,9 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
             onDismissRequest={aiDialog=false},
             title={Text("✦ Monstro IA Auto Edit")},
             text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
-                Text("A IA entende os quadros, fala e ritmo e monta uma edição editável.",fontSize=12.sp,color=Color.LightGray)
+                Text("Detectado: ${m.videoPerception.label}",fontWeight=FontWeight.Bold,color=Color(0xff12d1e3))
+                Text("A IA usa duração, fala, beats e quadros para montar uma edição editável. Se o Gemini atingir a cota, o modo local continua automaticamente.",fontSize=12.sp,color=Color.LightGray)
+                Text(if(m.geminiReady)"Gemini configurado · ${GeminiSupport.GENERAL_MODEL}" else "Gemini não configurado · modo local disponível",fontSize=11.sp,color=Color.Gray)
                 Choices(listOf("Automático","Trap / Música","Cinemático","Vlog / Conversa","Gameplay / Ação","Anime / Edit"),style){style=it}
             }},
             confirmButton={Button(onClick={aiDialog=false;m.runAiAutoEdit(style)}){Text("Analisar e editar")}},
