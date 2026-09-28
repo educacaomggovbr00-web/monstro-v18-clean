@@ -398,7 +398,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 updateStudio(studio.copy(customFx=merged),false)
                 message="${presets.size} efeito(s) importado(s). Eles estão em Meus efeitos."
             }.onFailure {e->
-                message="Não consegui importar esse efeito. Use um pacote .monstrofx compatível: ${e.localizedMessage}"
+                message="Não consegui importar esse efeito. Use .monstrofx ou um .prfpset do Premiere com efeitos compatíveis: ${e.localizedMessage}"
             }
         }
     }
