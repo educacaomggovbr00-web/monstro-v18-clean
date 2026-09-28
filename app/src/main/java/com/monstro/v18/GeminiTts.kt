@@ -33,7 +33,7 @@ class GeminiTts(private val context:Context){
             speechConfig=SpeechConfig(voice=Voice(voice),languageCode="pt-BR")
         }
         val model=Firebase.ai(backend=GenerativeBackend.googleAI()).generativeModel(
-            modelName="gemini-3.1-flash-tts-preview",
+            modelName=GeminiSupport.TTS_MODEL,
             generationConfig=config
         )
         val instruction=when(style){
