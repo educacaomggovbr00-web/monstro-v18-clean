@@ -51,7 +51,7 @@ class StudioTimeline(context:Context):View(context) {
         m.lyrics?.cues?.forEachIndexed {i,it->block(it.startMs,it.endMs,3,it.text,0xff433880.toInt(),m.inspector=="Legenda" && m.focusedId==i.toString())}
         m.studio.fx.forEach {block(it.start,it.end,4,FxCatalog.get(it.presetId)?.name ?: "FX",0xff752b62.toInt(),m.focusedId==it.id)}
         fun diamond(time:Long,lane:Int){val cx=x(time);val cy=ruler+lane*row+5*density;paint.color=0xffffd23f.toInt();val path=Path().apply{moveTo(cx,cy-4*density);lineTo(cx+4*density,cy);lineTo(cx,cy+4*density);lineTo(cx-4*density,cy);close()};c.drawPath(path,paint)}
-        offset=0L;m.clips.forEach {clip->val map=m.speedMap(clip);m.studio.motions[clip.id]?.let {motion->motion.zoom.forEach {diamond(offset+it.time,0)};motion.speed.forEach {diamond(offset+map.toOutput(it.time),0)}};offset+=map.outputDuration}
+        offset=0L;m.clips.forEach {clip->val map=m.speedMap(clip);m.studio.motions[clip.id]?.let {motion->(motion.zoom+motion.rotation+motion.x+motion.y).map {it.time}.distinct().forEach {diamond(offset+it,0)};motion.speed.forEach {diamond(offset+map.toOutput(it.time),0)}};offset+=map.outputDuration}
         m.studio.fx.forEach {layer->layer.keys.forEach {diamond(layer.start+it.time,4)}}
         m.studio.texts.forEach {layer->(layer.style.xKeys+layer.style.yKeys+layer.style.scaleKeys).map {it.time}.distinct().forEach {diamond(layer.start+it,2)}}
         trimPreviewTime?.let {preview->val px=x(preview);paint.color=0xffffd23f.toInt();paint.strokeWidth=2*density;c.drawLine(px,ruler,px,ruler+row,paint)}
