@@ -38,7 +38,46 @@ class StereoProcessor:BaseAudioProcessor() {
     }
 }
 @UnstableApi
-fun canonicalAudio(speed:Float=1f,volume:Float=1f):List<AudioProcessor> = listOf(
-    androidx.media3.common.audio.SonicAudioProcessor().apply {setSpeed(speed);setPitch(1f);setOutputSampleRateHz(44100)},
-    StereoProcessor(),VolumeProcessor(volume)
+@UnstableApi
+class EnvelopeVolumeProcessor(
+    private val volume:Float,
+    private val fadeInMs:Long,
+    private val fadeOutMs:Long,
+    private val durationMs:Long
+):BaseAudioProcessor(){
+    private var frames=0L
+    private var rate=44100
+    private var channels=2
+    override fun onConfigure(inputAudioFormat:AudioProcessor.AudioFormat):AudioProcessor.AudioFormat{
+        if(inputAudioFormat.encoding!=C.ENCODING_PCM_16BIT)throw AudioProcessor.UnhandledAudioFormatException(inputAudioFormat)
+        rate=inputAudioFormat.sampleRate;channels=inputAudioFormat.channelCount
+        return inputAudioFormat
+    }
+    override fun queueInput(inputBuffer:ByteBuffer){
+        val count=inputBuffer.remaining()/(2*channels)
+        val out=replaceOutputBuffer(inputBuffer.remaining())
+        repeat(count){
+            val timeMs=frames*1000L/rate
+            val inGain=if(fadeInMs<=0)1f else (timeMs.toFloat()/fadeInMs).coerceIn(0f,1f)
+            val outGain=if(fadeOutMs<=0 || durationMs<=0)1f else ((durationMs-timeMs).toFloat()/fadeOutMs).coerceIn(0f,1f)
+            val gain=(volume*minOf(inGain,outGain)).coerceIn(0f,2f)
+            repeat(channels){out.putShort((inputBuffer.short*gain).toInt().coerceIn(-32768,32767).toShort())}
+            frames++
+        }
+        out.flip()
+    }
+    override fun onFlush(){frames=0L}
+    override fun onReset(){frames=0L}
+}
+@UnstableApi
+fun canonicalAudio(
+    speed:Float=1f,
+    volume:Float=1f,
+    pitch:Float=1f,
+    fadeInMs:Long=0,
+    fadeOutMs:Long=0,
+    durationMs:Long=0
+):List<AudioProcessor> = listOf(
+    androidx.media3.common.audio.SonicAudioProcessor().apply {setSpeed(speed);setPitch(pitch.coerceIn(.5f,2f));setOutputSampleRateHz(44100)},
+    StereoProcessor(),EnvelopeVolumeProcessor(volume,fadeInMs,fadeOutMs,durationMs)
 )
