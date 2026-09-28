@@ -134,7 +134,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var progress by mutableStateOf<Int?>(null); private set
     var message by mutableStateOf<String?>(null); private set
     var output by mutableStateOf<File?>(null); private set
-    val busy get() = importing || exporting || saving || speechBusy || ttsBusy
+    val busy get() = importing || exporting || saving || speechBusy || ttsBusy || beatBusy
     val current get() = clips.getOrNull(selected)
     var compatibilityPreview by mutableStateOf(prefs.getBoolean("compatibilityPreview", false)); private set
     var player by mutableStateOf(createPlayer()); private set
@@ -151,6 +151,9 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var ttsStatus by mutableStateOf(""); private set
     var voiceoverRecording by mutableStateOf(false); private set
     var voiceoverStatus by mutableStateOf(""); private set
+    var beatBusy by mutableStateOf(false); private set
+    var beatStatus by mutableStateOf(""); private set
+    var beatProgress by mutableStateOf(0); private set
     private var voiceoverRecorder:MediaRecorder?=null
     private var voiceoverFile:File?=null
     private var voiceoverStart=0L
@@ -160,6 +163,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun selectCaptionEngine(engine:String){if(engine !in listOf("gemini","offline") || busy)return;captionEngine=engine;prefs.edit().putString("captionEngine",engine).apply()}
     private var speechJob:Job?=null
     private var ttsJob:Job?=null
+    private var beatJob:Job?=null
     private val audioPlayers=mutableMapOf<String,ExoPlayer>()
     fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
     val totalDuration get()=clips.sumOf { speedMap(it).outputDuration }
@@ -266,6 +270,26 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         updateStudio(studio.copy(audio=studio.audio+layer),false)
         focus("Áudio",layer.id);voiceoverStatus="Dublagem adicionada · ${timeLabel(trimEnd)}"
     }
+    fun autoBeatsAudio(id:String){
+        val layer=studio.audio.find {it.id==id} ?: return
+        if(busy)return
+        pauseAll();beatBusy=true;beatProgress=0;beatStatus="Auto-Beats · analisando áudio…"
+        beatJob=viewModelScope.launch {
+            try{
+                val times=withContext(Dispatchers.IO){BeatDetector(context).detect(layer.uri,layer.trimStart,layer.trimEnd){p->viewModelScope.launch {beatProgress=p;beatStatus="Auto-Beats · $p%"}}}
+                beatBusy=false
+                val start=layer.start;val end=layer.end
+                val preserved=studio.markers.filterNot {it.label=="Beat" && it.time in start..end}
+                val beats=times.map {TimelineMarker(time=(start+it).coerceAtMost(totalDuration),label="Beat")}
+                    .filter {it.time<=totalDuration}
+                updateStudio(studio.copy(markers=(preserved+beats).sortedBy {it.time}),false)
+                beatStatus=if(beats.isEmpty())"Auto-Beats não encontrou picos claros." else "Auto-Beats · ${beats.size} marcadores criados."
+            }catch(e:Exception){
+                beatStatus=if(e is kotlinx.coroutines.CancellationException)"Auto-Beats cancelado" else "Auto-Beats falhou: ${e.localizedMessage}"
+            }finally{beatBusy=false}
+        }
+    }
+    fun cancelAutoBeats(){beatJob?.cancel()}
     fun importImage(uri:Uri?){
         if(uri==null || busy || totalDuration<=0)return
         importing=true
@@ -761,7 +785,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        speechJob?.cancel();ttsJob?.cancel(); if(voiceoverRecording)runCatching {voiceoverRecorder?.stop()};runCatching {voiceoverRecorder?.release()}; audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
+        speechJob?.cancel();ttsJob?.cancel();beatJob?.cancel(); if(voiceoverRecording)runCatching {voiceoverRecorder?.stop()};runCatching {voiceoverRecorder?.release()}; audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
         super.onCleared()
     }
 }
