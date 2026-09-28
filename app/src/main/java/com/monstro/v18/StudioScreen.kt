@@ -39,7 +39,7 @@ fun StudioScreen(m:EditorModel){
     var library by remember {mutableStateOf(false)};var exportDialog by remember {mutableStateOf(false)};var fullscreen by remember {mutableStateOf(false)}
     val owner=LocalLifecycleOwner.current
     DisposableEffect(owner,m){val listener=LifecycleEventObserver {_,event->if(event==Lifecycle.Event.ON_STOP)m.pauseAll()};owner.lifecycle.addObserver(listener);onDispose{owner.lifecycle.removeObserver(listener)}}
-    LaunchedEffect(m){while(true){m.tick();delay(40)}}
+    LaunchedEffect(m){while(true){m.tick();delay(if(m.player.isPlaying || m.busy)33 else 120)}}
     Column(Modifier.fillMaxSize().background(Color(0xff09090f)).systemBarsPadding()){
         Row(Modifier.fillMaxWidth().height(50.dp).padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){Text("MONSTRO",fontWeight=FontWeight.Black,letterSpacing=2.sp,fontSize=18.sp);Text("V18  /  STUDIO",color=MaterialTheme.colorScheme.primary,fontSize=9.sp,letterSpacing=2.sp)}
