@@ -18,6 +18,7 @@ fun EditorModel.studioComposition():Composition {
             val clock=FrameClock(clipOffset+slice.outputStart,slice.speed,sourceStart=sourceOffset+slice.sourceStart)
             val visual=mutableListOf<Effect>()
             val zoom=studio.motions[clip.id]?.zoom ?: emptyList()
+            visual+=colorAdjustEffects(studio.adjustments[clip.id] ?: ClipAdjust())
             visual+=previewEffects(clip.copy(chaos=clip.chaos.copy(enabled=clip.chaos.enabled-ChaosFx.MOTION_BLUR.id,zoom=if(zoom.isEmpty())clip.chaos.zoom else 1f)))
             if(zoom.isNotEmpty())visual+=StudioEffect(null,zoom,clock,clipOffset)
             visual+=studio.fx.filter {it.end>clipOffset+slice.outputStart && it.start<clipOffset+slice.outputStart+slice.outputDuration}.map {StudioEffect(it,emptyList(),clock)}
