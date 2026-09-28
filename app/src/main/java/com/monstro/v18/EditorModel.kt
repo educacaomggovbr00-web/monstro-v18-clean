@@ -374,6 +374,34 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun cancelNarration(){ttsJob?.cancel()}
     fun addManualCaption(){if(busy || totalDuration<=0)return;pushHistory();val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0));val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1);val cue=SrtCue(start,end,"NOVA LEGENDA");val cues=(lyrics?.cues.orEmpty()+cue).sortedBy {it.startMs};lyrics=SrtTrack(cues);lyricsName="Legendas manuais";persistCues();focus("Legenda",cues.indexOf(cue).toString())}
     fun addFx(preset:FxPreset){val clip=current ?: return;val start=timelineOffset;val end=start+speedMap(clip).outputDuration;if(end<=start)return;val layer=FxLayer(presetId=preset.id,start=start,end=end);if(compatibilityPreview){compatibilityPreview=false;prefs.edit().putBoolean("compatibilityPreview",false).apply()};updateStudio(studio.copy(fx=studio.fx+layer,recent=(listOf(preset.id)+studio.recent).distinct().take(30)),true);focus("FX",layer.id)}
+    fun importFxPack(uri:Uri?){
+        if(uri==null || busy)return
+        importing=true
+        viewModelScope.launch {
+            val result=withContext(Dispatchers.IO){runCatching {
+                val bytes=context.contentResolver.openInputStream(uri)?.use {input->
+                    val out=java.io.ByteArrayOutputStream()
+                    val buffer=ByteArray(8192)
+                    while(true){
+                        val n=input.read(buffer);if(n<0)break
+                        require(out.size()+n<=1_000_000){"Pacote de efeitos muito grande (máximo 1 MB)."}
+                        out.write(buffer,0,n)
+                    }
+                    out.toByteArray()
+                } ?: error("Arquivo indisponível")
+                FxPackParser.parse(bytes.toString(Charsets.UTF_8))
+            }}
+            importing=false
+            result.onSuccess {presets->
+                val ids=presets.map {it.id}.toSet()
+                val merged=(studio.customFx.filterNot {it.id in ids}+presets).takeLast(200)
+                updateStudio(studio.copy(customFx=merged),false)
+                message="${presets.size} efeito(s) importado(s). Eles estão em Meus efeitos."
+            }.onFailure {e->
+                message="Não consegui importar esse efeito. Use um pacote .monstrofx compatível: ${e.localizedMessage}"
+            }
+        }
+    }
     fun favorite(id:String){updateStudio(studio.copy(favorites=if(id in studio.favorites)studio.favorites-id else studio.favorites+id),false,false)}
     @Suppress("DEPRECATION")
     fun startVoiceover(){
@@ -583,7 +611,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         val adjust=studio.adjustments[clip.id] ?: ClipAdjust()
         val hasTransform=zoom.isNotEmpty() || motion.rotation.isNotEmpty() || motion.x.isNotEmpty() || motion.y.isNotEmpty()
         return listOf(Presentation.createForHeight(480))+colorAdjustEffects(adjust)+previewEffects(base)+(if(!hasTransform)emptyList()else listOf(StudioEffect(null,zoom,clock,timelineOffset,motion.rotation,motion.x,motion.y)))+
-            studio.fx.filter {it.end>timelineOffset && it.start<timelineOffset+speedMap(clip).outputDuration}.map {StudioEffect(it,emptyList(),clock)}+
+            studio.fx.filter {it.end>timelineOffset && it.start<timelineOffset+speedMap(clip).outputDuration}.map {StudioEffect(it,emptyList(),clock,customPresets=studio.customFx)}+
             (if(clip.chaos.has(ChaosFx.MOTION_BLUR))listOf(ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id))))else emptyList())+
             AspectBackgroundEffect(ExportFormat(canvasRatio,true,canvasBackground))
     }
