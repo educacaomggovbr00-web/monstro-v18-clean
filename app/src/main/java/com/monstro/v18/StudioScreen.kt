@@ -302,7 +302,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
                 "layer"->layerTools
                 else->mainTools
             }
-            ToolStrip(activeTools,if(menuMode=="main")null else {{menuMode="main";panel=null}})
+            ToolStrip(activeTools,if(menuMode=="main")null else ({menuMode="main";panel=null}))
         }
 
         if(m.busy){
