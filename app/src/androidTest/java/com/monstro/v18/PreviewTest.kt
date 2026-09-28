@@ -1,6 +1,7 @@
 package com.monstro.v18
 
 import android.graphics.Bitmap
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.view.PixelCopy
@@ -39,7 +40,8 @@ class PreviewTest {
             .put("name", "preview").put("duration", 2000).put("start", 100).put("end", 1900).put("preset", "raw")
         prefs.edit().clear().putString("clips", JSONArray().put(clip).toString()).commit()
         val allFx = ChaosSettings(ChaosFx.values().map { it.id }.toSet(), 1.4f)
-        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        val launchIntent=Intent(context,MainActivity::class.java).putExtra("monstro.test.OPEN_STUDIO",true)
+        val scenario = ActivityScenario.launch<MainActivity>(launchIntent)
         try {
             fun play(edit: (EditorModel) -> Unit) {
                 val ended = CountDownLatch(1)
