@@ -94,6 +94,14 @@ fun StudioScreen(m:EditorModel){
                         Text(m.ttsStatus,color=Color.Gray,fontSize=11.sp)
                         TextButton(onClick=m::cancelNarration){Text("Cancelar")}
                     }
+                } else if(m.beatBusy)Surface(modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xff15131e)){
+                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                        Text("Auto-Beats",fontWeight=FontWeight.Bold,fontSize=18.sp)
+                        Text("Detectando picos e criando marcadores magnéticos.",color=Color.LightGray,fontSize=12.sp)
+                        LinearProgressIndicator(progress=m.beatProgress/100f,modifier=Modifier.fillMaxWidth())
+                        Text(m.beatStatus,color=Color.Gray,fontSize=11.sp)
+                        TextButton(onClick=m::cancelAutoBeats){Text("Cancelar")}
+                    }
                 } else {
                     LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
                     Text(if(m.exporting)"Renderizando ${m.progress?.let {"$it%"} ?: "…"}" else "Preparando…")
@@ -238,7 +246,11 @@ private fun AudioInspector(m:EditorModel,import:()->Unit,recordVoice:()->Unit){
     if(m.voiceoverStatus.isNotBlank())Text(m.voiceoverStatus,fontSize=10.sp,color=if(m.voiceoverRecording)MaterialTheme.colorScheme.primary else Color.Gray)
     val layer=m.studio.audio.find {it.id==m.focusedId} ?: return
     fun update(next:AudioLayer){m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)next else it}),false)}
-    TextButton(onClick={m.autoCaptionAudio(layer.id)}){Text("Legendar este áudio")}
+    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+        TextButton(onClick={m.autoCaptionAudio(layer.id)}){Text("Legendar áudio")}
+        TextButton(onClick={m.autoBeatsAudio(layer.id)}){Text("Auto-Beats")}
+    }
+    if(m.beatStatus.isNotBlank() && !m.beatBusy)Text(m.beatStatus,fontSize=10.sp,color=Color.Gray)
     Text(layer.name)
     Adjust("Volume",layer.volume,0f..1f){update(layer.copy(volume=it))}
     Text("Voz / pitch",fontWeight=FontWeight.Bold)
