@@ -200,10 +200,18 @@ private fun VideoInspector(m:EditorModel,importVideo:()->Unit){OutlinedButton(on
 }
 @UnstableApi @Composable
 private fun AudioInspector(m:EditorModel,import:()->Unit){OutlinedButton(onClick=import){Text("+ Importar áudio")};val layer=m.studio.audio.find {it.id==m.focusedId} ?: return
+    fun update(next:AudioLayer){m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)next else it}),false)}
     TextButton(onClick={m.autoCaptionAudio(layer.id)}){Text("Legendar este áudio")}
-    Text(layer.name);Adjust("Volume",layer.volume,0f..1f){v->m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)it.copy(volume=v)else it}),false)}
-    Adjust("Posição na timeline",layer.start/1000f,0f..maxOf(.01f,m.totalDuration/1000f),"s"){v->m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)it.copy(start=(v*1000).toLong())else it}),false)}
-    Timing(layer.trimStart,layer.trimEnd,layer.duration){a,b->m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)it.copy(trimStart=a,trimEnd=b)else it}),false)}
+    Text(layer.name)
+    Adjust("Volume",layer.volume,0f..1f){update(layer.copy(volume=it))}
+    Text("Voz / pitch",fontWeight=FontWeight.Bold)
+    Choices(listOf("Normal","Esquilo","Monstro"),when{layer.pitch>1.2f->"Esquilo";layer.pitch<.85f->"Monstro";else->"Normal"}){name->update(layer.copy(pitch=when(name){"Esquilo"->1.45f;"Monstro"->.72f;else->1f}))}
+    val clipLength=(layer.trimEnd-layer.trimStart).coerceAtLeast(1)
+    val maxFade=minOf(5f,clipLength/2000f).coerceAtLeast(.1f)
+    Adjust("Fade in",layer.fadeIn/1000f,0f..maxFade,"s"){update(layer.copy(fadeIn=(it*1000).toLong()))}
+    Adjust("Fade out",layer.fadeOut/1000f,0f..maxFade,"s"){update(layer.copy(fadeOut=(it*1000).toLong()))}
+    Adjust("Posição na timeline",layer.start/1000f,0f..maxOf(.01f,m.totalDuration/1000f),"s"){update(layer.copy(start=(it*1000).toLong()))}
+    Timing(layer.trimStart,layer.trimEnd,layer.duration){a,b->update(layer.copy(trimStart=a,trimEnd=b))}
     TextButton(onClick={m.updateStudio(m.studio.copy(audio=m.studio.audio-layer),false)}){Text("Excluir áudio")}
 }
 @UnstableApi @Composable
