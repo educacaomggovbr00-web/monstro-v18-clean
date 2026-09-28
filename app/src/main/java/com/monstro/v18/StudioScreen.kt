@@ -160,8 +160,29 @@ private fun VideoInspector(m:EditorModel,importVideo:()->Unit){OutlinedButton(on
     Timing(clip.trim.start,clip.trim.end,clip.duration){a,b->m.edit(trim=TrimRange(a,b))}
     Choices(listOf("raw","neon","trap","dark","cinema"),clip.preset){m.edit(preset=it)}
     val motion=m.studio.motions[clip.id] ?: ClipMotion();val local=m.playhead-m.timelineOffset
-    Adjust("Zoom",animated(motion.zoom,local,clip.chaos.zoom),1f..3f,"×"){if(motion.zoom.isEmpty())m.edit(chaos=clip.chaos.copy(zoom=it))else m.setMotion(motion.copy(zoom=putKey(motion.zoom,local,it)))}
-    Row{TextButton(onClick={m.setMotion(motion.copy(zoom=putKey(motion.zoom,local,animated(motion.zoom,local,clip.chaos.zoom))))}){Text("◇ Keyframe zoom")};TextButton(onClick={m.setMotion(motion.copy(zoom=emptyList()))}){Text("Limpar")}}
+    Adjust("Zoom",animated(motion.zoom,local,clip.chaos.zoom),.5f..3f,"×"){if(motion.zoom.isEmpty())m.edit(chaos=clip.chaos.copy(zoom=it))else m.setMotion(motion.copy(zoom=putKey(motion.zoom,local,it)))}
+    Adjust("Posição X",animated(motion.x,local,0f),-.5f..0.5f){m.setMotion(motion.copy(x=putKey(motion.x,local,it)))}
+    Adjust("Posição Y",animated(motion.y,local,0f),-.5f..0.5f){m.setMotion(motion.copy(y=putKey(motion.y,local,it)))}
+    Adjust("Rotação",animated(motion.rotation,local,0f),-180f..180f,"°"){m.setMotion(motion.copy(rotation=putKey(motion.rotation,local,it)))}
+    Row{
+        TextButton(onClick={m.setMotion(motion.copy(
+            zoom=putKey(motion.zoom,local,animated(motion.zoom,local,clip.chaos.zoom)),
+            x=putKey(motion.x,local,animated(motion.x,local,0f)),
+            y=putKey(motion.y,local,animated(motion.y,local,0f)),
+            rotation=putKey(motion.rotation,local,animated(motion.rotation,local,0f))
+        ))}){Text("◇ Keyframe transform")}
+        TextButton(onClick={m.setMotion(motion.copy(zoom=emptyList(),x=emptyList(),y=emptyList(),rotation=emptyList()))}){Text("Limpar")}
+    }
+    Text("Animação do clipe",fontWeight=FontWeight.Bold)
+    Choices(listOf("Nenhuma","Entrada Pop","Saída Zoom","Combo Punch"),""){name->
+        val d=m.speedMap(clip).outputDuration;val edge=minOf(650L,d/2)
+        m.setMotion(when(name){
+            "Entrada Pop"->motion.copy(zoom=listOf(KeyPoint(0,1.20f),KeyPoint(edge,1f)),y=listOf(KeyPoint(0,.10f),KeyPoint(edge,0f)),rotation=emptyList(),x=emptyList())
+            "Saída Zoom"->motion.copy(zoom=listOf(KeyPoint((d-edge).coerceAtLeast(0),1f),KeyPoint(d,1.22f)),x=listOf(KeyPoint((d-edge).coerceAtLeast(0),0f),KeyPoint(d,.08f)),y=emptyList(),rotation=emptyList())
+            "Combo Punch"->motion.copy(zoom=listOf(KeyPoint(0,1f),KeyPoint(d/2,1.14f),KeyPoint(d,1f)),rotation=listOf(KeyPoint(0,0f),KeyPoint(d/2,2.5f),KeyPoint(d,0f)),x=emptyList(),y=emptyList())
+            else->motion.copy(zoom=emptyList(),x=emptyList(),y=emptyList(),rotation=emptyList())
+        })
+    }
     Text("Velocity · curva de velocidade",fontWeight=FontWeight.Bold)
     Choices(listOf("Normal","Montanha","Hero","Bullet"),""){name->val d=clip.trim.duration;m.setMotion(motion.copy(speed=when(name){"Montanha"->listOf(KeyPoint(0,.5f),KeyPoint(d/2,3f),KeyPoint(d,.5f));"Hero"->listOf(KeyPoint(0,2f),KeyPoint(d/3,.35f),KeyPoint(d*2/3,.35f),KeyPoint(d,2f));"Bullet"->listOf(KeyPoint(0,1f),KeyPoint(d/3,4f),KeyPoint(d/2,.25f),KeyPoint(d,1f));else->emptyList()}))}
     Canvas(Modifier.fillMaxWidth().height(64.dp).background(Color(0xff15131e),RoundedCornerShape(8.dp))){
