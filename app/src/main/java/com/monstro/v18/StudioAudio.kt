@@ -38,7 +38,6 @@ class StereoProcessor:BaseAudioProcessor() {
     }
 }
 @UnstableApi
-@UnstableApi
 class EnvelopeVolumeProcessor(
     private val volume:Float,
     private val fadeInMs:Long,
