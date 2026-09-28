@@ -111,6 +111,9 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var speechProgress by mutableStateOf<Int?>(null); private set
     var speechBusy by mutableStateOf(false); private set
     var modelReady by mutableStateOf(AutoCaptions(context).ready); private set
+    var captionEngine by mutableStateOf(prefs.getString("captionEngine","gemini") ?: "gemini"); private set
+    val geminiReady get()=GeminiAudioCaptions(context).configured
+    fun setCaptionEngine(engine:String){if(engine !in listOf("gemini","offline") || busy)return;captionEngine=engine;prefs.edit().putString("captionEngine",engine).apply()}
     private var speechJob:Job?=null
     private val audioPlayers=mutableMapOf<String,ExoPlayer>()
     fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
@@ -157,22 +160,81 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         try{withContext(Dispatchers.IO){AutoCaptions(context).install {percent->viewModelScope.launch {speechStatus="Preparando português: $percent%"}}};modelReady=true;speechStatus="Português pronto — reconhecimento no aparelho"}
         catch(e:Exception){speechStatus="Download interrompido. Tente novamente."}finally{speechBusy=false}
     }}
-    fun autoCaption() { recognizeCaptions(clips,studio,0) }
+    fun autoCaption() {
+        if(captionEngine=="gemini") recognizeGeminiCaptions(clips,studio,0)
+        else recognizeCaptions(clips,studio,0)
+    }
     fun autoCaptionAudio(id:String) {
         val layer=studio.audio.find {it.id==id} ?: return
         val end=if(totalDuration>layer.start)minOf(layer.trimEnd,layer.trimStart+totalDuration-layer.start)else layer.trimEnd
-        recognizeCaptions(listOf(VideoClip(uri=layer.uri,name=layer.name,duration=layer.duration,trim=TrimRange(layer.trimStart,end))),StudioProject(),layer.start)
+        val inputs=listOf(VideoClip(uri=layer.uri,name=layer.name,duration=layer.duration,trim=TrimRange(layer.trimStart,end)))
+        if(captionEngine=="gemini") recognizeGeminiCaptions(inputs,StudioProject(),layer.start)
+        else recognizeCaptions(inputs,StudioProject(),layer.start)
+    }
+    private fun applyCaptionResult(result:SrtTrack,offset:Long,name:String) {
+        val track=if(offset==0L)result else SrtTrack(result.cues.map {cue->cue.copy(
+            startMs=cue.startMs+offset,
+            endMs=cue.endMs+offset,
+            wordTimes=cue.wordTimes.map {WordTime(it.start+offset,it.end+offset)}
+        )})
+        lyrics=track
+        studio=studio.copy(captionStyles=emptyMap())
+        prefs.edit().putString("studio",StudioCodec.encode(studio)).apply()
+        lyricsName=name
+        persistCues()
+        speechStatus="${track.cues.size} frases. Toque nas legendas para revisar."
+        focus("Legenda")
+    }
+    private fun recognizeGeminiCaptions(inputs:List<VideoClip>,project:StudioProject,offset:Long) {
+        if(busy || inputs.isEmpty())return
+        if(!geminiReady){
+            message="Gemini IA ainda não está conectado neste APK. O projeto precisa do app/google-services.json do Firebase. Você pode usar Offline agora."
+            return
+        }
+        pauseAll();speechBusy=true;speechProgress=0;speechStatus="Gemini está preparando o áudio…"
+        speechJob=viewModelScope.launch {
+            try {
+                val result=withContext(Dispatchers.IO){
+                    GeminiAudioCaptions(context).transcribe(inputs,project){percent->
+                        viewModelScope.launch {
+                            speechProgress=percent.coerceIn(0,100)
+                            speechStatus="Gemini analisando o áudio: ${percent.coerceIn(0,100)}%"
+                        }
+                    }
+                }
+                applyCaptionResult(result,offset,"Legendas IA · Gemini")
+            } catch(e:Exception) {
+                if(e is kotlinx.coroutines.CancellationException){
+                    speechStatus="Reconhecimento cancelado"
+                } else if(modelReady) {
+                    speechStatus="Gemini indisponível. Tentando reconhecimento Offline…"
+                    runCatching {
+                        val fallback=withContext(Dispatchers.IO){
+                            AutoCaptions(context).transcribe(inputs,project){percent->
+                                viewModelScope.launch {
+                                    speechProgress=percent.coerceIn(0,100)
+                                    speechStatus="Offline: reconhecendo fala ${percent.coerceIn(0,100)}%"
+                                }
+                            }
+                        }
+                        applyCaptionResult(fallback,offset,"Legendas automáticas · Offline")
+                    }.onFailure {fallbackError->
+                        speechStatus="Não foi possível legendar: ${fallbackError.localizedMessage}"
+                    }
+                } else {
+                    speechStatus="Gemini falhou: ${e.localizedMessage}. Baixe o modo Offline para ter fallback."
+                }
+            } finally {speechBusy=false;speechProgress=null}
+        }
     }
     private fun recognizeCaptions(inputs:List<VideoClip>,project:StudioProject,offset:Long) {
         if(busy || inputs.isEmpty())return
-        if(!modelReady){message="Na aba Legenda, toque em Baixar português (31 MB) primeiro.";return}
-        pauseAll();speechBusy=true;speechProgress=0;speechStatus="Preparando áudio…"
+        if(!modelReady){message="Na aba Legenda, selecione Offline e toque em Baixar português (31 MB) primeiro.";return}
+        pauseAll();speechBusy=true;speechProgress=0;speechStatus="Preparando áudio Offline…"
         speechJob=viewModelScope.launch {
             try {
-                val result=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechProgress=percent.coerceIn(0,100);speechStatus="Reconhecendo fala: ${percent.coerceIn(0,100)}%"}}}
-                val track=if(offset==0L)result else SrtTrack(result.cues.map {cue->cue.copy(startMs=cue.startMs+offset,endMs=cue.endMs+offset,wordTimes=cue.wordTimes.map {WordTime(it.start+offset,it.end+offset)})})
-                lyrics=track;studio=studio.copy(captionStyles=emptyMap());prefs.edit().putString("studio",StudioCodec.encode(studio)).apply()
-                lyricsName="Legendas automáticas · português";persistCues();speechStatus="${track.cues.size} frases. Toque nas legendas para revisar.";focus("Legenda")
+                val result=withContext(Dispatchers.IO){AutoCaptions(context).transcribe(inputs,project){percent->viewModelScope.launch {speechProgress=percent.coerceIn(0,100);speechStatus="Offline: reconhecendo fala ${percent.coerceIn(0,100)}%"}}}
+                applyCaptionResult(result,offset,"Legendas automáticas · Offline")
             } catch(e:Exception) {speechStatus=if(e is kotlinx.coroutines.CancellationException)"Reconhecimento cancelado" else "Não foi possível legendar: ${e.localizedMessage}"}
             finally {speechBusy=false;speechProgress=null}
         }
