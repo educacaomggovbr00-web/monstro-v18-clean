@@ -134,7 +134,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var progress by mutableStateOf<Int?>(null); private set
     var message by mutableStateOf<String?>(null); private set
     var output by mutableStateOf<File?>(null); private set
-    val busy get() = importing || exporting || saving || speechBusy || ttsBusy || beatBusy
+    val busy get() = importing || exporting || saving || speechBusy || ttsBusy || beatBusy || aiEditBusy
     val current get() = clips.getOrNull(selected)
     var compatibilityPreview by mutableStateOf(prefs.getBoolean("compatibilityPreview", false)); private set
     var player by mutableStateOf(createPlayer()); private set
@@ -154,6 +154,9 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var beatBusy by mutableStateOf(false); private set
     var beatStatus by mutableStateOf(""); private set
     var beatProgress by mutableStateOf(0); private set
+    var aiEditBusy by mutableStateOf(false); private set
+    var aiEditStatus by mutableStateOf(""); private set
+    var aiEditProgress by mutableStateOf(0); private set
     private var voiceoverRecorder:MediaRecorder?=null
     private var voiceoverFile:File?=null
     private var voiceoverStart=0L
@@ -164,10 +167,108 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     private var speechJob:Job?=null
     private var ttsJob:Job?=null
     private var beatJob:Job?=null
+    private var aiEditJob:Job?=null
     private val audioPlayers=mutableMapOf<String,ExoPlayer>()
     fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
     val totalDuration get()=clips.sumOf { speedMap(it).outputDuration }
     fun focus(kind:String,id:String=""){inspector=kind;focusedId=id}
+    fun runAiAutoEdit(style:String){
+        if(busy || clips.isEmpty())return
+        if(!GeminiAutoEdit(context).configured){message="Firebase AI Logic ainda não está disponível neste APK.";return}
+        pauseAll();aiEditBusy=true;aiEditProgress=0;aiEditStatus="IA analisando cenas, fala e ritmo…"
+        aiEditJob=viewModelScope.launch {
+            try{
+                val plan=withContext(Dispatchers.IO){
+                    GeminiAutoEdit(context).analyze(clips,studio,lyrics,style){p->
+                        viewModelScope.launch {
+                            aiEditProgress=p.coerceIn(0,100)
+                            aiEditStatus=when {
+                                p<30 -> "Extraindo e entendendo os quadros…"
+                                p<50 -> "Cruzando cenas, fala e beats…"
+                                p<90 -> "Gemini montando o conceito da edição…"
+                                else -> "Aplicando a edição…"
+                            }
+                        }
+                    }
+                }
+                applyAiEditPlan(plan)
+                aiEditStatus="Pronto · ${plan.summary}"
+                message="IA Auto Edit concluído. Você pode desfazer tudo com ↶."
+            }catch(e:Exception){
+                aiEditStatus=if(e is kotlinx.coroutines.CancellationException)"IA Auto Edit cancelado" else "IA Auto Edit falhou: ${e.localizedMessage}"
+            }finally{aiEditBusy=false}
+        }
+    }
+    fun cancelAiAutoEdit(){aiEditJob?.cancel()}
+    private fun applyAiEditPlan(plan:AiEditPlan){
+        if(clips.isEmpty())return
+        pushHistory()
+        var nextStudio=studio
+        val nextClips=clips.toMutableList()
+
+        plan.looks.forEach {look->
+            val clip=nextClips.getOrNull(look.clipIndex) ?: return@forEach
+            nextClips[look.clipIndex]=clip.copy(preset=look.preset)
+            val base=nextStudio.adjustments[clip.id] ?: ClipAdjust()
+            nextStudio=nextStudio.copy(adjustments=nextStudio.adjustments+(clip.id to base.copy(
+                brightness=look.brightness,contrast=look.contrast,saturation=look.saturation,temperature=look.temperature
+            )))
+        }
+
+        plan.motions.groupBy {it.clipIndex}.forEach {(index,keys)->
+            val clip=nextClips.getOrNull(index) ?: return@forEach
+            var motion=nextStudio.motions[clip.id] ?: ClipMotion()
+            keys.sortedBy {it.timeMs}.forEach {k->
+                motion=motion.copy(
+                    zoom=putKey(motion.zoom,k.timeMs,k.zoom),
+                    x=putKey(motion.x,k.timeMs,k.x),
+                    y=putKey(motion.y,k.timeMs,k.y),
+                    rotation=putKey(motion.rotation,k.timeMs,k.rotation)
+                )
+            }
+            nextStudio=nextStudio.copy(motions=nextStudio.motions+(clip.id to motion))
+        }
+
+        plan.speeds.groupBy {it.clipIndex}.forEach {(index,keys)->
+            val clip=nextClips.getOrNull(index) ?: return@forEach
+            var motion=nextStudio.motions[clip.id] ?: ClipMotion()
+            keys.sortedBy {it.timeMs}.forEach {k->motion=motion.copy(speed=putKey(motion.speed,k.timeMs,k.speed))}
+            nextStudio=nextStudio.copy(motions=nextStudio.motions+(clip.id to motion))
+        }
+
+        val aiFx=plan.effects.mapNotNull {suggestion->
+            val choices=FxCatalog.search("",suggestion.category)
+            val preset=choices.getOrNull(if(choices.isEmpty())0 else suggestion.variant%choices.size) ?: return@mapNotNull null
+            FxLayer(
+                presetId=preset.id,start=suggestion.startMs.coerceIn(0,totalDuration),
+                end=suggestion.endMs.coerceIn(0,totalDuration),
+                intensity=suggestion.intensity
+            ).takeIf {it.end>it.start}
+        }
+        if(aiFx.isNotEmpty())nextStudio=nextStudio.copy(
+            fx=nextStudio.fx+aiFx,
+            recent=(aiFx.map {it.presetId}+nextStudio.recent).distinct().take(30)
+        )
+
+        val existing=nextStudio.markers.toMutableList()
+        plan.markers.forEach {mark->
+            if(existing.none {kotlin.math.abs(it.time-mark.timeMs)<80 && it.label==mark.label})
+                existing+=TimelineMarker(time=mark.timeMs.coerceIn(0,totalDuration),label="IA · ${mark.label}")
+        }
+        nextStudio=nextStudio.copy(markers=existing.sortedBy {it.time})
+
+        clips=nextClips
+        studio=nextStudio
+        canvasRatio=plan.ratio
+        vertical=canvasRatio=="9:16" || canvasRatio=="4:5"
+        prefs.edit()
+            .putString("studio",StudioCodec.encode(studio))
+            .putString("canvasRatio",canvasRatio)
+            .putBoolean("vertical",vertical)
+            .apply()
+        persist()
+        preview()
+    }
     fun addTimelineMarker(){
         if(busy || totalDuration<=0)return
         val time=playhead.coerceIn(0,totalDuration)
@@ -785,7 +886,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        speechJob?.cancel();ttsJob?.cancel();beatJob?.cancel(); if(voiceoverRecording)runCatching {voiceoverRecorder?.stop()};runCatching {voiceoverRecorder?.release()}; audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
+        speechJob?.cancel();ttsJob?.cancel();beatJob?.cancel();aiEditJob?.cancel(); if(voiceoverRecording)runCatching {voiceoverRecorder?.stop()};runCatching {voiceoverRecorder?.release()}; audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
         super.onCleared()
     }
 }
