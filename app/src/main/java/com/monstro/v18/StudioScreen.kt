@@ -162,9 +162,19 @@ private fun TextInspector(m:EditorModel){OutlinedButton(onClick=m::addText){Text
 }
 @UnstableApi @Composable
 private fun CaptionInspector(m:EditorModel,import:()->Unit){
-    Row {OutlinedButton(onClick={m.addManualCaption()}){Text("+ Legenda")};Spacer(Modifier.width(6.dp));OutlinedButton(onClick=import){Text("+ SRT")};Spacer(Modifier.width(6.dp));OutlinedButton(onClick=if(m.modelReady)m::autoCaption else m::installSpeech){Text(if(m.modelReady)"Legendar fala" else "Baixar português · 31 MB",fontSize=11.sp)}}
+    Row {OutlinedButton(onClick={m.addManualCaption()}){Text("+ Legenda")};Spacer(Modifier.width(6.dp));OutlinedButton(onClick=import){Text("+ SRT")}}
+    Text("Motor de legenda",fontWeight=FontWeight.Bold)
+    Choices(listOf("Gemini IA","Offline"),if(m.captionEngine=="gemini")"Gemini IA" else "Offline"){m.setCaptionEngine(if(it=="Gemini IA")"gemini" else "offline")}
+    if(m.captionEngine=="gemini"){
+        Text(if(m.geminiReady)"Gemini IA conectado · usa internet" else "Gemini IA aguardando configuração do Firebase",fontSize=10.sp,color=if(m.geminiReady)Color.LightGray else Color(0xffffb86b))
+        OutlinedButton(onClick=m::autoCaption,modifier=Modifier.fillMaxWidth()){Text("Legendar com Gemini IA")}
+    } else {
+        OutlinedButton(onClick=if(m.modelReady)m::autoCaption else m::installSpeech,modifier=Modifier.fillMaxWidth()){
+            Text(if(m.modelReady)"Legendar Offline" else "Baixar português Offline · 31 MB",fontSize=11.sp)
+        }
+    }
     if(m.speechStatus.isNotBlank())Text(m.speechStatus,fontSize=11.sp)
-    Text("Automática: tempos por palavra. SRT: word-sync aproximado.",fontSize=10.sp,color=Color.Gray)
+    Text("Gemini IA: leitura avançada do áudio. Offline: Vosk no aparelho. Word Sync usa os tempos por palavra gerados pelo motor.",fontSize=10.sp,color=Color.Gray)
     val index=m.focusedId.toIntOrNull() ?: m.lyrics?.cues?.indexOf(m.lyrics?.at(m.playhead)) ?: -1
     val cue=m.lyrics?.cues?.getOrNull(index)
     if(cue!=null){var text by remember(index,cue.text){mutableStateOf(cue.text)};OutlinedTextField(value=text,onValueChange={text=it.take(2000)},label={Text("Revisar frase")},modifier=Modifier.fillMaxWidth());TextButton(onClick={m.updateCue(index,text,cue.startMs,cue.endMs)}){Text("Salvar frase")};Timing(cue.startMs,cue.endMs,maxOf(m.totalDuration,cue.endMs)){a,b->m.updateCue(index,text,a,b)}}
