@@ -172,62 +172,75 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     private val audioPlayers=mutableMapOf<String,ExoPlayer>()
     fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
     val totalDuration get()=clips.sumOf { speedMap(it).outputDuration }
+    val videoPerception get()=VideoPerceptionAnalyzer.analyze(clips,studio,lyrics,canvasRatio)
     fun focus(kind:String,id:String=""){inspector=kind;focusedId=id}
     fun runAiAutoEdit(style:String){
         if(busy || clips.isEmpty())return
+        val detected=VideoPerceptionAnalyzer.analyze(clips,studio,lyrics,canvasRatio)
         if(!GeminiAutoEdit(context).configured){
-            val local=LocalAutoEdit.build(clips,studio,style);applyAiEditPlan(local)
+            val local=LocalAutoEdit.build(clips,studio,style,lyrics,canvasRatio);applyAiEditPlan(local)
             aiEditStatus="Modo local · ${local.summary}"
-            message="IA online indisponível. Apliquei o Auto Edit local por ritmo e estilo."
+            message="Detectei ${detected.label}. A IA online não está disponível neste APK, então apliquei a edição local adaptativa."
             return
         }
-        pauseAll();aiEditBusy=true;aiEditProgress=0;aiEditStatus="IA analisando cenas, fala e ritmo…"
+        pauseAll();aiEditBusy=true;aiEditProgress=0;aiEditStatus="${detected.label} · preparando análise…"
         aiEditJob=viewModelScope.launch {
+            var contextCaptions=lyrics
+            val generatedCaptions=contextCaptions==null
             try{
-                var contextCaptions=lyrics
-                val generatedCaptions=contextCaptions==null
-                if(contextCaptions==null && geminiReady){
-                    aiEditStatus="IA ouvindo a fala para entender o contexto…"
-                    contextCaptions=withContext(Dispatchers.IO){
-                        GeminiAudioCaptions(context).transcribe(clips,studio){p->
-                            viewModelScope.launch {aiEditProgress=(p*35/100).coerceIn(0,35);aiEditStatus="Entendendo a fala · $p%"}
+                if(contextCaptions==null && modelReady){
+                    try{
+                        aiEditStatus="${detected.label} · entendendo a fala no aparelho…"
+                        contextCaptions=withContext(Dispatchers.IO){
+                            AutoCaptions(context).transcribe(clips,studio){p->
+                                viewModelScope.launch {
+                                    aiEditProgress=(p*25/100).coerceIn(0,25)
+                                    aiEditStatus="Fala local · $p%"
+                                }
+                            }
                         }
+                    }catch(e:Exception){
+                        if(e is kotlinx.coroutines.CancellationException)throw e
+                        contextCaptions=null
+                        aiEditStatus="${detected.label} · seguindo pela análise visual…"
                     }
                 }
+                val profile=VideoPerceptionAnalyzer.analyze(clips,studio,contextCaptions,canvasRatio)
                 val plan=withContext(Dispatchers.IO){
-                    GeminiAutoEdit(context).analyze(clips,studio,contextCaptions,style){p->
+                    GeminiAutoEdit(context).analyze(clips,studio,contextCaptions,style,{p->
                         viewModelScope.launch {
-                            val mapped=35+p*65/100
+                            val base=if(generatedCaptions && modelReady)25 else 0
+                            val mapped=base+p*(100-base)/100
                             aiEditProgress=mapped.coerceIn(0,100)
                             aiEditStatus=when {
-                                p<30 -> "Extraindo e entendendo os quadros…"
-                                p<50 -> "Cruzando cenas, fala e beats…"
-                                p<90 -> "Gemini montando o conceito da edição…"
+                                p<30 -> "${profile.label} · entendendo os quadros…"
+                                p<55 -> "Cruzando cenas, fala e beats…"
+                                p<90 -> "Gemini montando uma edição limpa…"
                                 else -> "Aplicando a edição…"
                             }
                         }
-                    }
+                    },canvasRatio)
                 }
                 applyAiEditPlan(plan)
                 if(generatedCaptions && contextCaptions!=null){
-                    lyrics=contextCaptions;lyricsName="Legendas IA · Auto Edit";persistCues()
+                    lyrics=contextCaptions;lyricsName="Legendas locais · Auto Edit";persistCues()
                 }
                 aiEditStatus="Pronto · ${plan.summary}"
-                message="IA Auto Edit concluído. Você pode desfazer tudo com ↶."
+                message="Auto Edit concluído · ${profile.label}. Você pode desfazer tudo com ↶."
             }catch(e:Exception){
                 if(e is kotlinx.coroutines.CancellationException){
                     aiEditStatus="IA Auto Edit cancelado"
                 }else{
-                    val local=LocalAutoEdit.build(clips,studio,style)
+                    val local=LocalAutoEdit.build(clips,studio,style,contextCaptions,canvasRatio)
                     applyAiEditPlan(local)
                     aiEditProgress=100
                     aiEditStatus="Modo local · ${local.summary}"
-                    message="A IA online atingiu o limite agora. O Monstro continuou com Auto Edit local; tente a análise por contexto novamente mais tarde."
+                    message=GeminiSupport.userMessage(e)+" Continuei com o Auto Edit local, sem perder o projeto."
                 }
             }finally{aiEditBusy=false}
         }
     }
-    fun cancelAiAutoEdit(){aiEditJob?.cancel()}
+        fun cancelAiAutoEdit(){aiEditJob?.cancel()}
     private fun applyAiEditPlan(plan:AiEditPlan){
         if(clips.isEmpty())return
         pushHistory()
@@ -354,7 +367,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 updateStudio(studio.copy(audio=studio.audio+layer),false)
                 focus("Áudio",layer.id);ttsStatus="Narração pronta · ${timeLabel(end)}"
             } catch(e:Exception) {
-                ttsStatus=if(e is kotlinx.coroutines.CancellationException)"Narração cancelada" else "Narração IA indisponível agora. A cota pode ter atingido o limite; tente novamente mais tarde."
+                ttsStatus=if(e is kotlinx.coroutines.CancellationException)"Narração cancelada" else GeminiSupport.userMessage(e)
             } finally {ttsBusy=false}
         }
     }
