@@ -222,7 +222,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
                     key(m.player,fullscreen){
                         AndroidView(
                             factory={EditorPlayerView(it).apply {useController=false;resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT}},
-                            update={it.bind(m.player,!m.compatibilityPreview)},
+                            update={it.bind(m.player,true)},
                             modifier=Modifier.fillMaxSize()
                         )
                     }
@@ -455,7 +455,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
                 key(m.player,fullscreen){
                     AndroidView(
                         factory={EditorPlayerView(it).apply {useController=false;resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT}},
-                        update={it.bind(m.player,!m.compatibilityPreview)},
+                        update={it.bind(m.player,true)},
                         modifier=Modifier.fillMaxSize()
                     )
                 }
