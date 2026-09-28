@@ -12,12 +12,12 @@ class FrameClock(private val start:Long=0,private val speed:Float=1f,private val
     fun reset(){first=sourceStart?.times(1000)}
 }
 @UnstableApi
-class StudioEffect(private val layer:FxLayer?,private val zoom:List<KeyPoint>,private val clock:FrameClock,private val clipStart:Long=0,private val rotation:List<KeyPoint> = emptyList(),private val x:List<KeyPoint> = emptyList(),private val y:List<KeyPoint> = emptyList()):GlEffect {
+class StudioEffect(private val layer:FxLayer?,private val zoom:List<KeyPoint>,private val clock:FrameClock,private val clipStart:Long=0,private val rotation:List<KeyPoint> = emptyList(),private val x:List<KeyPoint> = emptyList(),private val y:List<KeyPoint> = emptyList(),private val customPresets:List<FxPreset> = emptyList()):GlEffect {
     override fun toGlShaderProgram(context:Context,useHdr:Boolean):GlShaderProgram = object:BaseGlShaderProgram(useHdr,1) {
         val gl=GlProgram(context,"shaders/chaos.vert","shaders/studio.frag").apply { setBufferAttribute("aPosition",GlUtil.getNormalizedCoordinateBounds(),4) }
         override fun configure(inputWidth:Int,inputHeight:Int)=Size(inputWidth,inputHeight)
         override fun drawFrame(inputTexId:Int,presentationTimeUs:Long) {
-            val time=clock.at(presentationTimeUs); val preset=layer?.let { FxCatalog.get(it.presetId) }
+            val time=clock.at(presentationTimeUs); val preset=layer?.let { FxCatalog.get(it.presetId,customPresets) }
             val active=layer!=null && time>=layer.start && time<layer.end
             gl.use();gl.setSamplerTexIdUniform("uInput",inputTexId,0)
             val local=time-clipStart
