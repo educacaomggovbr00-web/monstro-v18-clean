@@ -93,6 +93,7 @@ class BeatDetector(private val context:Context){
             if(peak && strong && time-last>=220){beats+=time;last=time;if(beats.size>=400)break}
         }
         if(beats.size<2){
+            beats.clear();last=-1000L
             val avg=energy.average()
             for(i in 1 until energy.size-1){
                 val time=i*50L
