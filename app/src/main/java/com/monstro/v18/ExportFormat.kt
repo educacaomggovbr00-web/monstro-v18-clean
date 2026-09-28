@@ -11,7 +11,8 @@ data class ExportFormat(
     val light: Boolean = true,
     val background: String = "blur",
     val bitrateMode: String = "recommended",
-    val codec: String = "H264"
+    val codec: String = "H264",
+    val fps: Int = 30
 ) {
     constructor(vertical:Boolean, light:Boolean):this(if(vertical)"9:16" else "16:9",light)
 
