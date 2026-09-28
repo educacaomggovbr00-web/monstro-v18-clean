@@ -23,6 +23,7 @@ class StudioTimeline(context:Context):View(context) {
     private var pixelsPerSecond=42f*density
     private var scroll=0f
     private var downX=0f;private var downY=0f;private var lastX=0f;private var moved=false;private var scrubbing=false
+    private var trimEdge=0;private var trimPreviewTime:Long?=null;private var snappedAt:Long?=null
     private val labelWidth=49f*density
     private val ruler=25f*density;private val row=33f*density
     private val pinch=ScaleGestureDetector(context,object:ScaleGestureDetector.SimpleOnScaleGestureListener(){override fun onScale(detector:ScaleGestureDetector):Boolean {val time=(scroll+detector.focusX-labelWidth)/pixelsPerSecond;pixelsPerSecond=(pixelsPerSecond*detector.scaleFactor).coerceIn(8*density,220*density);scroll=(time*pixelsPerSecond-detector.focusX+labelWidth).coerceAtLeast(0f);invalidate();return true}})
@@ -38,7 +39,9 @@ class StudioTimeline(context:Context):View(context) {
             val top=ruler+lane*row+2*density;val rect=RectF(left,top,max(left+3*density,right-2*density),top+row-5*density)
             paint.color=color;c.drawRoundRect(rect,5*density,5*density,paint)
             thumbnail?.let {key->thumbnails[key]?.let {b->c.save();c.clipRect(rect);var bx=left;while(bx<right){c.drawBitmap(b,null,RectF(bx,top,bx+44*density,rect.bottom),paint);bx+=44*density};paint.color=0x99000000.toInt();c.drawRect(rect,paint);c.restore()}}
-            if(selected){paint.style=Paint.Style.STROKE;paint.strokeWidth=2*density;paint.color=Color.WHITE;c.drawRoundRect(rect,5*density,5*density,paint);paint.style=Paint.Style.FILL}
+            if(selected){paint.style=Paint.Style.STROKE;paint.strokeWidth=2*density;paint.color=Color.WHITE;c.drawRoundRect(rect,5*density,5*density,paint);paint.style=Paint.Style.FILL
+                if(lane==0){paint.color=Color.WHITE;c.drawRoundRect(RectF(rect.left-2*density,top+5*density,rect.left+3*density,rect.bottom-5*density),2*density,2*density,paint);c.drawRoundRect(RectF(rect.right-3*density,top+5*density,rect.right+2*density,rect.bottom-5*density),2*density,2*density,paint)}
+            }
             c.save();c.clipRect(rect);paint.color=Color.WHITE;paint.textSize=10*density;c.drawText(label,max(left,labelWidth)+5*density,top+19*density,paint);c.restore()
         }
         var offset=0L
@@ -51,6 +54,7 @@ class StudioTimeline(context:Context):View(context) {
         offset=0L;m.clips.forEach {clip->val map=m.speedMap(clip);m.studio.motions[clip.id]?.let {motion->motion.zoom.forEach {diamond(offset+it.time,0)};motion.speed.forEach {diamond(offset+map.toOutput(it.time),0)}};offset+=map.outputDuration}
         m.studio.fx.forEach {layer->layer.keys.forEach {diamond(layer.start+it.time,4)}}
         m.studio.texts.forEach {layer->(layer.style.xKeys+layer.style.yKeys+layer.style.scaleKeys).map {it.time}.distinct().forEach {diamond(layer.start+it,2)}}
+        trimPreviewTime?.let {preview->val px=x(preview);paint.color=0xffffd23f.toInt();paint.strokeWidth=2*density;c.drawLine(px,ruler,px,ruler+row,paint)}
         val play=x(m.playhead);paint.color=Color.WHITE;paint.strokeWidth=2*density;c.drawLine(play,0f,play,height.toFloat(),paint);c.drawCircle(play,7*density,6*density,paint)
         c.restore();paint.color=0xff161720.toInt();c.drawRect(0f,0f,labelWidth,height.toFloat(),paint)
         listOf("VÍDEO","ÁUDIO","TEXTO","SRT","FX").forEachIndexed {i,label->paint.color=0xffb1aabd.toInt();paint.textSize=9*density;c.drawText(label,5*density,ruler+i*row+21*density,paint)}
@@ -60,10 +64,61 @@ class StudioTimeline(context:Context):View(context) {
             post {image?.let {thumbnails[key]=it};if(thumbnails.size>64){val first=thumbnails.keys.first();thumbnails.remove(first)?.recycle()};invalidate()}
         }
     }
+    private fun snapTime(m:EditorModel,raw:Long):Long{
+        val points=mutableListOf<Long>(0L,m.totalDuration,m.playhead)
+        var offset=0L
+        m.clips.forEach {clip->points+=offset;offset+=m.speedMap(clip).outputDuration;points+=offset}
+        m.studio.audio.forEach {points+=it.start;points+=it.end}
+        m.studio.texts.forEach {points+=it.start;points+=it.end}
+        m.studio.fx.forEach {points+=it.start;points+=it.end}
+        m.lyrics?.cues?.forEach {points+=it.startMs;points+=it.endMs}
+        val threshold=(12*density/pixelsPerSecond*1000f).toLong().coerceAtLeast(25L)
+        val target=points.minByOrNull {kotlin.math.abs(it-raw)}
+        if(target!=null && kotlin.math.abs(target-raw)<=threshold){
+            if(snappedAt!=target){performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);snappedAt=target}
+            return target
+        }
+        snappedAt=null;return raw
+    }
     override fun onTouchEvent(e:MotionEvent):Boolean {pinch.onTouchEvent(e);val m=model ?: return false
-        when(e.actionMasked){MotionEvent.ACTION_DOWN->{parent.requestDisallowInterceptTouchEvent(true);downX=e.x;lastX=e.x;downY=e.y;moved=false;scrubbing=e.y<ruler || abs(e.x-x(m.playhead))<28*density;if(scrubbing){m.pauseAll();m.seekTimeline(time(e.x))}}
-            MotionEvent.ACTION_MOVE->{if(pinch.isInProgress)return true;if(abs(e.x-downX)>5*density)moved=true;if(scrubbing)m.seekTimeline(time(e.x))else scroll=(scroll+lastX-e.x).coerceIn(0f,max(0f,m.totalDuration/1000f*pixelsPerSecond-width+labelWidth+60*density));lastX=e.x;invalidate()}
-            MotionEvent.ACTION_UP->{if(!moved && !scrubbing){val t=time(e.x);val lane=((downY-ruler)/row).toInt();m.seekTimeline(t);when(lane){0->m.focus("Vídeo");1->m.focus("Áudio",m.studio.audio.lastOrNull {t in it.start until it.end}?.id ?: "");2->m.focus("Texto",m.studio.texts.lastOrNull {t in it.start until it.end}?.id ?: "");3->m.focus("Legenda",m.lyrics?.cues?.indexOfLast {t in it.startMs until it.endMs}?.toString() ?: "");4->m.focus("FX",m.studio.fx.lastOrNull {t in it.start until it.end}?.id ?: "")}};performClick();parent.requestDisallowInterceptTouchEvent(false);invalidate()}
+        when(e.actionMasked){
+            MotionEvent.ACTION_DOWN->{
+                parent.requestDisallowInterceptTouchEvent(true);downX=e.x;lastX=e.x;downY=e.y;moved=false;trimEdge=0;trimPreviewTime=null;snappedAt=null
+                val clip=m.current
+                if(clip!=null && e.y>=ruler && e.y<ruler+row){
+                    val start=m.timelineOffset;val end=start+m.speedMap(clip).outputDuration;val hit=14*density
+                    trimEdge=when{abs(e.x-x(start))<hit->-1;abs(e.x-x(end))<hit->1;else->0}
+                    if(trimEdge!=0){m.pauseAll();trimPreviewTime=if(trimEdge<0)start else end;return true}
+                }
+                scrubbing=e.y<ruler || abs(e.x-x(m.playhead))<28*density
+                if(scrubbing){m.pauseAll();m.seekTimeline(snapTime(m,time(e.x)))}
+            }
+            MotionEvent.ACTION_MOVE->{
+                if(pinch.isInProgress)return true
+                if(abs(e.x-downX)>5*density)moved=true
+                if(trimEdge!=0){
+                    val clip=m.current ?: return true;val start=m.timelineOffset;val end=start+m.speedMap(clip).outputDuration
+                    trimPreviewTime=snapTime(m,time(e.x)).coerceIn(start+80,(end-80).coerceAtLeast(start+80));invalidate()
+                }else if(scrubbing)m.seekTimeline(snapTime(m,time(e.x)))
+                else scroll=(scroll+lastX-e.x).coerceIn(0f,max(0f,m.totalDuration/1000f*pixelsPerSecond-width+labelWidth+60*density))
+                lastX=e.x;invalidate()
+            }
+            MotionEvent.ACTION_UP->{
+                if(trimEdge!=0){
+                    val clip=m.current;val preview=trimPreviewTime
+                    if(clip!=null && preview!=null){
+                        val start=m.timelineOffset;val map=m.speedMap(clip);val local=(preview-start).coerceIn(1,(map.outputDuration-1).coerceAtLeast(1));val source=map.toSource(local)
+                        val next=if(trimEdge<0)TrimRange((clip.trim.start+source).coerceAtMost(clip.trim.end-1),clip.trim.end) else TrimRange(clip.trim.start,(clip.trim.start+source).coerceAtLeast(clip.trim.start+1))
+                        if(next!=clip.trim)m.edit(trim=next)
+                    }
+                    trimEdge=0;trimPreviewTime=null;snappedAt=null
+                }else if(!moved && !scrubbing){
+                    val t=time(e.x);val lane=((downY-ruler)/row).toInt();m.seekTimeline(t)
+                    when(lane){0->m.focus("Vídeo");1->m.focus("Áudio",m.studio.audio.lastOrNull {t in it.start until it.end}?.id ?: "");2->m.focus("Texto",m.studio.texts.lastOrNull {t in it.start until it.end}?.id ?: "");3->m.focus("Legenda",m.lyrics?.cues?.indexOfLast {t in it.startMs until it.endMs}?.toString() ?: "");4->m.focus("FX",m.studio.fx.lastOrNull {t in it.start until it.end}?.id ?: "")}
+                }
+                scrubbing=false;performClick();parent.requestDisallowInterceptTouchEvent(false);invalidate()
+            }
+            MotionEvent.ACTION_CANCEL->{trimEdge=0;trimPreviewTime=null;scrubbing=false;snappedAt=null;parent.requestDisallowInterceptTouchEvent(false);invalidate()}
         };return true
     }
     override fun performClick():Boolean{super.performClick();return true}
