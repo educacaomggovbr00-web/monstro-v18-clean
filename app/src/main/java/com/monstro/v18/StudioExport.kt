@@ -17,10 +17,10 @@ fun EditorModel.studioComposition():Composition {
         val parts=map.slices.map {slice->
             val clock=FrameClock(clipOffset+slice.outputStart,slice.speed,sourceStart=sourceOffset+slice.sourceStart)
             val visual=mutableListOf<Effect>()
-            val zoom=studio.motions[clip.id]?.zoom ?: emptyList()
+            val motion=studio.motions[clip.id] ?: ClipMotion();val zoom=motion.zoom
             visual+=colorAdjustEffects(studio.adjustments[clip.id] ?: ClipAdjust())
             visual+=previewEffects(clip.copy(chaos=clip.chaos.copy(enabled=clip.chaos.enabled-ChaosFx.MOTION_BLUR.id,zoom=if(zoom.isEmpty())clip.chaos.zoom else 1f)))
-            if(zoom.isNotEmpty())visual+=StudioEffect(null,zoom,clock,clipOffset)
+            if(zoom.isNotEmpty() || motion.rotation.isNotEmpty() || motion.x.isNotEmpty() || motion.y.isNotEmpty())visual+=StudioEffect(null,zoom,clock,clipOffset,motion.rotation,motion.x,motion.y)
             visual+=studio.fx.filter {it.end>clipOffset+slice.outputStart && it.start<clipOffset+slice.outputStart+slice.outputDuration}.map {StudioEffect(it,emptyList(),clock)}
             if(clip.chaos.has(ChaosFx.MOTION_BLUR))visual+=ChaosEffect(ChaosSettings(setOf(ChaosFx.MOTION_BLUR.id)))
             visual+=AspectBackgroundEffect(exportFormat)
