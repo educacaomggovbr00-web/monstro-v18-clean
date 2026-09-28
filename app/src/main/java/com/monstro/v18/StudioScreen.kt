@@ -34,6 +34,7 @@ import kotlinx.coroutines.delay
 fun StudioScreen(m:EditorModel){
     val videos=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(),m::importVideos)
     val audio=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importAudio)
+    val image=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importImage)
     val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)m.startVoiceover()else m.showMessage("Permita acesso ao microfone para gravar dublagem.")}
     val srt=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importLyrics)
     val save=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"),m::saveOutput)
@@ -105,7 +106,7 @@ fun StudioScreen(m:EditorModel){
                 "Texto"->TextInspector(m)
                 "Legenda"->CaptionInspector(m){srt.launch(arrayOf("*/*"))}
                 "FX"->FxInspector(m){library=true}
-                "Camada"->LayerInspector(m,{videos.launch(arrayOf("video/*"))},{audio.launch(arrayOf("audio/*"))})
+                "Camada"->LayerInspector(m,{videos.launch(arrayOf("video/*"))},{image.launch(arrayOf("image/*"))},{audio.launch(arrayOf("audio/*"))})
                 "Filtros"->FilterInspector(m)
                 "Proporção"->RatioInspector(m)
                 "Ajustes"->AdjustInspector(m)
@@ -247,22 +248,47 @@ private fun TextInspector(m:EditorModel){OutlinedButton(onClick=m::addText){Text
     TextButton(onClick={m.updateStudio(m.studio.copy(texts=m.studio.texts-layer),false)}){Text("Excluir texto")}
 }
 @UnstableApi @Composable
-private fun LayerInspector(m:EditorModel,importVideo:()->Unit,importAudio:()->Unit){
+private fun LayerInspector(m:EditorModel,importVideo:()->Unit,importImage:()->Unit,importAudio:()->Unit){
     Text("Mídia e camadas do projeto",fontWeight=FontWeight.Bold)
-    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
-        OutlinedButton(onClick=importVideo){Text("+ Vídeo")}
-        OutlinedButton(onClick=importAudio){Text("+ Áudio")}
-        OutlinedButton(onClick=m::addText){Text("+ Texto")}
+    LazyRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+        item{OutlinedButton(onClick=importVideo){Text("+ Vídeo")}}
+        item{OutlinedButton(onClick=importImage){Text("+ Imagem")}}
+        item{OutlinedButton(onClick=importAudio){Text("+ Áudio")}}
+        item{OutlinedButton(onClick=m::addText){Text("+ Texto")}}
     }
-    Text("${m.clips.size} vídeo(s) · ${m.studio.audio.size} áudio(s) · ${m.studio.texts.size} texto(s) · ${m.lyrics?.cues?.size ?: 0} legenda(s) · ${m.studio.fx.size} FX",fontSize=10.sp,color=Color.Gray)
+    val selectedImage=m.studio.images.find {it.id==m.focusedId}
+    if(selectedImage!=null){
+        val local=(m.playhead-selectedImage.start).coerceAtLeast(0)
+        fun update(next:ImageLayer){m.updateStudio(m.studio.copy(images=m.studio.images.map {if(it.id==selectedImage.id)next else it}),false)}
+        Text(selectedImage.name,fontWeight=FontWeight.Bold)
+        Adjust("Posição X",animated(selectedImage.xKeys,local,selectedImage.x),0f..1f){v->update(if(selectedImage.xKeys.isEmpty())selectedImage.copy(x=v)else selectedImage.copy(xKeys=putKey(selectedImage.xKeys,local,v)))}
+        Adjust("Posição Y",animated(selectedImage.yKeys,local,selectedImage.y),0f..1f){v->update(if(selectedImage.yKeys.isEmpty())selectedImage.copy(y=v)else selectedImage.copy(yKeys=putKey(selectedImage.yKeys,local,v)))}
+        Adjust("Escala",animated(selectedImage.scaleKeys,local,selectedImage.scale),.05f..1.5f,"×"){v->update(if(selectedImage.scaleKeys.isEmpty())selectedImage.copy(scale=v)else selectedImage.copy(scaleKeys=putKey(selectedImage.scaleKeys,local,v)))}
+        Adjust("Rotação",animated(selectedImage.rotationKeys,local,selectedImage.rotation),-180f..180f,"°"){v->update(if(selectedImage.rotationKeys.isEmpty())selectedImage.copy(rotation=v)else selectedImage.copy(rotationKeys=putKey(selectedImage.rotationKeys,local,v)))}
+        Adjust("Opacidade",animated(selectedImage.opacityKeys,local,selectedImage.opacity),0f..1f){v->update(if(selectedImage.opacityKeys.isEmpty())selectedImage.copy(opacity=v)else selectedImage.copy(opacityKeys=putKey(selectedImage.opacityKeys,local,v)))}
+        Timing(selectedImage.start,selectedImage.end,m.totalDuration){a,b->update(selectedImage.copy(start=a,end=b))}
+        Row{
+            TextButton(onClick={update(selectedImage.copy(
+                xKeys=putKey(selectedImage.xKeys,local,animated(selectedImage.xKeys,local,selectedImage.x)),
+                yKeys=putKey(selectedImage.yKeys,local,animated(selectedImage.yKeys,local,selectedImage.y)),
+                scaleKeys=putKey(selectedImage.scaleKeys,local,animated(selectedImage.scaleKeys,local,selectedImage.scale)),
+                rotationKeys=putKey(selectedImage.rotationKeys,local,animated(selectedImage.rotationKeys,local,selectedImage.rotation)),
+                opacityKeys=putKey(selectedImage.opacityKeys,local,animated(selectedImage.opacityKeys,local,selectedImage.opacity))
+            ))}){Text("◇ Keyframe")}
+            TextButton(onClick={update(selectedImage.copy(xKeys=emptyList(),yKeys=emptyList(),scaleKeys=emptyList(),rotationKeys=emptyList(),opacityKeys=emptyList()))}){Text("Limpar")}
+        }
+        TextButton(onClick={m.updateStudio(m.studio.copy(images=m.studio.images-selectedImage),false)}){Text("Excluir imagem")}
+        HorizontalDivider()
+    }
+    Text("${m.clips.size} vídeo(s) · ${m.studio.images.size} imagem(ns) · ${m.studio.audio.size} áudio(s) · ${m.studio.texts.size} texto(s) · ${m.lyrics?.cues?.size ?: 0} legenda(s) · ${m.studio.fx.size} FX",fontSize=10.sp,color=Color.Gray)
     m.clips.take(12).forEachIndexed {index,clip->
         OutlinedButton(onClick={m.select(index);m.focus("Vídeo")},modifier=Modifier.fillMaxWidth()){Text("VÍDEO  ${index+1} · ${clip.name}",maxLines=1)}
     }
+    m.studio.images.take(12).forEach {layer->OutlinedButton(onClick={m.focus("Camada",layer.id);m.seekTimeline(layer.start)},modifier=Modifier.fillMaxWidth()){Text("IMAGEM  ${layer.name}",maxLines=1)}}
     m.studio.audio.take(8).forEach {layer->OutlinedButton(onClick={m.focus("Áudio",layer.id)},modifier=Modifier.fillMaxWidth()){Text("ÁUDIO  ${layer.name}",maxLines=1)}}
     m.studio.texts.take(8).forEach {layer->OutlinedButton(onClick={m.focus("Texto",layer.id)},modifier=Modifier.fillMaxWidth()){Text("TEXTO  ${layer.text}",maxLines=1)}}
     m.studio.fx.take(8).forEach {layer->OutlinedButton(onClick={m.focus("FX",layer.id)},modifier=Modifier.fillMaxWidth()){Text("FX  ${FxCatalog.get(layer.presetId)?.name ?: layer.presetId}",maxLines=1)}}
 }
-
 @UnstableApi @Composable
 private fun FilterInspector(m:EditorModel){
     val clip=m.current ?: run {Text("Importe um vídeo para usar filtros.");return}
