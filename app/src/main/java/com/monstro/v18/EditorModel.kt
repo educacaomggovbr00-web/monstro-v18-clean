@@ -2,6 +2,9 @@ package com.monstro.v18
 
 import android.app.Application
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.media.MediaMetadataRetriever
 import android.media.MediaRecorder
 import android.os.Build
@@ -262,6 +265,38 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         val layer=AudioLayer(uri=file.toURI().toString(),name="Dublagem",duration=duration,start=voiceoverStart,trimEnd=trimEnd)
         updateStudio(studio.copy(audio=studio.audio+layer),false)
         focus("Áudio",layer.id);voiceoverStatus="Dublagem adicionada · ${timeLabel(trimEnd)}"
+    }
+    fun importImage(uri:Uri?){
+        if(uri==null || busy || totalDuration<=0)return
+        importing=true
+        viewModelScope.launch {
+            val result=withContext(Dispatchers.IO){runCatching {
+                val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {if(it.moveToFirst())it.getString(0)else null} ?: "Imagem"
+                val dir=File(context.filesDir,"images").apply {mkdirs()}
+                val file=File(dir,"image-${UUID.randomUUID()}.png")
+                val bitmap=if(Build.VERSION.SDK_INT>=28){
+                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver,uri)){decoder,info,_->
+                        val w=info.size.width;val h=info.size.height;val maxSide=maxOf(w,h)
+                        if(maxSide>2048){val ratio=2048f/maxSide;decoder.setTargetSize((w*ratio).toInt().coerceAtLeast(1),(h*ratio).toInt().coerceAtLeast(1))}
+                        decoder.allocator=ImageDecoder.ALLOCATOR_SOFTWARE
+                    }
+                }else{
+                    val bounds=BitmapFactory.Options().apply {inJustDecodeBounds=true}
+                    context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,bounds)}
+                    var sample=1;while(maxOf(bounds.outWidth,bounds.outHeight)/sample>2048)sample*=2
+                    val options=BitmapFactory.Options().apply {inSampleSize=sample}
+                    context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,options)} ?: error("Não foi possível abrir a imagem.")
+                }
+                file.outputStream().use {out->check(bitmap.compress(Bitmap.CompressFormat.PNG,100,out)){"Não foi possível salvar a imagem."}}
+                bitmap.recycle()
+                val start=playhead.coerceIn(0,(totalDuration-1).coerceAtLeast(0))
+                val end=minOf(totalDuration,start+3000).coerceAtLeast(start+1)
+                ImageLayer(path=file.absolutePath,name=name,start=start,end=end)
+            }}
+            importing=false
+            result.onSuccess {layer->updateStudio(studio.copy(images=studio.images+layer),false);focus("Camada",layer.id)}
+                .onFailure {message="Não foi possível importar a imagem: ${it.localizedMessage}"}
+        }
     }
     fun importAudio(uri:Uri?){if(uri==null || busy)return;importing=true;viewModelScope.launch {
         val result=withContext(Dispatchers.IO){runCatching {context.contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);val r=MediaMetadataRetriever();val duration=try{r.setDataSource(context,uri);r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()}finally{r.release()};require(duration>0);val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use {if(it.moveToFirst())it.getString(0)else null} ?: "Áudio";AudioLayer(uri=uri.toString(),name=name,duration=duration,start=playhead,trimEnd=if(totalDuration>playhead)minOf(duration,totalDuration-playhead)else duration)}}
