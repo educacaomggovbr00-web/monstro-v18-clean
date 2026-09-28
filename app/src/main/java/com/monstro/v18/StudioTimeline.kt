@@ -51,7 +51,7 @@ class StudioTimeline(context:Context):View(context) {
         offset=0L;m.clips.forEach {clip->val map=m.speedMap(clip);m.studio.motions[clip.id]?.let {motion->motion.zoom.forEach {diamond(offset+it.time,0)};motion.speed.forEach {diamond(offset+map.toOutput(it.time),0)}};offset+=map.outputDuration}
         m.studio.fx.forEach {layer->layer.keys.forEach {diamond(layer.start+it.time,4)}}
         m.studio.texts.forEach {layer->(layer.style.xKeys+layer.style.yKeys+layer.style.scaleKeys).map {it.time}.distinct().forEach {diamond(layer.start+it,2)}}
-        val play=x(m.playhead);paint.color=Color.WHITE;paint.strokeWidth=2*density;c.drawLine(play,0f,play,height.toFloat(),paint);c.drawCircle(play,5*density,4*density,paint)
+        val play=x(m.playhead);paint.color=Color.WHITE;paint.strokeWidth=2*density;c.drawLine(play,0f,play,height.toFloat(),paint);c.drawCircle(play,7*density,6*density,paint)
         c.restore();paint.color=0xff161720.toInt();c.drawRect(0f,0f,labelWidth,height.toFloat(),paint)
         listOf("VÍDEO","ÁUDIO","TEXTO","SRT","FX").forEachIndexed {i,label->paint.color=0xffb1aabd.toInt();paint.textSize=9*density;c.drawText(label,5*density,ruler+i*row+21*density,paint)}
     }
@@ -61,7 +61,7 @@ class StudioTimeline(context:Context):View(context) {
         }
     }
     override fun onTouchEvent(e:MotionEvent):Boolean {pinch.onTouchEvent(e);val m=model ?: return false
-        when(e.actionMasked){MotionEvent.ACTION_DOWN->{parent.requestDisallowInterceptTouchEvent(true);downX=e.x;lastX=e.x;downY=e.y;moved=false;scrubbing=e.y<ruler || abs(e.x-x(m.playhead))<12*density;if(scrubbing){m.pauseAll();m.seekTimeline(time(e.x))}}
+        when(e.actionMasked){MotionEvent.ACTION_DOWN->{parent.requestDisallowInterceptTouchEvent(true);downX=e.x;lastX=e.x;downY=e.y;moved=false;scrubbing=e.y<ruler || abs(e.x-x(m.playhead))<28*density;if(scrubbing){m.pauseAll();m.seekTimeline(time(e.x))}}
             MotionEvent.ACTION_MOVE->{if(pinch.isInProgress)return true;if(abs(e.x-downX)>5*density)moved=true;if(scrubbing)m.seekTimeline(time(e.x))else scroll=(scroll+lastX-e.x).coerceIn(0f,max(0f,m.totalDuration/1000f*pixelsPerSecond-width+labelWidth+60*density));lastX=e.x;invalidate()}
             MotionEvent.ACTION_UP->{if(!moved && !scrubbing){val t=time(e.x);val lane=((downY-ruler)/row).toInt();m.seekTimeline(t);when(lane){0->m.focus("Vídeo");1->m.focus("Áudio",m.studio.audio.lastOrNull {t in it.start until it.end}?.id ?: "");2->m.focus("Texto",m.studio.texts.lastOrNull {t in it.start until it.end}?.id ?: "");3->m.focus("Legenda",m.lyrics?.cues?.indexOfLast {t in it.startMs until it.endMs}?.toString() ?: "");4->m.focus("FX",m.studio.fx.lastOrNull {t in it.start until it.end}?.id ?: "")}};performClick();parent.requestDisallowInterceptTouchEvent(false);invalidate()}
         };return true
