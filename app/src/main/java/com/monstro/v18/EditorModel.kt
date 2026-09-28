@@ -161,6 +161,20 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     fun speedMap(clip:VideoClip)=SpeedMap(clip.trim.duration,studio.motions[clip.id]?.speed ?: emptyList())
     val totalDuration get()=clips.sumOf { speedMap(it).outputDuration }
     fun focus(kind:String,id:String=""){inspector=kind;focusedId=id}
+    fun addTimelineMarker(){
+        if(busy || totalDuration<=0)return
+        val time=playhead.coerceIn(0,totalDuration)
+        val near=studio.markers.any {kotlin.math.abs(it.time-time)<80}
+        if(near){message="Já existe um marcador muito perto deste ponto.";return}
+        val number=studio.markers.size+1
+        updateStudio(studio.copy(markers=(studio.markers+TimelineMarker(time=time,label="M$number")).sortedBy {it.time}),false)
+    }
+    fun removeNearestMarker(){
+        if(busy || studio.markers.isEmpty())return
+        val target=studio.markers.minByOrNull {kotlin.math.abs(it.time-playhead)} ?: return
+        if(kotlin.math.abs(target.time-playhead)>800){message="Mova o playhead perto de um marcador para remover.";return}
+        updateStudio(studio.copy(markers=studio.markers-target),false)
+    }
     fun updateStudio(next:StudioProject,rebuild:Boolean=true,record:Boolean=true){if(busy || next==studio)return;if(record)pushHistory();studio=next;prefs.edit().putString("studio",StudioCodec.encode(next)).apply();if(rebuild){val pos=player.currentPosition;preview(pos,player.playWhenReady)}}
     fun seekTimeline(time:Long){if(clips.isEmpty() || busy)return;var remaining=time.coerceIn(0,(totalDuration-1).coerceAtLeast(0));var index=0
         while(index<clips.lastIndex && remaining>=speedMap(clips[index]).outputDuration){remaining-=speedMap(clips[index]).outputDuration;index++}
