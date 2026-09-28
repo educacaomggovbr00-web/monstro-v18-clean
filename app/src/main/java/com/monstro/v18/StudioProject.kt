@@ -146,6 +146,7 @@ object StudioCodec {
                 id=it.optString("id"),name=it.optString("name"),category=it.optString("category","Meus efeitos"),
                 engine=it.optInt("engine"),recipe=it.optInt("recipe"),envelope=it.optInt("envelope")
             ) }
+        )
     }
 }
 
