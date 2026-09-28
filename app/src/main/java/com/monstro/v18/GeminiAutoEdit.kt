@@ -63,22 +63,24 @@ class GeminiAutoEdit(private val context:Context){
         project:StudioProject,
         captions:SrtTrack?,
         requestedStyle:String,
-        progress:(Int)->Unit
+        progress:(Int)->Unit,
+        currentRatio:String="9:16"
     ):AiEditPlan{
         require(configured){"Firebase AI Logic não está conectado."}
         require(clips.isNotEmpty()){"Importe pelo menos um vídeo."}
         progress(3)
-        val samples=sampleFrames(clips,project,12){progress((3+it*27/100).coerceAtMost(30))}
+        val profile=VideoPerceptionAnalyzer.analyze(clips,project,captions,currentRatio)
+        val samples=sampleFrames(clips,project,profile.frameBudget){progress((3+it*27/100).coerceAtMost(30))}
         require(samples.isNotEmpty()){"Não consegui extrair quadros para a análise de IA."}
         try{
             val model=Firebase.ai(backend=GenerativeBackend.googleAI()).generativeModel(
-                modelName="gemini-3.5-flash-lite",
+                modelName=GeminiSupport.GENERAL_MODEL,
                 generationConfig=generationConfig {
                     responseMimeType="application/json"
-                    maxOutputTokens=8192
+                    maxOutputTokens=4096
                 }
             )
-            val total=clips.sumOf {clip->SpeedMap(clip.trim.duration,project.motions[clip.id]?.speed ?: emptyList()).outputDuration}
+            val total=profile.durationMs
             val transcript=captions?.cues?.take(80)?.joinToString("\n"){cue->
                 "[${cue.startMs}-${cue.endMs}ms] ${cue.text}"
             }?.take(9000).orEmpty()
@@ -104,6 +106,8 @@ class GeminiAutoEdit(private val context:Context){
                     a fala e os beats. Crie uma edição coerente com o conteúdo; não jogue efeitos aleatórios.
 
                     Estilo pedido pelo usuário: $requestedStyle
+                    Percepção automática local: ${profile.label}
+                    Vídeo curto: ${profile.shortForm}
                     Duração total: $total ms
                     Clipes:
                     $clipInfo
@@ -116,7 +120,7 @@ class GeminiAutoEdit(private val context:Context){
 
                     Recursos reais disponíveis no app:
                     - presets de cor: raw, neon, trap, dark, cinema
-                    - FX por categoria: Glitch, RGB, Shake, Trap, Motion, Distortion, Anime, Retro, VHS, Cinematic, Light, Blur
+                    - FX curados por categoria: Glitch, RGB, Shake, Trap, Motion, Retro, VHS, Cinematic, Light, Blur
                     - keyframes de zoom, posição X/Y e rotação
                     - speed curve de 0.25x até 4x
                     - proporções: 9:16, 16:9, 1:1, 4:5
@@ -154,14 +158,16 @@ class GeminiAutoEdit(private val context:Context){
                     - Se o conteúdo for conversa/vlog, prefira cortes visuais limpos, zoom discreto e cor natural.
                     - Se for música/trap, sincronize impactos com beats e use FX de forma rítmica.
                     - Se for gameplay/ação, destaque picos de movimento.
-                    - Máximo: 3 motions por clipe, 4 speed keys por clipe, 12 efeitos e 16 marcadores.
+                    - Máximo: 3 motions por clipe, 4 speed keys por clipe, ${profile.effectBudget} efeitos e 16 marcadores.
+                    - Em vídeo de fala/conversa, prefira zero efeitos ou no máximo efeitos muito discretos.
+                    - Em vídeo curto, preserve ritmo e clareza; não empilhe efeitos só para preencher a edição.
                     """.trimIndent()
                 )
             }
             progress(50)
             val raw=model.generateContent(prompt).text ?: error("Gemini não retornou um plano de edição.")
             progress(88)
-            return parse(raw,clips,total).also {progress(100)}
+            return parse(raw,clips,total,profile.effectBudget,profile.recommendedRatio).also {progress(100)}
         } finally {
             samples.forEach {if(!it.bitmap.isRecycled)it.bitmap.recycle()}
         }
@@ -210,7 +216,7 @@ class GeminiAutoEdit(private val context:Context){
         return result
     }
 
-    private fun parse(raw:String,clips:List<VideoClip>,total:Long):AiEditPlan{
+    private fun parse(raw:String,clips:List<VideoClip>,total:Long,effectBudget:Int,fallbackRatio:String):AiEditPlan{
         val clean=raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
         val root=JSONTokener(clean).nextValue() as? JSONObject ?: error("Plano de edição inválido.")
         fun JSONArray?.objects()=if(this==null)emptyList() else (0 until length()).mapNotNull {optJSONObject(it)}
@@ -238,7 +244,7 @@ class GeminiAutoEdit(private val context:Context){
                 o.optDouble("speed",1.0).toFloat().coerceIn(.25f,4f)
             )
         }.groupBy {it.clipIndex}.flatMap {(_,v)->v.sortedBy {it.timeMs}.take(4)}
-        val validCategories=setOf("Glitch","RGB","Shake","Trap","Motion","Distortion","Anime","Retro","VHS","Cinematic","Light","Blur")
+        val validCategories=setOf("Glitch","RGB","Shake","Trap","Motion","Retro","VHS","Cinematic","Light","Blur")
         val effects=root.optJSONArray("effects").objects().mapNotNull {o->
             val start=o.optLong("start_ms",0).coerceIn(0,total)
             val end=o.optLong("end_ms",start+300).coerceIn(start,total)
@@ -246,11 +252,11 @@ class GeminiAutoEdit(private val context:Context){
             if(end<=start || category !in validCategories)null else AiFxSuggestion(
                 start,end,category,o.optDouble("intensity",.7).toFloat().coerceIn(.15f,1.35f),o.optInt("variant",0).coerceIn(0,49)
             )
-        }.take(12)
+        }.take(effectBudget)
         val markers=root.optJSONArray("markers").objects().map {o->
             AiMarker(o.optLong("time_ms",0).coerceIn(0,total),o.optString("label","IA").take(28))
         }.take(16)
-        val ratio=root.optString("ratio","9:16").takeIf {it in setOf("9:16","16:9","1:1","4:5")} ?: "9:16"
+        val ratio=root.optString("ratio",fallbackRatio).takeIf {it in setOf("9:16","16:9","1:1","4:5")} ?: fallbackRatio
         return AiEditPlan(root.optString("summary","Edição automática pronta."),ratio,looks,motions,speeds,effects,markers)
     }
 }
