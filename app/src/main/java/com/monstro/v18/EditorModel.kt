@@ -634,6 +634,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun showMessage(text:String){message=text}
     fun clearMessage() { message = null }
 
     fun export() {
