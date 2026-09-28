@@ -82,22 +82,12 @@ fun EditorScreen(model: EditorModel) {
                     key(model.player) {
                         AndroidView(
                             factory = { context -> EditorPlayerView(context).apply { useController = true } },
-                            update = { it.bind(model.player, !model.compatibilityPreview && previewEffects(model.current!!).isNotEmpty()) },
+                            update = { it.bind(model.player, true) },
                             modifier = Modifier.matchParentSize()
                         )
                     }
                     AndroidView(factory = { LyricsPreviewView(it) },
                         update = { it.model = model; it.invalidate() }, modifier = Modifier.matchParentSize())
-                }
-            }
-            if (model.current != null) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Prévia de compatibilidade")
-                        Text(if (model.compatibilityPreview) "Sem efeitos na prévia. Efeitos mantidos no MP4."
-                            else "Mostrar os efeitos na prévia.", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Switch(checked = model.compatibilityPreview, onCheckedChange = { model.toggleCompatibilityPreview() }, enabled = !model.busy)
                 }
             }
             Button(onClick = { picker.launch(arrayOf("video/*")) }, enabled = !model.busy, modifier = Modifier.fillMaxWidth()) {
