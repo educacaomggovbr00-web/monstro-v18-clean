@@ -132,7 +132,7 @@ fun StudioScreen(m:EditorModel){
                 "Proporção"->RatioInspector(m)
                 "Ajustes"->AdjustInspector(m)
             }
-            if(m.output!=null)OutlinedButton(onClick={save.launch("MONSTRO_Studio.mp4")},enabled=!m.busy,modifier=Modifier.fillMaxWidth()){Text("Salvar último MP4")}
+            if(m.output!=null)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton(onClick={save.launch("MONSTRO_Studio.mp4")},enabled=!m.busy,modifier=Modifier.weight(1f)){Text("Salvar MP4")};Button(onClick=m::shareOutput,enabled=!m.busy,modifier=Modifier.weight(1f)){Text("Compartilhar")}}
         }
     }
     if(library)FxLibrary(m){library=false}
