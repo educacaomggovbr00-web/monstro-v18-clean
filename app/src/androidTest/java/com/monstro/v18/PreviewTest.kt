@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
 @UnstableApi
 @RunWith(AndroidJUnit4::class)
 class PreviewTest {
-    @Test fun previewRawEffectsAndRecoveryWithoutLosingEdits() {
+    @Test fun previewRawEffectsAndErrorReportingWithoutLosingEdits() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val input = File(context.cacheDir, "preview.mp4")
@@ -103,7 +103,7 @@ class PreviewTest {
                 context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)}
                 bitmap.recycle()
             }
-            // Exercise recovery with the exact reported error and retain all saved edits.
+            // Exercise error reporting with the exact reported error and retain all saved edits.
             scenario.onActivity { activity ->
                 val model = ViewModelProvider(activity)[EditorModel::class.java]
                 model.edit(preset = "cinema", chaos = allFx)
@@ -113,7 +113,7 @@ class PreviewTest {
             }
             instrumentation.waitForIdleSync()
             play { model ->
-                assertTrue(model.compatibilityPreview)
+                assertTrue(model.message?.startsWith("Falha na prévia:") == true)
                 assertEquals(allFx, model.current!!.chaos)
                 assertEquals("cinema", model.current!!.preset)
                 assertEquals(TrimRange(100, 1900), model.current!!.trim)
