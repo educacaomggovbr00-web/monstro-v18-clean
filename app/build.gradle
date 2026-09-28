@@ -8,6 +8,10 @@ if (file('google-services.json').exists()) {
     apply plugin: 'com.google.gms.google-services'
 }
 
+configurations.configureEach {
+    resolutionStrategy.force 'com.google.firebase:firebase-auth:22.3.1'
+}
+
 def releaseKeystore = System.getenv('MONSTRO_RELEASE_KEYSTORE')
 def releaseStorePassword = System.getenv('MONSTRO_RELEASE_STORE_PASSWORD')
 def releaseKeyAlias = System.getenv('MONSTRO_RELEASE_KEY_ALIAS')
