@@ -34,6 +34,7 @@ import kotlinx.coroutines.delay
 fun StudioScreen(m:EditorModel){
     val videos=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(),m::importVideos)
     val audio=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importAudio)
+    val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)m.startVoiceover()else m.showMessage("Permita acesso ao microfone para gravar dublagem.")}
     val srt=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importLyrics)
     val save=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"),m::saveOutput)
     var library by remember {mutableStateOf(false)};var exportDialog by remember {mutableStateOf(false)};var fullscreen by remember {mutableStateOf(false)}
@@ -99,7 +100,7 @@ fun StudioScreen(m:EditorModel){
             }
             else when(m.inspector){
                 "Vídeo"->VideoInspector(m){videos.launch(arrayOf("video/*"))}
-                "Áudio"->AudioInspector(m){audio.launch(arrayOf("audio/*"))}
+                "Áudio"->AudioInspector(m,{audio.launch(arrayOf("audio/*"))},{mic.launch(android.Manifest.permission.RECORD_AUDIO)})
                 "Texto"->TextInspector(m)
                 "Legenda"->CaptionInspector(m){srt.launch(arrayOf("*/*"))}
                 "FX"->FxInspector(m){library=true}
@@ -207,7 +208,13 @@ private fun VideoInspector(m:EditorModel,importVideo:()->Unit){OutlinedButton(on
     Row(verticalAlignment=Alignment.CenterVertically){Switch(checked=!m.mute,onCheckedChange={m.toggleMute()});Text("Áudio original")}
 }
 @UnstableApi @Composable
-private fun AudioInspector(m:EditorModel,import:()->Unit){OutlinedButton(onClick=import){Text("+ Importar áudio")};val layer=m.studio.audio.find {it.id==m.focusedId} ?: return
+private fun AudioInspector(m:EditorModel,import:()->Unit,recordVoice:()->Unit){
+    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+        OutlinedButton(onClick=import,enabled=!m.voiceoverRecording){Text("+ Importar áudio")}
+        Button(onClick={if(m.voiceoverRecording)m.stopVoiceover()else recordVoice()},enabled=!m.busy){Text(if(m.voiceoverRecording)"■ Parar dublagem" else "● Gravar dublagem")}
+    }
+    if(m.voiceoverStatus.isNotBlank())Text(m.voiceoverStatus,fontSize=10.sp,color=if(m.voiceoverRecording)MaterialTheme.colorScheme.primary else Color.Gray)
+    val layer=m.studio.audio.find {it.id==m.focusedId} ?: return
     fun update(next:AudioLayer){m.updateStudio(m.studio.copy(audio=m.studio.audio.map {if(it.id==layer.id)next else it}),false)}
     TextButton(onClick={m.autoCaptionAudio(layer.id)}){Text("Legendar este áudio")}
     Text(layer.name)
