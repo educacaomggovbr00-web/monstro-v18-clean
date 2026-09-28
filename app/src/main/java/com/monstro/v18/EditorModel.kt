@@ -119,12 +119,13 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var canvasBackground by mutableStateOf(prefs.getString("canvasBackground","blur") ?: "blur"); private set
     var bitrateMode by mutableStateOf(prefs.getString("bitrateMode","recommended") ?: "recommended"); private set
     var exportCodec by mutableStateOf(prefs.getString("exportCodec","H264") ?: "H264"); private set
+    var exportFps by mutableStateOf(prefs.getInt("exportFps",30).takeIf {it in listOf(24,30,60)} ?: 30); private set
     var vertical by mutableStateOf(canvasRatio=="9:16" || canvasRatio=="4:5"); private set
     var lyrics by mutableStateOf<SrtTrack?>(null); private set
     var lyricsName by mutableStateOf(""); private set
     var simpleLyrics by mutableStateOf(false); private set
     var purpleLyrics by mutableStateOf(true); private set
-    val exportFormat get() = ExportFormat(canvasRatio,safeMode,canvasBackground,bitrateMode,exportCodec)
+    val exportFormat get() = ExportFormat(canvasRatio,safeMode,canvasBackground,bitrateMode,exportCodec,exportFps)
     val hevcSupported get() = runCatching { android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos.any { info->info.isEncoder && info.supportedTypes.any { it.equals(MimeTypes.VIDEO_H265,true) } } }.getOrDefault(false)
     val timelineOffset get() = clips.take(selected).sumOf { speedMap(it).outputDuration }
 
@@ -764,6 +765,10 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         if(busy || codec !in listOf("H264","HEVC"))return
         if(codec=="HEVC" && !hevcSupported){message="Este aparelho não oferece encoder HEVC/H.265. Mantive H.264.";return}
         exportCodec=codec;prefs.edit().putString("exportCodec",codec).apply()
+    }
+    fun selectExportFps(fps:Int){
+        if(busy || fps !in listOf(24,30,60))return
+        exportFps=fps;prefs.edit().putInt("exportFps",fps).apply()
     }
     fun setExportFormat(isVertical: Boolean) { selectCanvasRatio(if(isVertical)"9:16" else "16:9") }
     fun toggleSimpleLyrics() {
