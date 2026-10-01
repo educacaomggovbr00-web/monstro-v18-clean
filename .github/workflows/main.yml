@@ -64,6 +64,22 @@ jobs:
           git add -A
           git commit -m 'feat: integrar motor completo ClearCut, efeitos Monstro e migração de projetos'
           git push origin HEAD:${{ github.head_ref || github.ref_name }}
+      - name: Ajustar identidade e contratos do fork Monstro
+        if: hashFiles('monstro/.integration/apply-fork-contracts') != ''
+        run: |
+          python3 .integration/repair_source_paths.py
+          git apply .integration/fork-contracts.patch
+          python3 scripts/validate_package_identity.py
+          python3 scripts/validate_android_audio_api_policy.py
+          python3 scripts/generate_capability_registry.py --check
+          git diff --check
+          git config user.name 'Monstro Integration'
+          git config user.email 'monstro-integration@users.noreply.github.com'
+          git add -u -- . ':!app/google-services.json'
+          git add app/src/qa/res/xml/shortcuts.xml app/src/streaming/res/xml/shortcuts.xml
+          git rm .integration/apply-fork-contracts
+          git commit -m 'fix: compatibilidade SDK 37.0, efeitos, atalhos e contratos Monstro'
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -72,11 +88,13 @@ jobs:
         with:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
       - name: Instalar SDK do motor completo
         run: |
           sdkmanager --channel=3 --list > /tmp/monstro-sdk-packages.txt
           python3 -c "from pathlib import Path;print('\\n'.join(x for x in Path('/tmp/monstro-sdk-packages.txt').read_text().splitlines() if 'platforms;android' in x or 'build-tools;3' in x))"
-          sdkmanager --channel=3 'platforms;android-36' 'build-tools;36.0.0'
+          sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;37.0.0'
       - name: Registrar dependências novas da integração
         if: hashFiles('monstro/.integration/refresh-dependency-lock') != ''
         run: |

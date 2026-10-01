@@ -1,0 +1,354 @@
+--- a/README.md
++++ b/README.md
+@@ -587,7 +587,7 @@
+ # Debug build
+ ./gradlew assembleDebug
+ 
+-# Isolated QA timeline instrumentation (application ID: com.monstro.v18.qa)
++# Isolated QA timeline instrumentation (application ID: com.monstro.v18.studio.qa)
+ ./gradlew :app:assembleQa :app:assembleQaAndroidTest
+ # JVM/lint gate for the QA-targeted test graph
+ ./gradlew :app:testQaUnitTest :app:lintDebug
+@@ -757,7 +757,7 @@
+ 
+ ### Package identity and upgrade policy
+ 
+-ClearCut is the public product name. The Android application ID and source namespace are intentionally frozen at `com.monstro.v18`: it is the legacy technical identity that preserves the existing install lineage, not public branding. The machine-readable contract lives in `scripts/package_identity.json` and is checked by the release gate.
++Monstro V18 is the public product name. The Android application ID remains `com.monstro.v18.studio` and the source namespace remains `com.monstro.v18`, preserving the existing Monstro install lineage. The machine-readable contract lives in `scripts/package_identity.json` and is checked by the release gate.
+ 
+ Keeping that ID and the pinned release certificate lets existing installs receive in-place updates and keeps app-private projects reachable. Provider authorities remain `${applicationId}.androidx-startup` and `${applicationId}.fileprovider`; `.clearcut` and `.clearcut-template` files and their document MIME associations remain stable.
+ 
+@@ -792,7 +792,7 @@
+ ## Supported Devices
+ 
+ - **Min SDK:** 26 (Android 8.0 Oreo)
+-- **Target SDK:** 37 (Android 17)
++- **Target SDK:** 37 (Android 17), compiled with the SDK 37.0 platform
+ - **Required:** OpenGL ES 3.0
+ - **Recommended:** 4GB+ RAM, Snapdragon 7-series or better for AI features
+ - **AV1 hardware encoding:** Pixel 8+, Snapdragon 8 Gen 3+, Dimensity 9200+
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -29,12 +29,12 @@
+ 
+ android {
+     namespace = "com.monstro.v18"
+-    compileSdk = 36
++    compileSdk { version = release(37) { minorApiLevel = 0 } }
+ 
+     defaultConfig {
+         applicationId = "com.monstro.v18.studio"
+         minSdk = 26
+-        targetSdk = 36
++        targetSdk = 37
+         versionCode = 25
+         versionName = "18.7-ClearCut"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+@@ -955,4 +955,18 @@
+     registerJvmVisualVerificationTask("verifyJvmVisualVerification", "verify")
+ }
+ 
+-if (file("google-services.json").exists()) { apply(plugin = "com.google.gms.google-services") }
++if (file("google-services.json").exists()) {
++    apply(plugin = "com.google.gms.google-services")
++    // Isolated test/network variants require their own registered Firebase client.
++    // Keep production configuration intact; unsupported variants run offline.
++    listOf("qa", "streaming").forEach { variant ->
++        val expectedPackage = "com.monstro.v18.studio.$variant"
++        val clientPattern = Regex("\"package_name\"\\s*:\\s*\"${Regex.escape(expectedPackage)}\"")
++        val candidates = listOf(file("src/$variant/google-services.json"), file("google-services.json"))
++        val configured = candidates.any { it.isFile && clientPattern.containsMatchIn(it.readText()) }
++        if (!configured) {
++            val taskName = "process${variant.replaceFirstChar { it.uppercase() }}GoogleServices"
++            tasks.matching { it.name == taskName }.configureEach { enabled = false }
++        }
++    }
++}
+--- a/app/src/main/java/com/monstro/v18/monstro/ChaosEffect.kt
++++ b/app/src/main/java/com/monstro/v18/monstro/ChaosEffect.kt
+@@ -79,7 +79,7 @@
+                 try {
+                     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, readFramebuffer)
+                     GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+-                    GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, history)
++                    GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, history, GLES20.GL_LINEAR)
+                     GLES20.glCopyTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height)
+                     GlUtil.checkGlError()
+                 } finally {
+--- a/app/src/main/res/xml/shortcuts.xml
++++ b/app/src/main/res/xml/shortcuts.xml
+@@ -18,8 +18,8 @@
+         android:shortcutLongLabel="@string/shortcut_new_project_long">
+         <intent
+             android:action="com.monstro.v18.action.NEW_PROJECT"
+-            android:targetPackage="${applicationId}"
+-            android:targetClass="${applicationId}.MainActivity" />
++            android:targetPackage="com.monstro.v18.studio"
++            android:targetClass="com.monstro.v18.MainActivity" />
+         <!-- Not a conversation shortcut — removed android.shortcut.conversation -->
+ 
+     </shortcut>
+@@ -32,8 +32,8 @@
+         android:shortcutLongLabel="@string/shortcut_recent_long">
+         <intent
+             android:action="com.monstro.v18.action.OPEN_RECENT"
+-            android:targetPackage="${applicationId}"
+-            android:targetClass="${applicationId}.MainActivity" />
++            android:targetPackage="com.monstro.v18.studio"
++            android:targetClass="com.monstro.v18.MainActivity" />
+     </shortcut>
+ 
+ </shortcuts>
+--- a/app/src/test/java/com/monstro/v18/PackageIdentityTest.kt
++++ b/app/src/test/java/com/monstro/v18/PackageIdentityTest.kt
+@@ -18,7 +18,8 @@
+         val readme = locate("README.md").readText()
+ 
+         assertEquals(1, registry.getInt("schemaVersion"))
+-        assertEquals(applicationId, namespace)
++        assertEquals("com.monstro.v18.studio", applicationId)
++        assertEquals(namespace, registry.getString("sourcePackage"))
+         assertTrue(build.contains("namespace = \"$namespace\""))
+         assertTrue(build.contains("applicationId = \"$applicationId\""))
+         assertTrue(build.contains("applicationIdSuffix = \".streaming\""))
+@@ -44,8 +45,8 @@
+             val action = shortcutActions.getString(index)
+             assertTrue("Manifest must keep shortcut action $action", manifest.contains(action))
+         }
+-        assertTrue(shortcuts.contains("android:targetPackage=\"\${applicationId}\""))
+-        assertTrue(shortcuts.contains("android:targetClass=\"\${applicationId}.MainActivity\""))
++        assertTrue(shortcuts.contains("android:targetPackage=\"$applicationId\""))
++        assertTrue(shortcuts.contains("android:targetClass=\"com.monstro.v18.MainActivity\""))
+ 
+         val associations = registry.getJSONObject("archiveAssociations")
+         val extensions = associations.getJSONArray("extensions")
+@@ -61,10 +62,10 @@
+         }
+ 
+         assertTrue(locate("app/src/main/res/values/strings.xml").readText().contains(
+-            "<string name=\"app_name\">ClearCut</string>"
++            "<string name=\"app_name\">Monstro V18</string>"
+         ))
+         assertTrue(locate("app/src/main/res/values-es/strings.xml").readText().contains(
+-            "<string name=\"app_name\">ClearCut</string>"
++            "<string name=\"app_name\">Monstro V18</string>"
+         ))
+     }
+ 
+--- a/baselineprofile/build.gradle.kts
++++ b/baselineprofile/build.gradle.kts
+@@ -5,12 +5,12 @@
+ 
+ android {
+     namespace = "com.clearcut.baselineprofile"
+-    compileSdk = 36
++    compileSdk { version = release(37) { minorApiLevel = 0 } }
+     targetProjectPath = ":app"
+ 
+     defaultConfig {
+         minSdk = 28
+-        targetSdk = 36
++        targetSdk = 37
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+         testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR"
+     }
+--- a/scripts/package_identity.json
++++ b/scripts/package_identity.json
+@@ -1,6 +1,6 @@
+ {
+   "schemaVersion": 1,
+-  "publicProductName": "ClearCut",
++  "publicProductName": "Monstro V18",
+   "retiredPublicProductName": "NovaCut",
+   "applicationId": "com.monstro.v18.studio",
+   "namespace": "com.monstro.v18",
+--- a/scripts/validate_android_audio_api_policy.py
++++ b/scripts/validate_android_audio_api_policy.py
+@@ -69,9 +69,10 @@
+ def verify_android_17_target(root: Path = ROOT) -> None:
+     build_path = root / APP_GRADLE.relative_to(ROOT)
+     build = read_text(build_path)
+-    for assignment in ("compileSdk = 37", "targetSdk = 37"):
+-        if not re.search(rf"(?m)^\s*{re.escape(assignment)}\s*$", build):
+-            raise AudioPolicyError(f"{rel(build_path)} must pin {assignment}")
++    required = (r"compileSdk\s*\{\s*version\s*=\s*release\(37\)\s*\{\s*minorApiLevel\s*=\s*0", r"(?m)^\s*targetSdk\s*=\s*37\s*$")
++    if not all(re.search(pattern, build) for pattern in required):
++        raise AudioPolicyError(f"{rel(build_path)} must pin compile SDK 37.0 and target SDK 37")
++
+ 
+ 
+ def verify_large_screen_configuration(root: Path = ROOT) -> None:
+@@ -162,7 +163,7 @@
+     write_fixture(
+         root,
+         "app/build.gradle.kts",
+-        "android {\n    compileSdk = 37\n    defaultConfig {\n        targetSdk = 37\n    }\n}\n",
++        "android {\n    compileSdk { version = release(37) { minorApiLevel = 0 } }\n    defaultConfig {\n        targetSdk = 37\n    }\n}\n",
+     )
+     write_fixture(root, "app/src/main/java/com/monstro/v18/engine/ExportService.kt", export_service)
+     write_fixture(
+--- a/scripts/validate_package_identity.py
++++ b/scripts/validate_package_identity.py
+@@ -63,8 +63,8 @@
+ 
+     if data["publicProductName"] == data["retiredPublicProductName"]:
+         raise PackageIdentityError("public and retired product names must differ")
+-    if data["applicationId"] != data["namespace"] or data["namespace"] != data["sourcePackage"]:
+-        raise PackageIdentityError("applicationId, namespace, and sourcePackage must remain aligned")
++    if data["namespace"] != data["sourcePackage"]:
++        raise PackageIdentityError("namespace and sourcePackage must remain aligned")
+     if not re.fullmatch(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+", data["applicationId"]):
+         raise PackageIdentityError("applicationId is not a valid Android package name")
+ 
+@@ -101,8 +101,8 @@
+         raise PackageIdentityError("shortcut target class must remain MainActivity in the package namespace")
+     actions = shortcut.get("actions")
+     if actions != [
+-        f"{data['applicationId']}.action.NEW_PROJECT",
+-        f"{data['applicationId']}.action.OPEN_RECENT",
++        f"{data['namespace']}.action.NEW_PROJECT",
++        f"{data['namespace']}.action.OPEN_RECENT",
+     ]:
+         raise PackageIdentityError("static shortcut actions must remain stable")
+ 
+@@ -199,8 +199,8 @@
+ def validate_shortcuts(root: Path, registry: dict[str, Any]) -> None:
+     shortcut_root = parse_xml(root / "app/src/main/res/xml/shortcuts.xml", root)
+     target = registry["shortcutTarget"]
+-    expected_package = "${applicationId}"
+-    expected_class = "${applicationId}.MainActivity"
++    expected_package = target["package"]
++    expected_class = target["class"]
+     intents = shortcut_root.findall(".//intent")
+     if len(intents) != len(target["actions"]):
+         raise PackageIdentityError("shortcuts.xml must keep one intent for each registered static shortcut")
+@@ -210,7 +210,7 @@
+         if intent.get(ANDROID_ATTR("targetPackage")) != expected_package:
+             raise PackageIdentityError("shortcut targetPackage must remain application-scoped")
+         if intent.get(ANDROID_ATTR("targetClass")) != expected_class:
+-            raise PackageIdentityError("shortcut targetClass must remain application-scoped")
++            raise PackageIdentityError("shortcut targetClass must match the activity namespace")
+     actual_actions = [intent.get(ANDROID_ATTR("action")) for intent in intents]
+     if actual_actions != target["actions"]:
+         raise PackageIdentityError("shortcut action order or values changed")
+@@ -239,7 +239,7 @@
+             if element.get("name") == "app_name"
+         ]
+         if labels != [registry["publicProductName"]]:
+-            raise PackageIdentityError(f"{rel(strings_path, root)} must expose the ClearCut app label")
++            raise PackageIdentityError(f"{rel(strings_path, root)} must expose the registered app label")
+ 
+ 
+ def validate_public_surfaces(root: Path, registry: dict[str, Any]) -> None:
+@@ -301,15 +301,15 @@
+         shortcuts_path.parent.mkdir(parents=True)
+         actions = registry["shortcutTarget"]["actions"]
+         placeholder_xml = f'''<shortcuts xmlns:android="{ANDROID_NS}">
+-    <shortcut><intent android:action="{actions[0]}" android:targetPackage="${{applicationId}}" android:targetClass="${{applicationId}}.MainActivity" /></shortcut>
+-    <shortcut><intent android:action="{actions[1]}" android:targetPackage="${{applicationId}}" android:targetClass="${{applicationId}}.MainActivity" /></shortcut>
++    <shortcut><intent android:action="{actions[0]}" android:targetPackage="{registry['applicationId']}" android:targetClass="{registry['shortcutTarget']['class']}" /></shortcut>
++    <shortcut><intent android:action="{actions[1]}" android:targetPackage="{registry['applicationId']}" android:targetClass="{registry['shortcutTarget']['class']}" /></shortcut>
+ </shortcuts>
+ '''
+         shortcuts_path.write_text(placeholder_xml, encoding="utf-8")
+         validate_shortcuts(fixture_root, registry)
+ 
+         shortcuts_path.write_text(
+-            placeholder_xml.replace('targetPackage="${applicationId}"', f'targetPackage="{registry["applicationId"]}"'),
++            placeholder_xml.replace(registry['applicationId'], 'invalid.package'),
+             encoding="utf-8",
+         )
+         try:
+@@ -317,7 +317,7 @@
+         except PackageIdentityError:
+             pass
+         else:
+-            raise AssertionError("self-test expected a fixed shortcut package to fail")
++            raise AssertionError("self-test expected an incorrect shortcut package to fail")
+ 
+ 
+ def main() -> int:
+--- /dev/null
++++ b/app/src/qa/res/xml/shortcuts.xml
+@@ -0,0 +1,39 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++    App Shortcuts for the launcher long-press menu and Android Assistant
++    suggestion surface. Statically declared because the entries here are
++    project-agnostic. Dynamic "Resume recovered draft" and "Open last
++    project" entries are added by ProjectListViewModel when project state is
++    available.
++
++    See https://developer.android.com/develop/ui/views/launch/shortcuts
++-->
++<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <shortcut
++        android:shortcutId="new_project"
++        android:enabled="true"
++        android:icon="@mipmap/ic_launcher"
++        android:shortcutShortLabel="@string/shortcut_new_project_short"
++        android:shortcutLongLabel="@string/shortcut_new_project_long">
++        <intent
++            android:action="com.monstro.v18.action.NEW_PROJECT"
++            android:targetPackage="com.monstro.v18.studio.qa"
++            android:targetClass="com.monstro.v18.MainActivity" />
++        <!-- Not a conversation shortcut — removed android.shortcut.conversation -->
++
++    </shortcut>
++
++    <shortcut
++        android:shortcutId="recent_projects"
++        android:enabled="true"
++        android:icon="@mipmap/ic_launcher"
++        android:shortcutShortLabel="@string/shortcut_recent_short"
++        android:shortcutLongLabel="@string/shortcut_recent_long">
++        <intent
++            android:action="com.monstro.v18.action.OPEN_RECENT"
++            android:targetPackage="com.monstro.v18.studio.qa"
++            android:targetClass="com.monstro.v18.MainActivity" />
++    </shortcut>
++
++</shortcuts>
+--- /dev/null
++++ b/app/src/streaming/res/xml/shortcuts.xml
+@@ -0,0 +1,39 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++    App Shortcuts for the launcher long-press menu and Android Assistant
++    suggestion surface. Statically declared because the entries here are
++    project-agnostic. Dynamic "Resume recovered draft" and "Open last
++    project" entries are added by ProjectListViewModel when project state is
++    available.
++
++    See https://developer.android.com/develop/ui/views/launch/shortcuts
++-->
++<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <shortcut
++        android:shortcutId="new_project"
++        android:enabled="true"
++        android:icon="@mipmap/ic_launcher"
++        android:shortcutShortLabel="@string/shortcut_new_project_short"
++        android:shortcutLongLabel="@string/shortcut_new_project_long">
++        <intent
++            android:action="com.monstro.v18.action.NEW_PROJECT"
++            android:targetPackage="com.monstro.v18.studio.streaming"
++            android:targetClass="com.monstro.v18.MainActivity" />
++        <!-- Not a conversation shortcut — removed android.shortcut.conversation -->
++
++    </shortcut>
++
++    <shortcut
++        android:shortcutId="recent_projects"
++        android:enabled="true"
++        android:icon="@mipmap/ic_launcher"
++        android:shortcutShortLabel="@string/shortcut_recent_short"
++        android:shortcutLongLabel="@string/shortcut_recent_long">
++        <intent
++            android:action="com.monstro.v18.action.OPEN_RECENT"
++            android:targetPackage="com.monstro.v18.studio.streaming"
++            android:targetClass="com.monstro.v18.MainActivity" />
++    </shortcut>
++
++</shortcuts>
