@@ -34,11 +34,11 @@ class ClearCutSmokeTest {
 
     @Test
     fun projectEditorExportAndSettingsSurfacesOpen() {
-        compose.onNodeWithTag(ClearCutTestTags.PROJECTS_SCREEN).assertIsDisplayed()
+        compose.waitUntilDisplayed(ClearCutTestTags.PROJECTS_SCREEN)
         compose.assertAccessibilityChecksPass()
 
         compose.onNodeWithTag(ClearCutTestTags.PROJECTS_CREATE_PROJECT).performClick()
-        compose.onNodeWithTag(ClearCutTestTags.TEMPLATE_SHEET).assertIsDisplayed()
+        compose.waitUntilDisplayed(ClearCutTestTags.TEMPLATE_SHEET)
         compose.onNodeWithTag(ClearCutTestTags.TEMPLATE_BLANK)
             .performScrollTo()
             .performClick()
@@ -53,13 +53,13 @@ class ClearCutSmokeTest {
         dismissTutorialIfPresent()
         compose.assertAccessibilityChecksPass()
 
-        compose.onNodeWithTag(ClearCutTestTags.EDITOR_EMPTY_ADD_MEDIA).assertIsDisplayed().performClick()
-        compose.onNodeWithTag(ClearCutTestTags.MEDIA_PICKER_SHEET).assertIsDisplayed()
+        compose.onNodeWithTag(ClearCutTestTags.EDITOR_EMPTY_ADD_MEDIA).performScrollTo().performClick()
+        compose.waitUntilDisplayed(ClearCutTestTags.MEDIA_PICKER_SHEET)
         compose.assertAccessibilityChecksPass()
         compose.onNodeWithTag(ClearCutTestTags.MEDIA_PICKER_CLOSE).performClick()
 
-        compose.onNodeWithTag(ClearCutTestTags.EDITOR_EXPORT).assertIsDisplayed().performClick()
-        compose.onNodeWithTag(ClearCutTestTags.EXPORT_SHEET).assertIsDisplayed()
+        compose.waitUntilDisplayed(ClearCutTestTags.EDITOR_EXPORT).performClick()
+        compose.waitUntilDisplayed(ClearCutTestTags.EXPORT_SHEET)
         compose.assertAccessibilityChecksPass()
         compose.onNodeWithTag(ClearCutTestTags.EXPORT_CLOSE).performClick()
 
@@ -68,18 +68,18 @@ class ClearCutSmokeTest {
         compose.waitUntilNoNodesExist(ClearCutTestTags.EDITOR_SCREEN)
 
         compose.onNodeWithTag(ClearCutTestTags.PROJECTS_SETTINGS).performClick()
-        compose.onNodeWithTag(ClearCutTestTags.SETTINGS_SCREEN).assertIsDisplayed()
+        compose.waitUntilDisplayed(ClearCutTestTags.SETTINGS_SCREEN)
         compose.assertAccessibilityChecksPass()
         compose.onNodeWithTag(ClearCutTestTags.SETTINGS_PRIVACY_OPEN)
             .performScrollTo()
             .performClick()
-        compose.onNodeWithTag(ClearCutTestTags.SETTINGS_PRIVACY_DASHBOARD).assertIsDisplayed()
+        compose.waitUntilDisplayed(ClearCutTestTags.SETTINGS_PRIVACY_DASHBOARD)
         compose.assertAccessibilityChecksPass()
         compose.onNodeWithTag(ClearCutTestTags.SETTINGS_PRIVACY_CLOSE).performClick()
         compose.onNodeWithTag(ClearCutTestTags.SETTINGS_LICENSES_OPEN)
             .performScrollTo()
             .performClick()
-        compose.onNodeWithTag(ClearCutTestTags.SETTINGS_LICENSES_DIALOG).assertIsDisplayed()
+        compose.waitUntilDisplayed(ClearCutTestTags.SETTINGS_LICENSES_DIALOG)
         compose.assertAccessibilityChecksPass()
         compose.onNodeWithTag(ClearCutTestTags.SETTINGS_LICENSES_CLOSE).performClick()
 
@@ -87,9 +87,10 @@ class ClearCutSmokeTest {
             .performScrollTo()
             .performClick()
         compose.waitUntilAtLeastOneExists(ClearCutTestTags.EDITOR_SCREEN)
-        compose.onNodeWithTag(ClearCutTestTags.TUTORIAL_SCREEN).assertIsDisplayed()
+        compose.waitUntilDisplayed(ClearCutTestTags.TUTORIAL_SCREEN)
         compose.onNodeWithTag(ClearCutTestTags.TUTORIAL_SKIP).performClick()
-        compose.onNodeWithTag(ClearCutTestTags.EDITOR_SCREEN).assertIsDisplayed()
+        compose.waitUntilNoNodesExist(ClearCutTestTags.TUTORIAL_SCREEN)
+        compose.waitUntilDisplayed(ClearCutTestTags.EDITOR_SCREEN)
         compose.onNodeWithTag(ClearCutTestTags.EDITOR_BACK).performClick()
         compose.waitUntilAtLeastOneExists(ClearCutTestTags.SETTINGS_SCREEN)
         compose.waitUntilNoNodesExist(ClearCutTestTags.EDITOR_SCREEN)
@@ -108,7 +109,7 @@ class ClearCutSmokeTest {
         try {
             setApplicationLocale("en-XA")
             compose.waitUntilAtLeastOneExists(ClearCutTestTags.PROJECTS_SCREEN)
-            compose.onNodeWithTag(ClearCutTestTags.PROJECTS_SCREEN).assertIsDisplayed()
+            compose.waitUntilDisplayed(ClearCutTestTags.PROJECTS_SCREEN)
             compose.onNodeWithTag(ClearCutTestTags.PROJECTS_CREATE_PROJECT).performClick()
             compose.onNodeWithTag(ClearCutTestTags.TEMPLATE_BLANK)
                 .performScrollTo()
@@ -116,12 +117,12 @@ class ClearCutSmokeTest {
             compose.waitUntilAtLeastOneExists(ClearCutTestTags.EDITOR_SCREEN)
             dismissTutorialIfPresent()
             compose.onNodeWithTag(ClearCutTestTags.EDITOR_EXPORT).performClick()
-            compose.onNodeWithTag(ClearCutTestTags.EXPORT_SHEET).assertIsDisplayed()
+            compose.waitUntilDisplayed(ClearCutTestTags.EXPORT_SHEET)
             compose.assertAccessibilityChecksPass()
             assertTrue(compose.onRoot().captureToImage().width > 0)
 
             setApplicationLocale("ar-XB")
-            compose.onNodeWithTag(ClearCutTestTags.EXPORT_SHEET).assertIsDisplayed()
+            compose.waitUntilDisplayed(ClearCutTestTags.EXPORT_SHEET)
             compose.assertAccessibilityChecksPass()
             assertEquals(
                 android.view.View.LAYOUT_DIRECTION_RTL,
@@ -149,25 +150,25 @@ class ClearCutSmokeTest {
             compose.assertAccessibilityChecksPass()
             assertTrue(compose.onRoot().captureToImage().width > 0)
 
-            compose.onNodeWithTag(ClearCutTestTags.EDITOR_EMPTY_ADD_MEDIA).performClick()
-            compose.onNodeWithTag(ClearCutTestTags.MEDIA_PICKER_SHEET).assertIsDisplayed()
+            compose.onNodeWithTag(ClearCutTestTags.EDITOR_EMPTY_ADD_MEDIA).performScrollTo().performClick()
+            compose.waitUntilDisplayed(ClearCutTestTags.MEDIA_PICKER_SHEET)
             compose.assertAccessibilityChecksPass()
             assertTrue(compose.onRoot().captureToImage().width > 0)
             compose.onNodeWithTag(ClearCutTestTags.MEDIA_PICKER_CLOSE).performClick()
 
             compose.onNodeWithTag(ClearCutTestTags.EDITOR_EXPORT).performClick()
-            compose.onNodeWithTag(ClearCutTestTags.EXPORT_SHEET).assertIsDisplayed()
+            compose.waitUntilDisplayed(ClearCutTestTags.EXPORT_SHEET)
             compose.assertAccessibilityChecksPass()
             assertTrue(compose.onRoot().captureToImage().width > 0)
             compose.onNodeWithTag(ClearCutTestTags.EXPORT_CLOSE).performClick()
 
             updateAppearance(AppearanceMode.HIGH_CONTRAST_DARK, DesktopOverride.FORCE_ON)
             compose.waitUntilAtLeastOneExists(ClearCutTestTags.EDITOR_DESKTOP_SIDEBAR)
-            compose.onNodeWithTag(ClearCutTestTags.EDITOR_DESKTOP_SIDEBAR).assertIsDisplayed()
+            compose.waitUntilDisplayed(ClearCutTestTags.EDITOR_DESKTOP_SIDEBAR)
             compose.assertAccessibilityChecksPass()
             assertTrue(compose.onRoot().captureToImage().width > 0)
             compose.onNodeWithTag(ClearCutTestTags.EDITOR_EXPORT).performClick()
-            compose.onNodeWithTag(ClearCutTestTags.EXPORT_SHEET).assertIsDisplayed()
+            compose.waitUntilDisplayed(ClearCutTestTags.EXPORT_SHEET)
             compose.assertAccessibilityChecksPass()
             assertTrue(compose.onRoot().captureToImage().width > 0)
         } finally {
@@ -211,6 +212,7 @@ class ClearCutSmokeTest {
         }.getOrDefault(emptyList())
         if (tutorialNodes.isNotEmpty()) {
             compose.onNodeWithTag(ClearCutTestTags.TUTORIAL_SKIP).performClick()
+            compose.waitUntilNoNodesExist(ClearCutTestTags.TUTORIAL_SCREEN)
         }
     }
 

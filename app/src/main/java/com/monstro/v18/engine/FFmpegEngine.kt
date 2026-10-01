@@ -306,25 +306,37 @@ class FFmpegEngine @Inject constructor(
         val encoder = preferredIntermediateEncoder()
         val safeFrameRate = frameRate.coerceIn(1, 240)
         outputFile.parentFile?.mkdirs()
-        executeArguments(
-            listOf(
-                "-y",
-                "-i", ffmpegInput(inputUri),
-                "-map", "0:v:0",
-                "-map", "0:a:0?",
-                "-vf", "fps=$safeFrameRate",
-                "-fps_mode", "cfr",
-                "-c:v", encoder.ffmpegName,
-                *intermediateQualityArgs(encoder).toTypedArray(),
-                "-pix_fmt", "yuv420p",
-                "-c:a", "aac",
-                "-b:a", "192k",
-                "-map_metadata", "-1",
-                "-shortest",
-                outputFile.absolutePath,
-            ),
-            onProgress = onProgress,
-        ) == 0 && outputFile.isFile && outputFile.length() > 0L
+        val sourceHasAudio = hasUsableTrack(inputUri, "audio/")
+        for (attempt in encoderAttempts(encoder)) {
+            outputFile.delete()
+            val exitCode = executeArguments(
+                listOf(
+                    "-y",
+                    "-i", ffmpegInput(inputUri),
+                    "-map", "0:v:0",
+                    "-map", "0:a:0?",
+                    "-vf", "fps=$safeFrameRate",
+                    "-fps_mode", "cfr",
+                    "-c:v", attempt.ffmpegName,
+                    *intermediateQualityArgs(attempt).toTypedArray(),
+                    "-pix_fmt", "yuv420p",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-map_metadata", "-1",
+                    "-shortest",
+                    outputFile.absolutePath,
+                ),
+                onProgress = onProgress,
+            )
+            // MediaCodec can report success while producing an MP4 header with
+            // no frames. Do not pass that file to Transformer's asset loader.
+            val hasVideo = exitCode == 0 && hasUsableTrack(outputFile, "video/", requireSamples = true)
+            val hasAudio = !sourceHasAudio || hasUsableTrack(outputFile, "audio/", requireSamples = true)
+            if (hasVideo && hasAudio) return@withContext true
+            AppLog.w(TAG, "Discarding unusable CFR encode from ${attempt.ffmpegName}: exit=$exitCode video=$hasVideo audio=$hasAudio")
+        }
+        outputFile.delete()
+        false
     }
 
     /**
@@ -714,12 +726,12 @@ class FFmpegEngine @Inject constructor(
         }
     }
 
-    private fun hasUsableTrack(file: File, mimePrefix: String): Boolean {
+    private fun hasUsableTrack(file: File, mimePrefix: String, requireSamples: Boolean = false): Boolean {
         if (!file.isFile || file.length() <= 0L) return false
         val extractor = MediaExtractor()
         return try {
             extractor.setDataSource(file.absolutePath)
-            extractor.hasUsableTrack(mimePrefix)
+            extractor.hasUsableTrack(mimePrefix, requireSamples)
         } catch (e: Exception) {
             AppLog.w(TAG, "Could not inspect output track ${mimePrefix.trimEnd('/')}", e)
             false
@@ -728,7 +740,7 @@ class FFmpegEngine @Inject constructor(
         }
     }
 
-    private fun MediaExtractor.hasUsableTrack(mimePrefix: String): Boolean {
+    private fun MediaExtractor.hasUsableTrack(mimePrefix: String, requireSamples: Boolean = false): Boolean {
         for (index in 0 until trackCount) {
             val format = getTrackFormat(index)
             val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
@@ -736,12 +748,16 @@ class FFmpegEngine @Inject constructor(
             selectTrack(index)
             return try {
                 val hasSample = sampleTime >= 0L && runCatching {
-                    readSampleData(ByteBuffer.allocate(64 * 1024), 0) > 0
+                    val sampleBytes = if (android.os.Build.VERSION.SDK_INT >= 28) sampleSize else {
+                        if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE).toLong() else 1024 * 1024L
+                    }
+                    val capacity = sampleBytes.coerceIn(64 * 1024L, 16 * 1024 * 1024L).toInt()
+                    readSampleData(ByteBuffer.allocate(capacity), 0) > 0
                 }.getOrDefault(false)
                 val hasDuration = runCatching {
                     format.getLong(MediaFormat.KEY_DURATION) > 0L
                 }.getOrDefault(false)
-                hasSample || hasDuration
+                hasSample || (!requireSamples && hasDuration)
             } finally {
                 unselectTrack(index)
             }

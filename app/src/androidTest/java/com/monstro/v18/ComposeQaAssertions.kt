@@ -4,12 +4,30 @@ import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.tryPerformAccessibilityChecks
 import java.io.File
+
+/** Navigation and panel animations must finish before asserting/interacting. */
+internal fun AndroidComposeTestRule<*, *>.waitUntilDisplayed(
+    tag: String,
+    timeoutMillis: Long = 20_000L,
+): SemanticsNodeInteraction {
+    try {
+        waitUntil(timeoutMillis) {
+            runCatching { onNodeWithTag(tag).assertIsDisplayed(); true }.getOrDefault(false)
+        }
+    } catch (error: Throwable) {
+        throw failureWithQaDiagnostics("display-$tag", error)
+    }
+    return onNodeWithTag(tag).assertIsDisplayed()
+}
 
 internal fun AndroidComposeTestRule<*, *>.waitUntilAtLeastOneExists(
     tag: String,

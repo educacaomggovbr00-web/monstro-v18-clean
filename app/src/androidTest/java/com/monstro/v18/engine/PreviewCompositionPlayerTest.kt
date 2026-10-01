@@ -3,13 +3,10 @@ package com.monstro.v18.engine
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
-import android.graphics.SurfaceTexture
 import android.media.ImageReader
 import android.net.Uri
 import android.os.Handler
 import android.os.HandlerThread
-import android.view.PixelCopy
-import android.view.Surface
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -173,8 +170,20 @@ class PreviewCompositionPlayerTest {
         val failure = AtomicReference<PlaybackException?>()
         val playerRef = AtomicReference<CompositionPlayer>()
         val imageThread = HandlerThread("preview-composition-images").apply { start() }
-        val surfaceTexture = SurfaceTexture(false).apply { setDefaultBufferSize(64, 64) }
-        val surface = Surface(surfaceTexture)
+        val imageReader = ImageReader.newInstance(64, 64, PixelFormat.RGBA_8888, 3)
+        val latestColor = AtomicReference<Int?>()
+        imageReader.setOnImageAvailableListener({ reader ->
+            reader.acquireLatestImage()?.use { image ->
+                val plane = image.planes.single()
+                val offset = 32 * plane.rowStride + 32 * plane.pixelStride
+                val buffer = plane.buffer
+                latestColor.set(Color.rgb(
+                    buffer.get(offset).toInt() and 0xff,
+                    buffer.get(offset + 1).toInt() and 0xff,
+                    buffer.get(offset + 2).toInt() and 0xff,
+                ))
+            }
+        }, Handler(imageThread.looper))
 
         try {
             instrumentation.runOnMainSync {
@@ -191,7 +200,7 @@ class PreviewCompositionPlayerTest {
                         ready.countDown()
                     }
                 })
-                player.setVideoSurface(surface, Size(64, 64))
+                player.setVideoSurface(imageReader.surface, Size(64, 64))
                 player.setComposition(twoLayerComposition(lower, upper))
                 player.prepare()
                 playerRef.set(player)
@@ -202,20 +211,10 @@ class PreviewCompositionPlayerTest {
             instrumentation.runOnMainSync {
                 val player = playerRef.get()
                 assertEquals(1_000L, player.duration)
-                player.play()
             }
-            Thread.sleep(300L)
-            val copied = CountDownLatch(1)
-            val copyResult = AtomicReference<Int>()
-            val bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
-            PixelCopy.request(surface, bitmap, { result ->
-                copyResult.set(result)
-                copied.countDown()
-            }, Handler(imageThread.looper))
-            assertTrue("multi-input preview produced no composited frame", copied.await(10, TimeUnit.SECONDS))
-            assertEquals(PixelCopy.SUCCESS, copyResult.get())
-            val color = bitmap.getPixel(32, 32)
-            bitmap.recycle()
+            // Consume an actual output frame instead of copying a bare
+            // SurfaceTexture after a fixed delay (which may have no buffer yet).
+            val color = renderLatestColor(instrumentation, playerRef.get(), latestColor)
             val colorMessage = "center rgb=${Color.red(color)},${Color.green(color)},${Color.blue(color)}"
             assertTrue(colorMessage, Color.red(color) in 110..150)
             assertTrue(colorMessage, Color.green(color) in 0..12)
@@ -231,8 +230,7 @@ class PreviewCompositionPlayerTest {
             }
         } finally {
             instrumentation.runOnMainSync { playerRef.get()?.release() }
-            surface.release()
-            surfaceTexture.release()
+            imageReader.close()
             imageThread.quitSafely()
             lower.delete()
             upper.delete()

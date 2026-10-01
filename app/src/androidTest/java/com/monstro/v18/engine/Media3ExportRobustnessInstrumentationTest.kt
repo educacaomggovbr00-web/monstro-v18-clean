@@ -200,7 +200,7 @@ class Media3ExportRobustnessInstrumentationTest {
                 }
             }
 
-            assertNull("CFR export reported an error: ${error?.message}", error)
+            assertNull("CFR export reported an error: ${error?.stackTraceToString()}", error)
             assertTrue("CFR export did not complete", completed)
             val verification = ExportOutputVerifier.verify(
                 outputFile = output,
