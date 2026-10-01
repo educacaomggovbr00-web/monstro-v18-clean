@@ -44,7 +44,7 @@ android {
         // A privacy-store fork (e.g. F-Droid) can override this to `false` to
         // compile the network version check out entirely; the Settings toggle
         // then never appears and UpdateChecker short-circuits to Unavailable.
-        buildConfigField("boolean", "UPDATE_CHECK_AVAILABLE", "false")
+        buildConfigField("boolean", "UPDATE_CHECK_AVAILABLE", "true")
         buildConfigField("boolean", "LOCAL_NETWORK_STREAMING_ENABLED", "false")
         buildConfigField("boolean", "QA_TIMELINE_HARNESS_ENABLED", "false")
     }

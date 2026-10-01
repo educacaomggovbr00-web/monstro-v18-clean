@@ -76,7 +76,23 @@ jobs:
         run: |
           sdkmanager --channel=3 --list > /tmp/monstro-sdk-packages.txt
           python3 -c "from pathlib import Path;print('\\n'.join(x for x in Path('/tmp/monstro-sdk-packages.txt').read_text().splitlines() if 'platforms;android' in x or 'build-tools;3' in x))"
-          sdkmanager --channel=3 'platforms;android-36' 'build-tools;36.0.0' 
+          sdkmanager --channel=3 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Registrar dependências novas da integração
+        if: hashFiles('monstro/.integration/refresh-dependency-lock') != ''
+        run: |
+          cp gradle/verification-metadata.xml /tmp/monstro-verification-before.xml
+          set +e
+          ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest :app:testQaUnitTest :app:lintQa --write-verification-metadata sha256 --no-daemon --stacktrace
+          result=$?
+          set -e
+          python3 .integration/check_dependency_lock.py /tmp/monstro-verification-before.xml gradle/verification-metadata.xml
+          git config user.name 'Monstro Integration'
+          git config user.email 'monstro-integration@users.noreply.github.com'
+          git add gradle/verification-metadata.xml
+          git rm .integration/refresh-dependency-lock
+          git commit -m 'build: registrar checksums das dependências adicionadas ao Monstro'
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          exit "$result"
       - name: Compilar aplicação e testes de integração
         run: ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest --no-daemon --stacktrace
       - name: Testes unitários e lint
@@ -111,5 +127,6 @@ jobs:
         with:
           name: relatorios-integracao-completa
           path: |
+            monstro/build/reports
             monstro/app/build/reports
             monstro/app/build/test-results

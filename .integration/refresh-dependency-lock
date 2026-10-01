@@ -1,0 +1,1 @@
+One-time registration of new artifacts from configured Google/Maven Central repositories. Existing artifact checksums must remain identical.

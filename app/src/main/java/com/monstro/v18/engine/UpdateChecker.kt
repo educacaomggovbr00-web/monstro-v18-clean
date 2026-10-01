@@ -103,9 +103,9 @@ class UpdateChecker @Inject constructor(
     }
 
     companion object {
-        const val RELEASES_PAGE = "https://github.com/SysAdminDoc/ClearCut/releases"
+        const val RELEASES_PAGE = "https://github.com/educacaomggovbr00-web/monstro-v18-clean/releases"
         const val LATEST_RELEASE_ENDPOINT =
-            "https://api.github.com/repos/SysAdminDoc/ClearCut/releases/latest"
+            "https://api.github.com/repos/educacaomggovbr00-web/monstro-v18-clean/releases/latest"
 
         private const val CALL_TIMEOUT_SECONDS = 15L
         private const val CONNECT_TIMEOUT_SECONDS = 10L
