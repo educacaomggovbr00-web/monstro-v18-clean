@@ -299,6 +299,13 @@ val llvmExceptionLicense = RuntimeLicenseInfo(
 
 fun RuntimeLicenseInfo.forProject(projectUrl: String): RuntimeLicenseInfo = copy(projectUrl = projectUrl)
 
+val mit0License = RuntimeLicenseInfo(
+    licenseName = "MIT No Attribution",
+    licenseText = "MIT No Attribution (MIT-0). Permission is granted to use, copy, modify, publish, distribute, sublicense and sell the software; the software is provided without warranty.",
+    licenseUrl = "https://opensource.org/license/mit-0/",
+    projectUrl = "https://github.com/reactive-streams/reactive-streams-jvm",
+)
+
 val runtimeLicensePolicies = listOf(
     RuntimeLicensePolicy(listOf("com.google.protobuf"), bsd3License),
     RuntimeLicensePolicy(listOf("com.google.code.findbugs"), bsd3License),
@@ -314,6 +321,11 @@ val runtimeLicensePolicies = listOf(
     RuntimeLicensePolicy(listOf("com.arthenica"), apacheLicense.forProject("https://github.com/arthenica/ffmpeg-kit")),
     RuntimeLicensePolicy(listOf("com.google.dagger"), apacheLicense.forProject("https://dagger.dev/")),
     RuntimeLicensePolicy(listOf("com.google.mediapipe"), apacheLicense.forProject("https://mediapipe.dev/")),
+    RuntimeLicensePolicy(listOf("io.ktor"), apacheLicense.forProject("https://github.com/ktorio/ktor")),
+    RuntimeLicensePolicy(listOf("org.reactivestreams"), mit0License),
+    RuntimeLicensePolicy(listOf("org.slf4j"), mitLicense.forProject("https://www.slf4j.org/")),
+    RuntimeLicensePolicy(listOf("com.alphacephei"), apacheLicense.forProject("https://github.com/alphacep/vosk-api")),
+    RuntimeLicensePolicy(listOf("net.java.dev.jna"), apacheLicense.forProject("https://github.com/java-native-access/jna")),
     RuntimeLicensePolicy(listOf("com.google.firebase"), apacheLicense.forProject("https://firebase.google.com/")),
     RuntimeLicensePolicy(listOf("com.google.android.datatransport"), apacheLicense.forProject("https://github.com/firebase/firebase-android-sdk")),
     RuntimeLicensePolicy(listOf("com.google.flogger"), apacheLicense.forProject("https://google.github.io/flogger/")),
