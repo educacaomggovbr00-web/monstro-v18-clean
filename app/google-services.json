@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "210229124487",
+    "project_id": "monstro-v18-9a791",
+    "storage_bucket": "monstro-v18-9a791.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:210229124487:android:7a67521ab86163313cc722",
+        "android_client_info": {
+          "package_name": "com.monstro.v18.studio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAAenqArzwGbx7S3AhwHN_v6UOfHY6bbAg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

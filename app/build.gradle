@@ -3,20 +3,56 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Keep normal builds working until this app is registered in Firebase.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
+configurations.configureEach {
+    resolutionStrategy.force 'com.google.firebase:firebase-auth:22.3.1'
+}
+
+def releaseKeystore = System.getenv('MONSTRO_RELEASE_KEYSTORE')
+def releaseStorePassword = System.getenv('MONSTRO_RELEASE_STORE_PASSWORD')
+def releaseKeyAlias = System.getenv('MONSTRO_RELEASE_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('MONSTRO_RELEASE_KEY_PASSWORD')
+def releaseSigningReady = releaseKeystore && releaseStorePassword && releaseKeyAlias && releaseKeyPassword &&
+        file(releaseKeystore).exists()
+
 android {
     namespace 'com.monstro.v18'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.monstro.v18"
+        applicationId "com.monstro.v18.studio"
         minSdk 24
         targetSdk 34
-        versionCode 18
-        versionName "18.0"
-        
-        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
+        versionCode 24
+        versionName "18.6-Studio"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        release {
+            if (releaseSigningReady) {
+                storeFile file(releaseKeystore)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+        }
+    }
+
+    packaging { jniLibs { useLegacyPackaging true }; resources { merges += ['META-INF/AL2.0', 'META-INF/LGPL2.1'] } }
     buildFeatures { compose true }
     composeOptions { kotlinCompilerExtensionVersion '1.5.8' }
 
@@ -28,12 +64,26 @@ android {
 }
 
 dependencies {
+    implementation platform('com.google.firebase:firebase-bom:34.19.0')
+    implementation 'com.google.firebase:firebase-ai'
+    implementation 'com.google.firebase:firebase-auth:22.3.1'
+    debugImplementation 'com.google.firebase:firebase-appcheck-debug'
+    releaseImplementation 'com.google.firebase:firebase-appcheck-playintegrity'
+    implementation('com.alphacephei:vosk-android:0.3.45') { exclude group: 'net.java.dev.jna', module: 'jna' }
+    implementation 'net.java.dev.jna:jna:5.13.0@aar'
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
     implementation 'androidx.activity:activity-compose:1.8.2'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
     implementation platform('androidx.compose:compose-bom:2024.02.00')
     implementation 'androidx.compose.ui:ui'
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.media3:media3-exoplayer:1.2.1'
     implementation 'androidx.media3:media3-ui:1.2.1'
+    implementation 'androidx.media3:media3-transformer:1.2.1'
+    implementation 'androidx.media3:media3-effect:1.2.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
 }
