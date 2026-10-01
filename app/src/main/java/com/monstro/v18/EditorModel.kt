@@ -39,6 +39,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
+import android.content.SharedPreferences
+import com.monstro.v18.clearcut.*
 
 // Milliseconds throughout; ranges must always contain at least one millisecond.
 data class TrimRange(val start: Long, val end: Long) {
@@ -87,6 +89,17 @@ fun VideoClip.mediaItem(): MediaItem = MediaItem.Builder().setUri(uri)
 class EditorModel(application: Application) : AndroidViewModel(application) {
     private val context = application.applicationContext
     private val prefs = context.getSharedPreferences("editor", 0)
+    private val projectStore = ProjectStore(File(context.filesDir, "projects"))
+    var savedProjects by mutableStateOf<List<SavedProject>>(emptyList()); private set
+    var trashedProjects by mutableStateOf<List<SavedProject>>(emptyList()); private set
+    var projectName by mutableStateOf("Projeto Monstro"); private set
+    var projectBusy by mutableStateOf(false); private set
+    private var activeProjectId = prefs.getString("activeProjectId", null)
+    private var projectSaveJob: Job? = null
+    private var applyingProject = false
+    private val projectPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (!applyingProject && key != "activeProjectId") scheduleProjectSave()
+    }
     private data class EditorSnapshot(
         val clips:List<VideoClip>,val selected:Int,val mute:Boolean,val studio:StudioProject,
         val lyrics:SrtTrack?,val lyricsName:String,val simpleLyrics:Boolean,val purpleLyrics:Boolean
@@ -135,7 +148,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     var progress by mutableStateOf<Int?>(null); private set
     var message by mutableStateOf<String?>(null); private set
     var output by mutableStateOf<File?>(null); private set
-    val busy get() = importing || exporting || saving || speechBusy || translationBusy || ttsBusy || beatBusy || aiEditBusy
+    val busy get() = projectBusy || importing || exporting || saving || speechBusy || translationBusy || ttsBusy || beatBusy || aiEditBusy
     val current get() = clips.getOrNull(selected)
     var player by mutableStateOf(createPlayer()); private set
 
@@ -512,7 +525,16 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         lyrics=SrtTrack(sorted.map {it.second});focusedId=sorted.indexOfFirst {it.first==index}.toString()
         updateStudio(studio.copy(captionStyles=sorted.mapIndexedNotNull {newIndex,pair->studio.captionStyles[pair.first]?.let {newIndex to it}}.toMap()),false,false);persistCues()
     }
-    private fun persistCues(){val cues=lyrics?.cues ?: emptyList();val array=JSONArray();cues.forEach {c->array.put(JSONObject().put("start",c.startMs).put("end",c.endMs).put("text",c.text).put("words",JSONArray().also {a->c.wordTimes.forEach {a.put(JSONArray().put(it.start).put(it.end))}}))};File(context.filesDir,"captions.json").writeText(array.toString())}
+    private fun captionDocument(): JSONArray {
+        val array=JSONArray()
+        (lyrics?.cues ?: emptyList()).forEach {c->array.put(JSONObject().put("start",c.startMs).put("end",c.endMs).put("text",c.text).put("words",JSONArray().also {a->c.wordTimes.forEach {a.put(JSONArray().put(it.start).put(it.end))}}))}
+        return array
+    }
+    private fun persistCues(){
+        runCatching { writeUtf8TextAtomically(File(context.filesDir,"captions.json"), captionDocument().toString()) }
+            .onFailure { message="Não foi possível salvar as legendas: ${it.localizedMessage}" }
+        scheduleProjectSave()
+    }
     private fun restoreCues(){val f=File(context.filesDir,"captions.json");if(!f.isFile)return;runCatching {val a=JSONArray(f.readText());lyrics=if(a.length()==0)null else SrtTrack((0 until a.length()).map {val c=a.getJSONObject(it);val w=c.optJSONArray("words");SrtCue(c.getLong("start"),c.getLong("end"),c.getString("text"),if(w==null)emptyList()else(0 until w.length()).map {j->val pair=w.getJSONArray(j);WordTime(pair.getLong(0),pair.getLong(1))})})}}
     fun installSpeech(){if(busy)return;speechBusy=true;speechStatus="Baixando português (31 MB)…";speechJob=viewModelScope.launch {
         try{withContext(Dispatchers.IO){AutoCaptions(context).install {percent->viewModelScope.launch {speechStatus="Preparando português: $percent%"}}};modelReady=true;speechStatus="Português pronto — reconhecimento no aparelho"}
@@ -642,6 +664,8 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
 
     private fun createPlayer(): ExoPlayer {
         val instance = ExoPlayer.Builder(context).build()
+        instance.setAudioAttributes(ClearCutAudioFocusPolicy.buildPreviewAttributes(), true)
+        instance.setHandleAudioBecomingNoisy(true)
         instance.repeatMode = Player.REPEAT_MODE_OFF
         instance.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state:Int){if(state==Player.STATE_ENDED && instance.playWhenReady && selected<clips.lastIndex && !busy){viewModelScope.launch {yield();if(player===instance){selected++;preview(0,true)}}}}
@@ -692,6 +716,153 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             }
             preview()
         }.onFailure { clips = emptyList(); message = "Não foi possível restaurar o projeto. Importe os vídeos novamente." }
+        prefs.registerOnSharedPreferenceChangeListener(projectPrefsListener)
+        initializeProjectLibrary()
+    }
+
+    private fun captureProject(): JSONObject {
+        val settings = JSONObject()
+        prefs.all.filterKeys { it != "activeProjectId" }.forEach { (key, value) -> settings.put(key, value) }
+        settings.put("studio", StudioCodec.encode(studio))
+        return JSONObject().put("version",1).put("id",activeProjectId ?: UUID.randomUUID().toString())
+            .put("name",projectName).put("updatedAt",System.currentTimeMillis())
+            .put("settings",settings).put("captions",captionDocument())
+    }
+
+    private fun initializeProjectLibrary() {
+        projectBusy=true
+        val previous = captureProject()
+        viewModelScope.launch {
+            try {
+                val loaded=withContext(Dispatchers.IO) {
+                    val id=activeProjectId
+                    if(id!=null) runCatching { projectStore.load(id) }.getOrElse {
+                        projectStore.create("Projeto recuperado",previous.getJSONObject("settings"),previous.getJSONArray("captions"))
+                    } else projectStore.create("Meu primeiro projeto",previous.getJSONObject("settings"),previous.getJSONArray("captions"))
+                }
+                applyProject(loaded)
+                refreshProjects()
+            } catch(e:Exception) { message="Seu projeto atual foi mantido. Biblioteca: ${e.localizedMessage}" }
+            finally { projectBusy=false }
+        }
+    }
+
+    private fun scheduleProjectSave() {
+        if(applyingProject || activeProjectId==null)return
+        projectSaveJob?.cancel()
+        projectSaveJob=viewModelScope.launch {
+            delay(350)
+            val snapshot=captureProject()
+            try {
+                withContext(Dispatchers.IO) { projectStore.save(snapshot) }
+                refreshProjects()
+            } catch(e:kotlinx.coroutines.CancellationException) { throw e }
+            catch(e:Exception) { message="Não foi possível salvar o projeto: ${e.localizedMessage}. A versão anterior foi mantida." }
+        }
+    }
+
+    private suspend fun refreshProjects() {
+        val lists=withContext(Dispatchers.IO) { projectStore.list() to projectStore.list(true) }
+        savedProjects=lists.first;trashedProjects=lists.second
+    }
+
+    private fun applyProject(document:JSONObject) {
+        ProjectStore.validate(document)
+        val settings=document.getJSONObject("settings")
+        val data=JSONArray(settings.optString("clips","[]"))
+        val nextClips=(0 until data.length()).map {i->
+            val c=data.getJSONObject(i)
+            VideoClip(c.getString("id"),c.getString("uri"),c.getString("name"),c.getLong("duration"),
+                TrimRange(c.getLong("start"),c.getLong("end")),c.optString("preset","raw"),
+                ChaosSettings.restore(c.optJSONArray("fx")?.let {a->(0 until a.length()).map {a.getString(it)}} ?: emptyList(),c.optDouble("zoom",1.0).toFloat()),
+                c.optDouble("volume",1.0).toFloat(),c.optBoolean("mirror",false))
+        }
+        val nextStudio=FxCatalog.sanitizeProject(StudioCodec.decode(settings.optString("studio","{}")))
+        val captions=document.optJSONArray("captions") ?: JSONArray()
+        val nextLyrics=if(captions.length()==0)null else SrtTrack((0 until captions.length()).map {i->
+            val c=captions.getJSONObject(i);val words=c.optJSONArray("words") ?: JSONArray()
+            SrtCue(c.getLong("start"),c.getLong("end"),c.getString("text"),(0 until words.length()).map {j->
+                val w=words.getJSONArray(j);WordTime(w.getLong(0),w.getLong(1))
+            })
+        })
+        pauseAll();audioPlayers.values.forEach {it.release()};audioPlayers.clear()
+        applyingProject=true
+        try {
+            val edit=prefs.edit().clear()
+            settings.keys().forEach {key->when(val value=settings.get(key)) {
+                is String->edit.putString(key,value);is Boolean->edit.putBoolean(key,value)
+                is Int->edit.putInt(key,value);is Long->edit.putLong(key,value)
+                is Number->edit.putFloat(key,value.toFloat())
+            }}
+            activeProjectId=document.getString("id");projectName=document.optString("name","Projeto Monstro")
+            edit.putString("activeProjectId",activeProjectId).apply()
+            clips=nextClips;selected=0;studio=nextStudio;lyrics=nextLyrics
+            mute=settings.optBoolean("mute",false);safeMode=settings.optBoolean("safeMode",true)
+            canvasRatio=settings.optString("canvasRatio","9:16");canvasBackground=settings.optString("canvasBackground","blur")
+            bitrateMode=settings.optString("bitrateMode","recommended");exportCodec=settings.optString("exportCodec","H264")
+            exportFps=settings.optInt("exportFps",30).takeIf {it in listOf(24,30,60)} ?: 30
+            vertical=canvasRatio=="9:16" || canvasRatio=="4:5"
+            simpleLyrics=settings.optBoolean("simpleLyrics",false);purpleLyrics=settings.optBoolean("purpleLyrics",true)
+            lyricsName=settings.optString("lyricsName","");output=settings.optString("output","").takeIf {it.isNotBlank()}?.let {File(it)}?.takeIf {it.isFile && it.length()>0}
+            undoStack.clear();redoStack.clear();historyVersion++;focusedId="";playhead=0
+            writeUtf8TextAtomically(File(context.filesDir,"captions.json"),captions.toString())
+            // The active document is authoritative. Stale SRT from a different
+            // project must not return after an activity/process restart.
+            File(context.filesDir,"lyrics.srt").delete()
+            preview()
+        } finally { applyingProject=false }
+    }
+
+    fun openProject(id:String) = projectAction { previous ->
+        projectStore.save(previous);projectStore.load(id)
+    }
+    fun newProject(name:String="Novo projeto") = projectAction {previous->
+        projectStore.save(previous);projectStore.create(name,JSONObject().put("clips","[]").put("studio","{}"),JSONArray())
+    }
+    fun duplicateProject(id:String) = projectAction {previous->projectStore.save(previous);projectStore.duplicate(id)}
+    fun renameProject(id:String,name:String) = projectAction {previous->
+        projectStore.save(previous);projectStore.rename(id,name);projectStore.load(previous.getString("id"))
+    }
+    fun trashProject(id:String,trashed:Boolean) = projectAction {previous->
+        projectStore.save(previous);projectStore.trash(id,trashed)
+        if(id==previous.getString("id") && trashed) {
+            projectStore.list().firstOrNull()?.let {projectStore.load(it.id)}
+                ?: projectStore.create("Novo projeto",JSONObject().put("clips","[]").put("studio","{}"),JSONArray())
+        } else projectStore.load(previous.getString("id"))
+    }
+
+    private fun projectAction(action:(JSONObject)->JSONObject) {
+        if(busy)return
+        projectSaveJob?.cancel();pauseAll();projectBusy=true
+        val previous=captureProject()
+        viewModelScope.launch {
+            try { val next=withContext(Dispatchers.IO){action(previous)};applyProject(next);refreshProjects() }
+            catch(e:Exception){message="Não foi possível abrir o projeto: ${e.localizedMessage}. O projeto atual foi mantido."}
+            finally{projectBusy=false}
+        }
+    }
+
+    fun exportProjectDocument(uri:Uri?) {
+        if(uri==null || busy)return
+        projectSaveJob?.cancel();projectBusy=true
+        val document=captureProject()
+        viewModelScope.launch {
+            try {withContext(Dispatchers.IO){projectStore.save(document);context.contentResolver.openOutputStream(uri,"wt")!!.use {it.write(document.toString().toByteArray(Charsets.UTF_8))}}
+                message="Projeto salvo. O arquivo guarda a edição; mantenha as mídias originais acessíveis."
+            }catch(e:Exception){message="Não foi possível salvar o projeto: ${e.localizedMessage}"}
+            finally{projectBusy=false}
+        }
+    }
+    fun importProjectDocument(uri:Uri?) {
+        if(uri==null)return
+        projectAction {previous->
+            val imported=context.contentResolver.openInputStream(uri)!!.use {ProjectStore.validate(JSONObject(readUtf8WithByteLimit(it,ProjectStore.MAX_DOCUMENT_BYTES)))}
+            // Decode before replacing any active data. Import always creates a
+            // new identity, even when receiving one of our own backup files.
+            StudioCodec.decode(imported.getJSONObject("settings").optString("studio","{}"))
+            projectStore.save(previous)
+            projectStore.create(imported.optString("name","Projeto importado"),imported.getJSONObject("settings"),imported.optJSONArray("captions") ?: JSONArray())
+        }
     }
 
     private fun persist() {
@@ -726,6 +897,30 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         preview()
     }
 
+    fun orderClipsByName() {
+        if(busy || clips.size<2)return
+        val selectedId=current?.id
+        val ordered=orderMediaSequence(clips.map {MediaSequenceCandidate(it.id,it.name,null)},MediaSequenceOrder.NAME)
+        val byId=clips.associateBy {it.id}
+        pushHistory();clips=ordered.map {byId.getValue(it.key)}
+        selected=clips.indexOfFirst {it.id==selectedId}.coerceAtLeast(0)
+        persist();preview()
+        message="Clipes ordenados pelo nome. Desfazer recupera a ordem anterior."
+    }
+
+    fun exportSubtitles(uri:Uri?,format:String) {
+        if(uri==null || busy)return
+        val track=lyrics ?: run{message="Crie ou importe legendas primeiro.";return}
+        val text=when(format){"vtt"->SubtitleExport.vtt(track);"ass"->SubtitleExport.ass(track,studio.captionStyle);else->SubtitleExport.srt(track)}
+        saving=true
+        viewModelScope.launch {
+            try {withContext(Dispatchers.IO){context.contentResolver.openOutputStream(uri,"wt")!!.use {it.write(text.toByteArray(Charsets.UTF_8))}}
+                message="Legendas ${format.uppercase()} salvas."
+            }catch(e:Exception){message="Não foi possível salvar as legendas: ${e.localizedMessage}"}
+            finally{saving=false}
+        }
+    }
+
     fun importVideos(uris: List<Uri>) {
         if (busy || uris.isEmpty()) return
         importing = true
@@ -740,7 +935,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                             retriever.setDataSource(context, uri)
                             require(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes")
                             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-                                ?.takeIf { it > 0 } ?: error("Duração inválida")
+                                ?.takeIf { MediaDurationPolicy.isPlausible(it) } ?: error("Duração inválida ou maior que 24 horas")
                         } finally { retriever.release() }
                         val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
                             ?.use { if (it.moveToFirst()) it.getString(0) else null } ?: "Vídeo"
@@ -923,10 +1118,21 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
 
     fun export() {
         if (busy || clips.isEmpty()) return
+        try {
+            ExportPreflight.checkStorage(totalDuration,exportFormat.bitrate,context.filesDir.usableSpace)
+            val supported=android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos.any {info->
+                info.isEncoder && info.supportedTypes.any {it.equals(exportFormat.videoMime,true)} &&
+                    runCatching {info.getCapabilitiesForType(exportFormat.videoMime).videoCapabilities
+                        .areSizeAndRateSupported(exportFormat.width,exportFormat.height,exportFormat.fps.toDouble())}.getOrDefault(false)
+            }
+            require(supported){"O aparelho não suporta este codec, resolução e FPS. Tente H.264, 30 FPS ou exportação leve."}
+        }catch(e:Exception){message=e.localizedMessage;return}
         pauseAll()
         exporting = true
         progress = null
-        val file = File(context.filesDir, "monstro-${System.currentTimeMillis()}.mp4")
+        val finalFile = File(context.filesDir, "monstro-${System.currentTimeMillis()}.mp4")
+        val file = File(context.filesDir, ".${finalFile.name}.partial.mp4")
+        val expectedDuration=totalDuration
         renderingFile = file
         try {
             val composition = studioComposition()
@@ -941,16 +1147,19 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                         polling?.cancel()
                         transformer = null
-                        renderingFile = null
-                        exporting = false
-                        if (!file.isFile || file.length() == 0L) {
-                            file.delete(); message = "A exportação terminou sem gerar um arquivo válido."; return
+                        viewModelScope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    verifyExportedVideo(file,expectedDuration)
+                                    syncFileData(file)
+                                    moveFileReplacing(file,finalFile)
+                                }
+                                output=finalFile
+                                prefs.edit().putString("output",finalFile.absolutePath).apply()
+                                message="MP4 verificado e pronto! Toque em Salvar MP4."
+                            }catch(e:Exception){file.delete();message="O MP4 não passou na verificação: ${e.localizedMessage}. O último vídeo válido foi mantido."}
+                            finally{renderingFile=null;exporting=false;progress=null}
                         }
-                        val previous = output
-                        output = file
-                        prefs.edit().putString("output", file.absolutePath).apply()
-                        previous?.takeIf { it != file }?.delete()
-                        message = "MP4 pronto! Toque em Salvar MP4 para escolher onde guardar."
                     }
                     override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
                         failExport("Falha na exportação: ${exportException.errorCodeName}. Tente clipes menores ou outro vídeo.")
@@ -996,6 +1205,10 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        prefs.unregisterOnSharedPreferenceChangeListener(projectPrefsListener)
+        projectSaveJob?.cancel()
+        // SharedPreferences still provides the immediate working-state journal;
+        // immutable project documents provide recovery and named versions.
         speechJob?.cancel();translationJob?.cancel();ttsJob?.cancel();beatJob?.cancel();aiEditJob?.cancel(); if(voiceoverRecording)runCatching {voiceoverRecorder?.stop()};runCatching {voiceoverRecorder?.release()}; audioPlayers.values.forEach {it.release()}; polling?.cancel(); transformer?.cancel(); renderingFile?.delete(); player.release()
         super.onCleared()
     }

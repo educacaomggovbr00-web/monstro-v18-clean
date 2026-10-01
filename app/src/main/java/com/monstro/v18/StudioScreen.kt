@@ -68,6 +68,8 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     val videos=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(),m::importVideos)
     val audio=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importAudio)
     val image=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importImage)
+    var subtitleFormat by remember {mutableStateOf("srt")}
+    val subtitleSave=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")){uri->m.exportSubtitles(uri,subtitleFormat)}
     val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         if(granted)m.startVoiceover() else m.showMessage("Permita acesso ao microfone para gravar dublagem.")
     }
@@ -128,6 +130,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         StudioTool("⇆","Espelhar"){m.toggleMirror()},
         StudioTool("◇","Transformar"){openPanel("Vídeo")},
         StudioTool("◆+","Keyframe"){m.addTimelineMarker()},
+        StudioTool("A↓","Ordenar nome"){m.orderClipsByName()},
         StudioTool("◩","Filtros"){openPanel("Filtros")},
         StudioTool("☷","Ajustar"){openPanel("Ajustes")}
     )
@@ -154,7 +157,10 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         StudioTool("⌗","Legendas autom."){m.autoCaption()},
         StudioTool("🌐","Traduzir IA"){openPanel("Legenda")},
         StudioTool("CC","Modelos"){openPanel("Legenda")},
-        StudioTool("▱","Importar"){srt.launch(arrayOf("*/*"))}
+        StudioTool("▱","Importar"){srt.launch(arrayOf("*/*"))},
+        StudioTool("SRT","Salvar SRT"){subtitleFormat="srt";subtitleSave.launch("monstro-legendas.srt")},
+        StudioTool("VTT","Salvar VTT"){subtitleFormat="vtt";subtitleSave.launch("monstro-legendas.vtt")},
+        StudioTool("ASS","Salvar ASS"){subtitleFormat="ass";subtitleSave.launch("monstro-legendas.ass")}
     )
 
     val fxTools=listOf(
