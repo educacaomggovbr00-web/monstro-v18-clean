@@ -1,113 +1,112 @@
-name: Android - testar e gerar APK
+name: Android - ClearCut completo no Monstro
 
 on:
   push:
-    branches: [main, principal, fix/editor-funcional]
+    branches: [main, principal, fix/editor-funcional, integration/clearcut-completo]
   pull_request:
+    branches: [fix/editor-funcional]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  group: monstro-completo-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: monstro
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configurar Firebase AI Logic
+        with:
+          path: monstro
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - name: Preparar Firebase do Monstro
         env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+          FIREBASE_CONFIG: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
         run: |
-          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
-            echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
-            echo "Firebase configurado pelo segredo do GitHub."
-          elif [ -f app/google-services.json ]; then
-            echo "Firebase configurado pelo app/google-services.json do repositório."
-          else
-            echo "::error::Firebase não configurado: app/google-services.json ausente."
-            exit 1
+          if [ -n "$FIREBASE_CONFIG" ]; then
+            mkdir -p app
+            echo "$FIREBASE_CONFIG" | base64 --decode > app/google-services.json
           fi
-          grep -q '"project_id": "monstro-v18-9a791"' app/google-services.json
-          grep -q '"package_name": "com.monstro.v18.studio"' app/google-services.json
-          echo "Configuração Firebase do Monstro V18 validada."
-
+      - name: Detectar importação inicial
+        id: source
+        run: |
+          if [ -f CLEARCUT_FULL_SOURCE.json ]; then
+            echo 'import=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'import=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.source.outputs.import == 'true'
+        with:
+          repository: SysAdminDoc/ClearCut
+          ref: 8a18de40dd474bbc01f43fd5a6d8e1356ce5600f
+          path: clearcut
+          persist-credentials: false
+      - name: Integrar código completo e adaptadores Monstro
+        if: steps.source.outputs.import == 'true'
+        run: |
+          python3 .integration/vendor_clearcut.py --root . --upstream ../clearcut
+          git apply .integration/monstro.patch
+          git diff --check
+          git config user.name 'Monstro Integration'
+          git config user.email 'monstro-integration@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: integrar motor completo ClearCut, efeitos Monstro e migração de projetos'
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: temurin
+          java-version: '17'
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
-          log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.4'
-      - name: Instalar SDK
-        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
-      - name: Preparar fala sintética para testar legendas automáticas
+      - name: Instalar SDK do motor completo
+        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
+      - name: Compilar aplicação e testes de integração
+        run: ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest --no-daemon --stacktrace
+      - name: Testes unitários e lint
+        run: ./gradlew :app:testQaUnitTest :app:lintQa --no-daemon --stacktrace
+      - name: Validar efeitos Monstro por pixels
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y espeak-ng ffmpeg libegl1 libgl1 libgl1-mesa-dri
-          espeak-ng -v pt-br -s 130 -w /tmp/voice.wav 'Olá mundo. Este é um vídeo de teste. Vamos fazer uma legenda com palavras e música. O editor de vídeo está funcionando.'
-          ffmpeg -y -f lavfi -i color=c=black:s=160x90:r=15 -i /tmp/voice.wav -c:v libx264 -c:a aac -shortest app/src/androidTest/assets/voice.mp4
-      - name: Verificar pixels dos 1000 presets OpenGL
-        run: python3 tools/check_shaders.py
-      - name: Testar e compilar o código do repositório
-        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --stacktrace
-
-      - name: Gerar APK de produção assinado (quando configurado)
-        env:
-          MONSTRO_RELEASE_KEYSTORE_B64: ${{ secrets.MONSTRO_RELEASE_KEYSTORE_B64 }}
-          MONSTRO_RELEASE_STORE_PASSWORD: ${{ secrets.MONSTRO_RELEASE_STORE_PASSWORD }}
-          MONSTRO_RELEASE_KEY_ALIAS: ${{ secrets.MONSTRO_RELEASE_KEY_ALIAS }}
-          MONSTRO_RELEASE_KEY_PASSWORD: ${{ secrets.MONSTRO_RELEASE_KEY_PASSWORD }}
-          MONSTRO_RELEASE_KEYSTORE: ${{ runner.temp }}/monstro-v18-release.jks
-        run: |
-          if [ -n "$MONSTRO_RELEASE_KEYSTORE_B64" ] &&
-             [ -n "$MONSTRO_RELEASE_STORE_PASSWORD" ] &&
-             [ -n "$MONSTRO_RELEASE_KEY_ALIAS" ] &&
-             [ -n "$MONSTRO_RELEASE_KEY_PASSWORD" ]; then
-            echo "$MONSTRO_RELEASE_KEYSTORE_B64" | base64 --decode > "$MONSTRO_RELEASE_KEYSTORE"
-            keytool -list -keystore "$MONSTRO_RELEASE_KEYSTORE" -storepass "$MONSTRO_RELEASE_STORE_PASSWORD" -alias "$MONSTRO_RELEASE_KEY_ALIAS" >/dev/null
-            gradle :app:assembleRelease --no-daemon --stacktrace
-            echo "APK release assinado gerado."
-          else
-            echo "Segredos de assinatura ainda não configurados; pulando APK release."
-          fi
-
-      - name: Habilitar emulador Android
+          sudo apt-get install -y libegl1 libgl1 libgl1-mesa-dri
+          python3 legacy/monstro-v18/tools/check_shaders.py
+      - name: Preparar KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Exportar vídeo com todos os efeitos no Android
+      - name: Testes Android do motor integrado
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          api-level: 35
           arch: x86_64
-          target: default
+          target: google_apis
+          working-directory: monstro
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            bash -c 'gradle :app:connectedDebugAndroidTest --no-daemon --stacktrace; result=$?; mkdir -p app/build/reports/lyrics-debug; adb pull /sdcard/Download/monstro-lyrics-debug.mp4 app/build/reports/lyrics-debug/; adb pull /sdcard/Pictures/MonstroTests/studio-ui.png app/build/reports/lyrics-debug/studio-ui.png; adb logcat -d -s MonstroLyrics:I MonstroSpeed:I > app/build/reports/lyrics-debug/timing.txt; exit "$result"'
+          script: ./gradlew :app:connectedQaAndroidTest --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: MonstroV18-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: MonstroV18-ClearCut-APK
+          path: monstro/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MonstroV18-APK-release
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: relatorios
-          path: app/build/reports/
+          name: relatorios-integracao-completa
+          path: |
+            monstro/app/build/reports
+            monstro/app/build/test-results

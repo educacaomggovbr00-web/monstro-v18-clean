@@ -1,0 +1,2710 @@
+diff --git a/CLEARCUT_INTEGRATION.md b/CLEARCUT_INTEGRATION.md
+index 7b6835e..8243846 100644
+--- a/CLEARCUT_INTEGRATION.md
++++ b/CLEARCUT_INTEGRATION.md
+@@ -1,27 +1,13 @@
+-# Integração de funcionalidades do ClearCut no Monstro V18
++# Integração completa do código ClearCut no Monstro
+ 
+-Fonte examinada: `SysAdminDoc/ClearCut`, commit `8a18de40dd474bbc01f43fd5a6d8e1356ce5600f` (3.81.0). Esta alteração modifica o editor Monstro existente, preservando interface, pacote instalado, Chaos FX, shaders, Gemini, Vosk e controles. Não embute um segundo editor.
++Upstream: SysAdminDoc/ClearCut, 3.81.0, commit 8a18de40dd474bbc01f43fd5a6d8e1356ce5600f.
+ 
+-## Implementado diretamente no Monstro
++O motor e a interface passaram a usar uma única base. Todos os arquivos upstream são importados e versionados, incluindo composição, transições, PiP, proxies, exportação em serviço/fila, LUTs, plugins, arquivos com mídia, ferramentas de áudio/IA, estabilização e rastreamento, banco Room, modelos opcionais, testes, documentação e a dependência FFmpeg com checksum e licenças. O registro `scripts/capability_registry.json` distingue recursos implementados, condicionais e planejados do próprio upstream.
+ 
+-- Projetos nomeados: novo, abrir, busca, renomear, duplicar, lixeira e restauração na aba Projetos.
+-- Documentos versionados, geração anterior válida, escrita atômica com sincronização antes de renomear e recuperação de arquivo truncado. Migração do projeto atual de SharedPreferences sem apagar suas mídias.
+-- Backup/importação da edição em JSON, com limite de tamanho, validação de versão e durações e nova identidade a cada importação. As mídias continuam referenciadas; não é um arquivo que embute os vídeos.
+-- Importação de marcadores e intervalos por timecode com validação e desfazer.
+-- Registros locais de falhas, exportação de diagnóstico com remoção de URIs/caminhos sensíveis e avisos de licença no aplicativo.
+-- Recuperação do diário imediato de edição após interrupção antes do autosave. Regras de backup limitadas aos documentos e configurações.
+-- Foco de áudio gerenciado pelo player e pausa ao desconectar fones.
+-- Verificação de espaço, codec, dimensão e FPS antes de exportar. MP4 temporário só é promovido após leitura da faixa de vídeo, primeiro quadro e duração; exportação com erro mantém o último MP4 concluído.
+-- Limites para metadados de duração e leitura de documentos.
+-- Ordenação natural dos clipes pelo nome, com desfazer.
+-- Exportação SRT, VTT com tempos por palavra e ASS com cor/posição/outline básicos pelo painel Legendas.
++Identidade instalada: com.monstro.v18.studio. Namespace: com.monstro.v18. Versão 18.7-ClearCut, código 25, Android 8+.
+ 
+-Código adaptado e licenças: `app/src/main/java/com/monstro/v18/clearcut/`, `third_party/clearcut/LICENSE`. Os avisos upstream são preservados como referência; esta alteração não adiciona FFmpeg ou DeepFilterNet ao APK.
++Recursos próprios adaptados: Chaos/Studio FX (1.000 receitas endereçáveis e seleção curada), cores Monstro, pacotes Monstro/Premiere, Gemini Auto Edit, legendas Gemini com fallback Vosk, tradução, narração e conta. Mesma timeline e mesmo pipeline de efeitos para prévia/exportação.
+ 
+-## Validação
++Migração: converte cópias dos documentos 18.6 para a persistência canônica; nunca apaga os originais. Clipes, cortes, áudio, textos, imagens, legendas, marcadores, curvas de velocidade e FX são adaptados. As convenções visuais e de interpolação diferem entre os motores; a composição precisa ser revisada antes de exportar. Dados originais continuam disponíveis para reconversão. Erros constam do relatório local monstro-migration-report.json.
+ 
+-O workflow existente executa os testes unitários, lint, compilação, testes instrumentados de prévia/exportação/legendas e renderização EGL dos 1.000 presets. Foram acrescentadas regressões de escrita interrompida, cópia válida, lixeira, duplicação, gravação fora de ordem, limites de importação e legendas.
+-
+-## Escopo restante
+-
+-Esta é uma etapa de integração, **não paridade completa**. Ainda precisam de adaptação e testes específicos: transições completas, múltiplas faixas de vídeo/PiP, proxy workflow, exportação em serviço de segundo plano/fila, arquivo de projeto com mídias embutidas, LUTs/plugins/intercâmbio, ferramentas de IA e processamento nativo adicionais do ClearCut. Alguns recursos upstream são planejados ou exigem modelos/dependências; copiar arquivos não torna esses recursos disponíveis automaticamente. Os formatos de projeto dos dois motores são diferentes.
++Código antigo preservado em legacy/monstro-v18, fora dos sourceSets Android, sem um segundo editor instalado. MIT e avisos nativos preservados. Nenhuma promessa de recursos planejados ou dependentes de modelos/credenciais além do que o ClearCut realmente implementa.
+diff --git a/README.md b/README.md
+index 64e73b7..c1e90d0 100644
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,13 @@
++# Monstro V18 · motor completo ClearCut
++
++Integração nativa do código ClearCut 3.81.0 (commit 8a18de40dd474bbc01f43fd5a6d8e1356ce5600f) com identidade `com.monstro.v18.studio`, uma Activity principal e uma timeline. Todo o código do motor, ferramentas, testes e dependências é versionado neste repositório. A importação reproduzível em `.integration/` só é usada uma vez durante a construção da branch; o aplicativo não baixa código-fonte em execução.
++
++Os recursos do Monstro ficam em **Mais → Monstro FX / Gemini**: receitas Chaos/Studio, pacotes de FX, legendas Vosk/Gemini, Auto Edit, tradução, narração e conta. Prévia e exportação usam os mesmos efeitos. Os projetos antigos são convertidos em documentos do novo motor; seus arquivos, preferências e mídias originais são preservados. Revise a composição após a migração, pois os dois formatos usam convenções diferentes de velocidade, texto e posicionamento.
++
++Android 8+ e OpenGL ES 3. Recursos com modelos opcionais ou serviços externos mantêm os requisitos e limites do ClearCut; ferramentas planejadas no upstream não se tornam implementadas por serem copiadas. Configuração Firebase e assinatura continuam pertencendo ao Monstro. A verificação de certificado de lançamento do ClearCut não se aplica a este fork.
++
++## Documentação upstream preservada
++
+ <p align="center">
+   <img src="icon.png" alt="ClearCut" width="128" />
+ </p>
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index f35a0d4..9c82903 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -777,6 +777,8 @@ dependencies {
+     implementation("com.google.firebase:firebase-ai")
+     implementation("com.google.firebase:firebase-auth:22.3.1")
+     debugImplementation("com.google.firebase:firebase-appcheck-debug")
++    add("qaImplementation", "com.google.firebase:firebase-appcheck-debug")
++    add("streamingImplementation", "com.google.firebase:firebase-appcheck-debug")
+     releaseImplementation("com.google.firebase:firebase-appcheck-playintegrity")
+     implementation("com.alphacephei:vosk-android:0.3.45") { exclude(group = "net.java.dev.jna", module = "jna") }
+     implementation("net.java.dev.jna:jna:5.13.0@aar")
+diff --git a/app/src/debug/java/com/monstro/v18/AppCheckSetup.kt b/app/src/debug/java/com/monstro/v18/AppCheckSetup.kt
+new file mode 100644
+index 0000000..501e39c
+--- /dev/null
++++ b/app/src/debug/java/com/monstro/v18/AppCheckSetup.kt
+@@ -0,0 +1,14 @@
++package com.monstro.v18
++
++import android.content.Context
++import com.google.firebase.Firebase
++import com.google.firebase.appcheck.appCheck
++import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
++import com.google.firebase.initialize
++
++fun configureAppCheck(context: Context) {
++    val app = runCatching { Firebase.initialize(context) }.getOrNull() ?: return
++    Firebase.appCheck.installAppCheckProviderFactory(
++        DebugAppCheckProviderFactory.getInstance()
++    )
++}
+diff --git a/app/src/main/assets/shaders/aspect.frag b/app/src/main/assets/shaders/aspect.frag
+new file mode 100644
+index 0000000..ad2cd29
+--- /dev/null
++++ b/app/src/main/assets/shaders/aspect.frag
+@@ -0,0 +1,39 @@
++precision highp float;
++uniform sampler2D uInput;
++uniform float uSourceAspect;
++uniform float uTargetAspect;
++uniform float uBackgroundMode;
++varying vec2 vUv;
++
++void main() {
++    vec2 p = vUv - 0.5;
++    vec2 fit = uSourceAspect > uTargetAspect ? vec2(1.0,uTargetAspect/uSourceAspect) : vec2(uSourceAspect/uTargetAspect,1.0);
++    vec2 fg = p / fit + 0.5;
++    if (fg.x >= 0.0 && fg.x <= 1.0 && fg.y >= 0.0 && fg.y <= 1.0) {
++        gl_FragColor = texture2D(uInput,fg);
++        return;
++    }
++
++    if (uBackgroundMode > 1.5) {
++        vec2 cell = floor(gl_FragCoord.xy / 28.0);
++        float checker = mod(cell.x + cell.y, 2.0);
++        vec3 a = vec3(0.035,0.035,0.055);
++        vec3 b = vec3(0.085,0.055,0.115);
++        gl_FragColor = vec4(mix(a,b,checker),1.0);
++        return;
++    }
++    if (uBackgroundMode > 0.5) {
++        gl_FragColor = vec4(0.025,0.025,0.035,1.0);
++        return;
++    }
++
++    vec2 cover = uSourceAspect > uTargetAspect ? vec2(uTargetAspect/uSourceAspect,1.0) : vec2(1.0,uSourceAspect/uTargetAspect);
++    vec2 uv = p * cover + 0.5;
++    vec3 sum = vec3(0.0); float weight = 0.0;
++    for (int y=-2;y<=2;y++) for (int x=-2;x<=2;x++) {
++        float w = exp(-float(x*x+y*y)/3.0);
++        sum += texture2D(uInput,clamp(uv+vec2(float(x),float(y))*0.014,0.0,1.0)).rgb*w;
++        weight += w;
++    }
++    gl_FragColor = vec4(sum/weight*0.65,1.0);
++}
+diff --git a/app/src/main/assets/shaders/chaos.frag b/app/src/main/assets/shaders/chaos.frag
+new file mode 100644
+index 0000000..5509460
+--- /dev/null
++++ b/app/src/main/assets/shaders/chaos.frag
+@@ -0,0 +1,46 @@
++precision highp float;
++uniform sampler2D uInput;
++uniform sampler2D uHistory;
++uniform float uTime;
++uniform float uZoom;
++uniform float uAutoZoom;
++uniform float uGlitch;
++uniform float uRgb;
++uniform float uShake;
++uniform float uStrobe;
++uniform float uHue;
++uniform float uVignette;
++uniform float uBlurWeight;
++varying vec2 vUv;
++
++float noise(float n) { return fract(sin(n * 12.9898 + 78.233) * 43758.5453); }
++vec3 source(vec2 uv) { return texture2D(uInput, clamp(uv, 0.0, 1.0)).rgb; }
++vec3 rotateHue(vec3 c, float angle) {
++    // Rotation around the neutral axis leaves gray pixels unchanged.
++    vec3 axis = normalize(vec3(1.0));
++    return c * cos(angle) + cross(axis, c) * sin(angle) + axis * dot(axis, c) * (1.0 - cos(angle));
++}
++void main() {
++    float autoScale = 1.0 + uAutoZoom * 0.075 * (1.0 - cos(uTime * 0.8));
++    float scale = uZoom * autoScale * (1.0 + uShake * 0.035);
++    vec2 uv = (vUv - 0.5) / scale + 0.5;
++    float tick = floor(uTime * 24.0);
++    uv += uShake * 0.012 * vec2(sin(uTime * 43.0), sin(uTime * 57.0 + 0.9));
++    float burst = step(0.77, noise(floor(uTime * 7.0)));
++    float band = floor(uv.y * 18.0);
++    uv.x += uGlitch * burst * (noise(band + tick) - 0.5) * 0.10 * step(0.5, noise(band + 3.0));
++    float split = uRgb * (0.008 + 0.004 * sin(uTime * 4.0));
++    vec3 color = vec3(source(uv + vec2(split, 0.0)).r, source(uv).g, source(uv - vec2(split, 0.0)).b);
++    color = mix(color, rotateHue(color, uTime * 0.65), uHue);
++    // Composite BEFORE final vignette/strobe, so neither accumulates in history.
++    if (uBlurWeight > 0.0) {
++        vec3 past = texture2D(uHistory, clamp(uv, 0.0, 1.0)).rgb;
++        past = mix(past, rotateHue(past, uTime * 0.65), uHue);
++        color = mix(color, past, uBlurWeight);
++    }
++    float edge = smoothstep(0.18, 0.71, length(vUv - 0.5));
++    color *= 1.0 - uVignette * 0.65 * edge;
++    float pulse = step(0.75, fract(uTime * 2.0));
++    color = mix(color, vec3(1.0), uStrobe * pulse * 0.55);
++    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
++}
+diff --git a/app/src/main/assets/shaders/chaos.vert b/app/src/main/assets/shaders/chaos.vert
+new file mode 100644
+index 0000000..dbe316e
+--- /dev/null
++++ b/app/src/main/assets/shaders/chaos.vert
+@@ -0,0 +1,6 @@
++attribute vec4 aPosition;
++varying vec2 vUv;
++void main() {
++    gl_Position = aPosition;
++    vUv = aPosition.xy * 0.5 + 0.5;
++}
+diff --git a/app/src/main/assets/shaders/copy.frag b/app/src/main/assets/shaders/copy.frag
+new file mode 100644
+index 0000000..7b68c52
+--- /dev/null
++++ b/app/src/main/assets/shaders/copy.frag
+@@ -0,0 +1,4 @@
++precision highp float;
++uniform sampler2D uInput;
++varying vec2 vUv;
++void main(){gl_FragColor=texture2D(uInput,vUv);}
+diff --git a/app/src/main/assets/shaders/mirror.frag b/app/src/main/assets/shaders/mirror.frag
+new file mode 100644
+index 0000000..752fd96
+--- /dev/null
++++ b/app/src/main/assets/shaders/mirror.frag
+@@ -0,0 +1,6 @@
++precision highp float;
++uniform sampler2D uInput;
++varying vec2 vUv;
++void main() {
++    gl_FragColor = texture2D(uInput, vec2(1.0-vUv.x, vUv.y));
++}
+diff --git a/app/src/main/assets/shaders/studio.frag b/app/src/main/assets/shaders/studio.frag
+new file mode 100644
+index 0000000..147ce86
+--- /dev/null
++++ b/app/src/main/assets/shaders/studio.frag
+@@ -0,0 +1,57 @@
++precision highp float;
++uniform sampler2D uInput;
++uniform float uEngine;
++uniform float uRecipe;
++uniform float uEnvelope;
++uniform float uTime;
++uniform float uIntensity;
++uniform float uDirection;
++uniform float uZoom;
++uniform float uRotation;
++uniform float uTranslateX;
++uniform float uTranslateY;
++varying vec2 vUv;
++float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
++vec3 sampleAt(vec2 p){return texture2D(uInput,clamp(p,vec2(.001),vec2(.999))).rgb;}
++void main(){
++ vec2 q=vUv-.5-vec2(uTranslateX,uTranslateY);
++ float baseAngle=-uRotation*0.01745329252;
++ q=mat2(cos(baseAngle),-sin(baseAngle),sin(baseAngle),cos(baseAngle))*q;
++ vec2 p=q/uZoom+.5;
++ float t=uTime; float r=uRecipe; float e=uEnvelope;
++ float phase=fract(t*.6); float wave=.5+.5*sin(t*6.283185);
++ float env=.35+.65*wave;
++ if(e>0.5 && e<1.5)env=.15+.85*phase;
++ else if(e<2.5 && e>1.5)env=1.-.85*phase;
++ else if(e<3.5 && e>2.5)env=.2+.8*abs(sin(t*4.));
++ else if(e<4.5 && e>3.5)env=.3+.7*pow(abs(sin(t*9.)),3.);
++ else if(e<5.5 && e>4.5)env=.5+.5*sin(t*.8);
++ else if(e<6.5 && e>5.5)env=.2+.8*step(.72,phase);
++ else if(e<7.5 && e>6.5)env=.3+.7*(.5+.5*cos(t*2.));
++ else if(e<8.5 && e>7.5)env=.15+.85*exp(-phase*7.);
++ else if(e>8.5)env=1.;
++ float a=clamp(uIntensity,0.,2.)*env; float k=1.+r*.6;
++ vec2 dir=vec2(cos(uDirection),sin(uDirection));
++ vec3 original=sampleAt(p); vec3 c=original; float n=uEngine;
++ if(n<.5){float band=floor(p.y*(8.+r*13.));p.x+=step(.6,hash(vec2(band,floor(t*12.))))*(hash(vec2(band,t))-.5)*.18*a*k;c=sampleAt(p);}
++ else if(n<1.5){vec2 d=dir*.008*a*k;c=vec3(sampleAt(p+d).r,original.g,sampleAt(p-d).b);}
++ else if(n<2.5){p+=vec2(sin(t*37.),cos(t*29.))*.009*a*k;c=sampleAt(p);}
++ else if(n<3.5){p=(p-.5)/(1.+.12*a*k)+.5;c=sampleAt(p);}
++ else if(n<4.5){float angle=.08*a*k*sin(t*2.);vec2 q=p-.5;p=mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*q+.5;c=sampleAt(p);}
++ else if(n<5.5){p+=dir*sin((p.x+p.y)*12.*k+t*3.)*.015*a;c=sampleAt(p);}
++ else if(n<6.5){vec2 q=p-.5;float len=length(q);p+=q/max(len,.001)*sin(len*40.*k-t*6.)*.015*a;c=sampleAt(p);}
++ else if(n<7.5){vec2 q=p-.5;float angle=a*k*(.7-length(q))*sin(t+1.);p=mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*q+.5;c=sampleAt(p);}
++ else if(n<8.5){vec2 q=p-.5;float angle=atan(q.y,q.x);float sector=6.283185/(3.+r);angle=abs(mod(angle,sector)-sector*.5);vec2 mirrored=vec2(cos(angle),sin(angle))*length(q)+.5;c=mix(original,sampleAt(mirrored),min(a,1.));}
++ else if(n<9.5){float grid=max(8.,90./k);c=mix(original,sampleAt((floor(p*grid)+.5)/grid),min(a,1.));}
++ else if(n<10.5){float gray=dot(original,vec3(.2126,.7152,.0722));vec2 cell=fract(p*(50.+r*20.))-.5;float ink=step(length(cell),sqrt(gray)*.62);c=mix(original,vec3(ink),min(a,1.));}
++ else if(n<11.5){float levels=3.+r*2.;c=mix(original,floor(original*levels)/levels,min(a,1.));}
++ else if(n<12.5){c=original*(1.-.35*a*(.5+.5*sin(p.y*(160.+r*80.)+t*4.)));}
++ else if(n<13.5){float stripe=exp(-pow((p.y-fract(t*.2))*30.,2.));p.x+=stripe*.08*a*k;c=sampleAt(p);c+=vec3((hash(p+t)-.5)*.16*a);}
++ else if(n<14.5){float grain=(hash(floor(p*(200.+r*70.))+floor(t*24.))-.5)*.22*a;c=original+grain;}
++ else if(n<15.5){float gray=dot(original,vec3(.2126,.7152,.0722));vec3 lo=vec3(.04+r*.025,.025,.12);vec3 hi=vec3(1.-r*.13,.22+r*.15,.55+r*.10);c=mix(original,mix(lo,hi,gray),min(a,1.));}
++ else if(n<16.5){float glow=exp(-length(p-vec2(.2+.15*r,.5+.3*sin(t)))*3.);c=original+vec3(1.,.12+r*.14,.18+r*.10)*glow*a*.6;}
++ else if(n<17.5){vec2 q=p-.5;vec2 d=q*.05*a*k;c=vec3(sampleAt(p+d).r,sampleAt(p).g,sampleAt(p-d).b);}
++ else if(n<18.5){vec2 d=dir*.004*a*k;c=original*.2;for(int i=1;i<=4;i++){float f=float(i);c+=sampleAt(p+d*f)*.1+sampleAt(p-d*f)*.1;}}
++ else {float v=smoothstep(.2,.8,length(p-.5)*k);c=original*(1.-v*.7*a);p=(p-.5)/(1.+.06*a*k)+.5;c=mix(c,sampleAt(p),.2);}
++ gl_FragColor=vec4(clamp(mix(original,c,step(.00001,uIntensity)),0.,1.),1.);
++}
+diff --git a/app/src/main/java/com/monstro/v18/ClearCutApp.kt b/app/src/main/java/com/monstro/v18/ClearCutApp.kt
+index f3dd238..81776c8 100644
+--- a/app/src/main/java/com/monstro/v18/ClearCutApp.kt
++++ b/app/src/main/java/com/monstro/v18/ClearCutApp.kt
+@@ -41,6 +41,9 @@ class ClearCutApp : Application(), Configuration.Provider {
+     @Inject
+     lateinit var mediaStorePendingRowSweeper: MediaStorePendingRowSweeper
+ 
++    @Inject
++    lateinit var monstroMigration: com.monstro.v18.monstro.MonstroProjectMigration
++
+     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+ 
+     private val activityLifecycleCallbacks = object : ActivityLifecycleCallbacks {
+@@ -74,6 +77,7 @@ class ClearCutApp : Application(), Configuration.Provider {
+     override fun onCreate() {
+         super.onCreate()
+         DebugRuntimePolicy.install()
++        applicationScope.launch { monstroMigration.migrate() }
+         registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
+         CrashRecordStore(this).installGlobalHandler(VERSION)
+         processExitRecorder.recordStartupExitReasons()
+diff --git a/app/src/main/java/com/monstro/v18/MainActivity.kt b/app/src/main/java/com/monstro/v18/MainActivity.kt
+index 14fc39d..990f0e6 100644
+--- a/app/src/main/java/com/monstro/v18/MainActivity.kt
++++ b/app/src/main/java/com/monstro/v18/MainActivity.kt
+@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
++        configureAppCheck(this)
+         enableEdgeToEdge()
+         // R8.3 — remove the translucent scrim Android draws under the
+         // three-button navigation bar when the app is edge-to-edge. We
+diff --git a/app/src/main/java/com/monstro/v18/engine/EffectBuilder.kt b/app/src/main/java/com/monstro/v18/engine/EffectBuilder.kt
+index 73959df..da81662 100644
+--- a/app/src/main/java/com/monstro/v18/engine/EffectBuilder.kt
++++ b/app/src/main/java/com/monstro/v18/engine/EffectBuilder.kt
+@@ -40,6 +40,7 @@ internal object EffectBuilder {
+         degradationLedger: RenderDegradationLedger? = null,
+     ): androidx.media3.common.Effect? {
+         val built = when (effect.type) {
++            EffectType.MONSTRO_STUDIO, EffectType.MONSTRO_CHAOS, EffectType.MONSTRO_COLOR -> com.monstro.v18.monstro.MonstroEffectBridge.build(effect)
+             EffectType.BRIGHTNESS -> {
+                 val value = effect.params.safeParam("value", 0f, -1f, 1f)
+                 RgbMatrix { _, _ ->
+diff --git a/app/src/main/java/com/monstro/v18/model/Effect.kt b/app/src/main/java/com/monstro/v18/model/Effect.kt
+index f606eaa..37cefba 100644
+--- a/app/src/main/java/com/monstro/v18/model/Effect.kt
++++ b/app/src/main/java/com/monstro/v18/model/Effect.kt
+@@ -25,6 +25,10 @@ data class EffectKeyframe(
+ )
+ 
+ enum class EffectType(val displayName: String, val category: EffectCategory) {
++    MONSTRO_STUDIO("Monstro Studio FX", EffectCategory.DISTORTION),
++    MONSTRO_CHAOS("Monstro Chaos FX", EffectCategory.DISTORTION),
++    MONSTRO_COLOR("Monstro Color", EffectCategory.COLOR),
++
+     // Color
+     BRIGHTNESS("Brightness", EffectCategory.COLOR),
+     CONTRAST("Contrast", EffectCategory.COLOR),
+@@ -79,6 +83,9 @@ enum class EffectType(val displayName: String, val category: EffectCategory) {
+ 
+     companion object {
+         fun defaultParams(type: EffectType): Map<String, Float> = when (type) {
++            MONSTRO_STUDIO -> mapOf("engine" to 2f, "recipe" to 0f, "envelope" to 6f, "intensity" to 1f, "speed" to 1f, "direction" to 0f)
++            MONSTRO_CHAOS -> mapOf("smartzoom" to 0f, "glitch" to 0f, "rgb" to 0f, "shake" to 0f, "strobe" to 0f, "hue" to 0f, "vignette" to 0f, "motionblur" to 0f, "zoom" to 1f)
++            MONSTRO_COLOR -> mapOf("preset" to 0f)
+             BRIGHTNESS -> mapOf("value" to 0f)
+             CONTRAST -> mapOf("value" to 1f)
+             SATURATION -> mapOf("value" to 1f)
+@@ -138,6 +145,9 @@ enum class EffectType(val displayName: String, val category: EffectCategory) {
+             val defaults = defaultParams(type)
+             if (defaults.isEmpty()) return emptyMap()
+             val overrides: Map<String, ParamRange> = when (type) {
++                MONSTRO_STUDIO -> mapOf("engine" to ParamRange("Engine",0f,19f,1f),"recipe" to ParamRange("Recipe",0f,4f,1f),"envelope" to ParamRange("Envelope",0f,9f,1f),"intensity" to ParamRange("Intensity",0f,2f),"speed" to ParamRange("Speed",0.1f,4f),"direction" to ParamRange("Direction",-180f,180f))
++                MONSTRO_CHAOS -> defaultParams(type).keys.associateWith {if(it=="zoom")ParamRange("Zoom",1f,3f) else ParamRange(it,0f,1f,1f)}
++                MONSTRO_COLOR -> mapOf("preset" to ParamRange("Neon / Trap / Dark / Cinema",0f,3f,1f))
+                 BRIGHTNESS -> mapOf("value" to ParamRange("Brightness", -1f, 1f))
+                 CONTRAST -> mapOf("value" to ParamRange("Contrast", 0f, 2f))
+                 SATURATION -> mapOf("value" to ParamRange("Saturation", 0f, 3f))
+diff --git a/app/src/main/java/com/monstro/v18/monstro/AccountUi.kt b/app/src/main/java/com/monstro/v18/monstro/AccountUi.kt
+new file mode 100644
+index 0000000..40dcd6c
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/AccountUi.kt
+@@ -0,0 +1,141 @@
++package com.monstro.v18.monstro
++
++import androidx.compose.foundation.layout.*
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.material3.*
++import androidx.compose.runtime.*
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.text.input.PasswordVisualTransformation
++import androidx.compose.ui.unit.dp
++import com.google.firebase.auth.FirebaseAuth
++
++private fun friendlyAuthError(raw:String?):String {
++    val text=raw.orEmpty()
++    return when {
++        text.contains("CONFIGURATION_NOT_FOUND",true) ->
++            "O login em nuvem ainda não foi ativado no projeto Firebase. Ative E-mail/Senha no Firebase Authentication; enquanto isso você pode usar um perfil local."
++        text.contains("INVALID_LOGIN_CREDENTIALS",true) || text.contains("wrong-password",true) ->
++            "E-mail ou senha incorretos."
++        text.contains("email-already-in-use",true) ->
++            "Esse e-mail já possui uma conta."
++        text.contains("network",true) ->
++            "Sem conexão com o serviço de conta. Verifique a internet."
++        text.isBlank() -> "Não foi possível concluir a autenticação."
++        else -> "Não foi possível concluir a autenticação agora."
++    }
++}
++
++@Composable
++fun AccountDialog(onClose:()->Unit){
++    val context=LocalContext.current
++    val auth=remember { FirebaseAuth.getInstance() }
++    val localPrefs=remember {context.getSharedPreferences("monstro-account",0)}
++    var user by remember { mutableStateOf(auth.currentUser) }
++    var localEmail by remember {mutableStateOf(localPrefs.getString("localEmail",null))}
++    var email by remember { mutableStateOf(user?.email ?: localEmail.orEmpty()) }
++    var password by remember { mutableStateOf("") }
++    var busy by remember { mutableStateOf(false) }
++    var status by remember { mutableStateOf("") }
++
++    DisposableEffect(auth){
++        val listener=FirebaseAuth.AuthStateListener { user=it.currentUser }
++        auth.addAuthStateListener(listener)
++        onDispose { auth.removeAuthStateListener(listener) }
++    }
++
++    fun finish(message:String){busy=false;status=message}
++    AlertDialog(
++        onDismissRequest=onClose,
++        title={Text("Conta Monstro")},
++        text={
++            Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
++                when {
++                    user!=null -> {
++                        Text("Conta na nuvem",style=MaterialTheme.typography.labelMedium)
++                        Text(user?.email ?: "Conta Firebase",style=MaterialTheme.typography.titleMedium)
++                        Text("UID: ${user?.uid?.take(8)}…",style=MaterialTheme.typography.bodySmall)
++                        if(status.isNotBlank())Text(status,style=MaterialTheme.typography.bodySmall)
++                        Button(
++                            onClick={auth.signOut();status="Você saiu da conta neste aparelho."},
++                            enabled=!busy,
++                            modifier=Modifier.fillMaxWidth()
++                        ){Text("Sair / Logout")}
++                    }
++                    localEmail!=null -> {
++                        Text("Perfil local",style=MaterialTheme.typography.labelMedium)
++                        Text(localEmail.orEmpty(),style=MaterialTheme.typography.titleMedium)
++                        Text("Projetos continuam salvos neste aparelho. Este perfil não sincroniza com a nuvem.",style=MaterialTheme.typography.bodySmall)
++                        Button(
++                            onClick={
++                                localPrefs.edit().remove("localEmail").apply()
++                                localEmail=null;email="";password="";status="Você saiu do perfil local."
++                            },
++                            modifier=Modifier.fillMaxWidth()
++                        ){Text("Sair / Logout")}
++                    }
++                    else -> {
++                        Text("Entre na nuvem ou continue editando como convidado.",style=MaterialTheme.typography.bodySmall)
++                        OutlinedTextField(
++                            value=email,onValueChange={email=it.trim()},
++                            label={Text("E-mail")},singleLine=true,
++                            keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email),
++                            modifier=Modifier.fillMaxWidth()
++                        )
++                        OutlinedTextField(
++                            value=password,onValueChange={password=it},
++                            label={Text("Senha")},singleLine=true,
++                            visualTransformation=PasswordVisualTransformation(),
++                            keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password),
++                            modifier=Modifier.fillMaxWidth()
++                        )
++                        Button(
++                            onClick={
++                                if(email.isBlank() || password.length<6){status="Use um e-mail válido e senha com pelo menos 6 caracteres.";return@Button}
++                                busy=true;status="Entrando…"
++                                auth.signInWithEmailAndPassword(email,password).addOnCompleteListener {task->
++                                    if(task.isSuccessful)finish("Conta conectada.") else finish(friendlyAuthError(task.exception?.message))
++                                }
++                            },
++                            enabled=!busy,
++                            modifier=Modifier.fillMaxWidth()
++                        ){Text(if(busy)"Aguarde…" else "Entrar")}
++                        OutlinedButton(
++                            onClick={
++                                if(email.isBlank() || password.length<6){status="Use um e-mail válido e senha com pelo menos 6 caracteres.";return@OutlinedButton}
++                                busy=true;status="Criando conta…"
++                                auth.createUserWithEmailAndPassword(email,password).addOnCompleteListener {task->
++                                    if(task.isSuccessful)finish("Conta criada e conectada.") else finish(friendlyAuthError(task.exception?.message))
++                                }
++                            },
++                            enabled=!busy,
++                            modifier=Modifier.fillMaxWidth()
++                        ){Text("Criar conta na nuvem")}
++                        OutlinedButton(
++                            onClick={
++                                if(email.isBlank()){status="Digite um e-mail para identificar o perfil local.";return@OutlinedButton}
++                                localPrefs.edit().putString("localEmail",email).apply()
++                                localEmail=email;password="";status="Perfil local criado."
++                            },
++                            enabled=!busy,
++                            modifier=Modifier.fillMaxWidth()
++                        ){Text("Usar perfil local neste aparelho")}
++                        TextButton(
++                            onClick={
++                                if(email.isBlank()){status="Digite seu e-mail primeiro.";return@TextButton}
++                                busy=true
++                                auth.sendPasswordResetEmail(email).addOnCompleteListener {task->
++                                    if(task.isSuccessful)finish("Enviei o link de redefinição para seu e-mail.") else finish(friendlyAuthError(task.exception?.message))
++                                }
++                            },
++                            enabled=!busy
++                        ){Text("Esqueci minha senha")}
++                        if(status.isNotBlank())Text(status,style=MaterialTheme.typography.bodySmall)
++                    }
++                }
++            }
++        },
++        confirmButton={TextButton(onClick=onClose){Text("Fechar")}}
++    )
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/AutoCaptions.kt b/app/src/main/java/com/monstro/v18/monstro/AutoCaptions.kt
+new file mode 100644
+index 0000000..201d333
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/AutoCaptions.kt
+@@ -0,0 +1,102 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import android.media.*
++import android.net.Uri
++import kotlinx.coroutines.ensureActive
++import kotlinx.coroutines.currentCoroutineContext
++import org.json.JSONObject
++import org.vosk.Model
++import org.vosk.Recognizer
++import java.io.File
++import java.net.URL
++import java.nio.ByteOrder
++import java.util.zip.ZipInputStream
++import kotlin.math.*
++
++/** Recognizes decoded file audio, never the microphone. Audio never leaves the device. */
++class AutoCaptions(private val context:Context) {
++    val modelDirectory get()=File(context.filesDir,"speech/vosk-model-small-pt-0.3")
++    private fun validModel(root:File)=(File(root,"am/final.mdl").isFile && File(root,"conf/model.conf").isFile) || (File(root,"final.mdl").isFile && File(root,"mfcc.conf").isFile)
++    val ready get()=validModel(modelDirectory)
++    suspend fun install(progress:(Int)->Unit) {
++        if(ready)return
++        val temporary=File(context.filesDir,"speech-download").apply {deleteRecursively();mkdirs()}
++        val connection=URL("https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip").openConnection().apply {connectTimeout=30000;readTimeout=30000}
++        try {
++            var total=0L;val buffer=ByteArray(32768)
++            connection.getInputStream().use { input->ZipInputStream(input).use { zip->
++                while(true){currentCoroutineContext().ensureActive();val entry=zip.nextEntry ?: break
++                    val file=File(temporary,entry.name)
++                    require(file.canonicalPath.startsWith(temporary.canonicalPath+File.separator)){"Modelo inválido"}
++                    if(entry.isDirectory)file.mkdirs() else {file.parentFile!!.mkdirs();file.outputStream().use { out->
++                        while(true){currentCoroutineContext().ensureActive();val n=zip.read(buffer);if(n<0)break;total+=n;require(total<250_000_000){"Modelo excedeu o tamanho permitido"};out.write(buffer,0,n);progress((total/500_000).toInt().coerceAtMost(99))}
++                    }}
++                }
++            }}
++            require(validModel(File(temporary,"vosk-model-small-pt-0.3"))){"Download incompleto"}
++            val destination=File(context.filesDir,"speech");destination.deleteRecursively();check(temporary.renameTo(destination));progress(100)
++        } finally {temporary.deleteRecursively()}
++    }
++    suspend fun transcribe(clips:List<VideoClip>,project:StudioProject,progress:(Int)->Unit):SrtTrack {
++        require(ready){"Baixe primeiro o modelo de português (31 MB)."}
++        val cues=mutableListOf<SrtCue>();var offset=0L
++        Model(modelDirectory.absolutePath).use { model->
++            clips.forEachIndexed { index,clip->
++                currentCoroutineContext().ensureActive()
++                val speed=SpeedMap(clip.trim.duration,project.motions[clip.id]?.speed ?: emptyList())
++                val words=decode(clip,model) { fraction->progress(((index+fraction)*100/clips.size).toInt()) }
++                words.chunked(6).forEach { group->
++                    val timed=group.map { (_,s,e)->WordTime(offset+speed.toOutput(s),offset+speed.toOutput(e)) }
++                    if(timed.isNotEmpty()) cues+=SrtCue(timed.first().start,max(timed.first().start+1,timed.last().end),group.joinToString(" "){it.first},timed)
++                }
++                offset+=speed.outputDuration
++            }
++        }
++        require(cues.isNotEmpty()) {"Não encontrei fala reconhecível. Tente áudio mais claro ou importe um SRT."}
++        return SrtTrack(cues.sortedBy { it.startMs })
++    }
++    private suspend fun decode(clip:VideoClip,model:Model,onProgress:(Double)->Unit):List<Triple<String,Long,Long>> {
++        val extractor=MediaExtractor();var decoder:MediaCodec?=null;var recognizer:Recognizer?=null
++        val words=mutableListOf<Triple<String,Long,Long>>()
++        fun collect(json:String){val results=JSONObject(json).optJSONArray("result") ?: return
++            for(i in 0 until results.length()){val w=results.getJSONObject(i);val start=(w.getDouble("start")*1000).toLong().coerceIn(0,clip.trim.duration);val end=(w.getDouble("end")*1000).toLong().coerceIn(0,clip.trim.duration);if(end>start)words+=Triple(w.getString("word"),start,end)} }
++        try {
++            extractor.setDataSource(context,Uri.parse(clip.uri),null)
++            val track=(0 until extractor.trackCount).firstOrNull { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/")==true } ?: return emptyList()
++            extractor.selectTrack(track);val format=extractor.getTrackFormat(track)
++            extractor.seekTo(clip.trim.start*1000,MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
++            val codec=MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!);decoder=codec
++            codec.configure(format,null,null,0);codec.start()
++            var rate=format.getInteger(MediaFormat.KEY_SAMPLE_RATE);var channels=format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
++            var pcm=AudioFormat.ENCODING_PCM_16BIT; var inDone=false;var outDone=false;val info=MediaCodec.BufferInfo()
++            var lastActivity=System.currentTimeMillis()
++            while(!outDone){currentCoroutineContext().ensureActive();check(System.currentTimeMillis()-lastActivity<30000){"O decodificador de áudio parou de responder"}
++                if(!inDone){val i=codec.dequeueInputBuffer(10000);if(i>=0){val b=codec.getInputBuffer(i)!!;val time=extractor.sampleTime
++                    val n=if(time<0 || time>=clip.trim.end*1000)-1 else extractor.readSampleData(b,0)
++                    if(n<0){codec.queueInputBuffer(i,0,0,0,MediaCodec.BUFFER_FLAG_END_OF_STREAM);inDone=true}
++                    else {codec.queueInputBuffer(i,0,n,time,0);extractor.advance()};lastActivity=System.currentTimeMillis()}}
++                val o=codec.dequeueOutputBuffer(info,10000)
++                if(o==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){val f=codec.outputFormat;rate=f.getInteger(MediaFormat.KEY_SAMPLE_RATE);channels=f.getInteger(MediaFormat.KEY_CHANNEL_COUNT);pcm=if(f.containsKey(MediaFormat.KEY_PCM_ENCODING))f.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT}
++                if(o>=0){lastActivity=System.currentTimeMillis();val b=codec.getOutputBuffer(o)!!.order(ByteOrder.LITTLE_ENDIAN);b.position(info.offset);b.limit(info.offset+info.size)
++                    require(pcm==AudioFormat.ENCODING_PCM_16BIT || pcm==AudioFormat.ENCODING_PCM_FLOAT){"Formato PCM não suportado"}
++                    val bytes=if(pcm==AudioFormat.ENCODING_PCM_FLOAT)4 else 2;val count=b.remaining()/(bytes*channels);val mono=ShortArray(count);var kept=0
++                    for(f in 0 until count){var sum=0f;repeat(channels){sum+=if(bytes==4)b.float*32767 else b.short.toFloat()}
++                        val ms=info.presentationTimeUs/1000+f*1000L/rate
++                        if(ms>=clip.trim.start && ms<clip.trim.end)mono[kept++]=(sum/channels).toInt().coerceIn(-32768,32767).toShort()}
++                    if(kept>0){if(recognizer==null)recognizer=Recognizer(model,rate.toFloat()).apply {setWords(true)};if(recognizer!!.acceptWaveForm(mono,kept))collect(recognizer!!.result)}
++                    onProgress(((info.presentationTimeUs/1000-clip.trim.start).toDouble()/clip.trim.duration).coerceIn(0.0,1.0))
++                    outDone=info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM!=0;codec.releaseOutputBuffer(o,false)
++                }
++            }
++            recognizer?.let {collect(it.finalResult)}
++        } finally {recognizer?.close();runCatching {decoder?.stop()};decoder?.release();extractor.release()}
++        val clean=mutableListOf<Triple<String,Long,Long>>()
++        words.sortedBy {it.second}.forEach {w->
++            val last=clean.lastOrNull()
++            val duplicate=last!=null && last.first.equals(w.first,true) && abs(last.second-w.second)<=80 && abs(last.third-w.third)<=80
++            if(!duplicate)clean+=w
++        }
++        return clean
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/ChaosEffect.kt b/app/src/main/java/com/monstro/v18/monstro/ChaosEffect.kt
+new file mode 100644
+index 0000000..50dfc79
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/ChaosEffect.kt
+@@ -0,0 +1,103 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import android.opengl.GLES20
++import androidx.media3.common.VideoFrameProcessingException
++import androidx.media3.common.util.GlProgram
++import androidx.media3.common.util.GlUtil
++import androidx.media3.common.util.Size
++import androidx.media3.common.util.UnstableApi
++import androidx.media3.effect.BaseGlShaderProgram
++import androidx.media3.effect.GlEffect
++import androidx.media3.effect.GlShaderProgram
++
++/** The same shader is used by ExoPlayer and Transformer, entirely offline. */
++@UnstableApi
++class ChaosEffect(private val settings: ChaosSettings) : GlEffect {
++    override fun isNoOp(inputWidth: Int, inputHeight: Int) = settings.isIdentity
++    override fun toGlShaderProgram(context: Context, useHdr: Boolean): GlShaderProgram =
++        ChaosShaderProgram(context, settings, useHdr)
++}
++
++@UnstableApi
++private class ChaosShaderProgram(context: Context, private val settings: ChaosSettings, private val useHdr: Boolean) :
++    BaseGlShaderProgram(useHdr, 1) {
++    private val program: GlProgram
++    private var history = 0
++    private var readFramebuffer = 0
++    private var width = 0
++    private var height = 0
++    private var previousTimeUs = Long.MIN_VALUE
++
++    init {
++        try {
++            program = GlProgram(context, "shaders/chaos.vert", "shaders/chaos.frag")
++            program.setBufferAttribute("aPosition", GlUtil.getNormalizedCoordinateBounds(), 4)
++            program.setFloatUniform("uZoom", settings.zoom)
++            mapOf("uAutoZoom" to ChaosFx.AUTO_ZOOM, "uGlitch" to ChaosFx.GLITCH,
++                "uRgb" to ChaosFx.RGB_SPLIT, "uShake" to ChaosFx.SHAKE,
++                "uStrobe" to ChaosFx.STROBE, "uHue" to ChaosFx.HUE,
++                "uVignette" to ChaosFx.VIGNETTE).forEach { (name, fx) ->
++                program.setFloatUniform(name, if (settings.has(fx)) 1f else 0f)
++            }
++        } catch (e: Exception) { throw VideoFrameProcessingException(e) }
++    }
++
++    override fun configure(inputWidth: Int, inputHeight: Int): Size {
++        try {
++            if (history != 0) GlUtil.deleteTexture(history)
++            width = inputWidth; height = inputHeight
++            history = if (settings.has(ChaosFx.MOTION_BLUR)) GlUtil.createTexture(width, height, useHdr) else GlUtil.createTexture(1, 1, useHdr)
++            previousTimeUs = Long.MIN_VALUE
++            return Size(width, height)
++        } catch (e: GlUtil.GlException) { throw VideoFrameProcessingException(e) }
++    }
++
++    override fun drawFrame(inputTexId: Int, presentationTimeUs: Long) {
++        try {
++            program.use()
++            program.setSamplerTexIdUniform("uInput", inputTexId, 0)
++            program.setSamplerTexIdUniform("uHistory", history, 1)
++            // Bounded seconds retain floating-point precision for long videos.
++            program.setFloatUniform("uTime", ((presentationTimeUs % 600_000_000L) / 1_000_000.0).toFloat())
++            val delta = if (previousTimeUs == Long.MIN_VALUE) 0L else presentationTimeUs - previousTimeUs
++            val blend = if (settings.has(ChaosFx.MOTION_BLUR) && delta in 1..250_000) 0.30f else 0f
++            program.setFloatUniform("uBlurWeight", blend)
++            program.bindAttributesAndUniforms()
++            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
++            GlUtil.checkGlError()
++            // Store the previous SOURCE frame, not the output: no recursive color/flash accumulation.
++            // Copy input via a temporary read framebuffer, then restore the caller's output framebuffer.
++            if (settings.has(ChaosFx.MOTION_BLUR)) {
++                val bound = IntArray(1)
++                GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, bound, 0)
++                if (readFramebuffer == 0) readFramebuffer = GlUtil.createFboForTexture(inputTexId)
++                else {
++                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, readFramebuffer)
++                    GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, inputTexId, 0)
++                }
++                try {
++                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, readFramebuffer)
++                    GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
++                    GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, history)
++                    GLES20.glCopyTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height)
++                    GlUtil.checkGlError()
++                } finally {
++                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, bound[0])
++                }
++            }
++            previousTimeUs = presentationTimeUs
++        } catch (e: GlUtil.GlException) { throw VideoFrameProcessingException(e) }
++    }
++
++    override fun flush() { previousTimeUs = Long.MIN_VALUE; super.flush() }
++    override fun signalEndOfCurrentInputStream() { previousTimeUs = Long.MIN_VALUE; super.signalEndOfCurrentInputStream() }
++    override fun release() {
++        try {
++            program.delete()
++            if (readFramebuffer != 0) { GlUtil.deleteFbo(readFramebuffer); readFramebuffer = 0 }
++            if (history != 0) { GlUtil.deleteTexture(history); history = 0 }
++        } catch (e: GlUtil.GlException) { throw VideoFrameProcessingException(e) }
++        finally { super.release() }
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/ChaosSettings.kt b/app/src/main/java/com/monstro/v18/monstro/ChaosSettings.kt
+new file mode 100644
+index 0000000..a21cf19
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/ChaosSettings.kt
+@@ -0,0 +1,26 @@
++package com.monstro.v18.monstro
++
++/** Stable IDs also used in saved projects. Never depend on enum ordinal. */
++enum class ChaosFx(val id: String, val label: String, val description: String) {
++    MOTION_BLUR("motionblur", "Motion Blur", "Rastro entre quadros"),
++    AUTO_ZOOM("smartzoom", "Auto Retention", "Zoom automático suave"),
++    GLITCH("glitch", "Digital Glitch", "Deslocamento de faixas"),
++    RGB_SPLIT("rgb", "RGB Split", "Separação de cores"),
++    SHAKE("shake", "Impact Shake", "Tremor de câmera"),
++    STROBE("strobe", "Psycho Strobe", "Pulsos de luz · 2 por segundo"),
++    HUE("hue", "Hue Shift", "Rotação das cores"),
++    VIGNETTE("vignette", "Focus Edge", "Bordas escurecidas")
++}
++
++data class ChaosSettings(val enabled: Set<String> = emptySet(), val zoom: Float = 1f) {
++    init { require(zoom.isFinite() && zoom in 1f..3f) }
++    fun has(fx: ChaosFx) = fx.id in enabled
++    fun toggle(fx: ChaosFx) = copy(enabled = if (has(fx)) enabled - fx.id else enabled + fx.id)
++    val isIdentity get() = enabled.isEmpty() && zoom == 1f
++    companion object {
++        fun restore(ids: Collection<String>, zoom: Float): ChaosSettings = ChaosSettings(
++            ids.filter { id -> ChaosFx.values().any { it.id == id } }.toSet(),
++            if (zoom.isFinite()) zoom.coerceIn(1f, 3f) else 1f
++        )
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/ColorPresets.kt b/app/src/main/java/com/monstro/v18/monstro/ColorPresets.kt
+new file mode 100644
+index 0000000..441d5e7
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/ColorPresets.kt
+@@ -0,0 +1,23 @@
++package com.monstro.v18.monstro
++
++import androidx.media3.common.util.UnstableApi
++import androidx.media3.effect.RgbMatrix
++
++/** RGB only. Media3's input sampler performs YUV/range/transfer conversion using ColorInfo.
++ * Do NOT apply a second YUV matrix to an RGB texture, or force BT.601 onto BT.709/HDR.
++ * RgbMatrix is applied in linear BT.709 (SDR) / BT.2020 (HDR) by DefaultShaderProgram.
++ * Diagonal gains preserve channel order and avoid negative contrast offsets crushing colors.
++ */
++@UnstableApi
++class ColorPreset(private val name: String) : RgbMatrix {
++    override fun getMatrix(presentationTimeUs: Long, useHdr: Boolean): FloatArray {
++        val gains = when(name) {
++            "neon" -> floatArrayOf(1.08f,.96f,1.12f)
++            "trap" -> floatArrayOf(1.10f,.93f,1.02f)
++            "dark" -> floatArrayOf(.60f,.65f,.74f)
++            "cinema" -> floatArrayOf(1.02f,1f,.94f)
++            else -> floatArrayOf(1f,1f,1f)
++        }
++        return floatArrayOf(gains[0],0f,0f,0f, 0f,gains[1],0f,0f, 0f,0f,gains[2],0f, 0f,0f,0f,1f)
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/FxCatalog.kt b/app/src/main/java/com/monstro/v18/monstro/FxCatalog.kt
+new file mode 100644
+index 0000000..2279a96
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/FxCatalog.kt
+@@ -0,0 +1,128 @@
++package com.monstro.v18.monstro
++
++data class FxPreset(
++    val id:String,
++    val name:String,
++    val category:String,
++    val engine:Int,
++    val recipe:Int,
++    val envelope:Int
++) {
++    val signature get()=Triple(engine,recipe,envelope)
++}
++
++/**
++ * Curated FX library.
++ * Only useful, readable presets are shown in the editor.
++ * Legacy fx-e-r-t ids still resolve so older projects keep rendering.
++ */
++object FxCatalog {
++    private val engineNames=listOf(
++        "Fragment","Chromatic","Impact","Punch","Orbit","Wave","Water","Vortex",
++        "Mirror","Mosaic","Ink","Poster","Scan","Tracking","Grain","Duotone",
++        "Leak","Prism","Directional","Tunnel"
++    )
++    private val engineCategories=listOf(
++        "Glitch","RGB","Shake","Trap","Motion","Distortion","Distortion","Distortion",
++        "Anime","Retro","Anime","Retro","VHS","VHS","Cinematic","Cinematic",
++        "Light","RGB","Blur","Motion"
++    )
++    private val recipeNames=listOf("Micro","Wide","Split","Dense","Extreme")
++    private val envelopeNames=listOf("Pulse","Rise","Fall","Bounce","Double","Drift","Snap","Breath","Beat","Hold")
++
++    private fun fx(engine:Int,recipe:Int,envelope:Int,name:String,category:String=engineCategories[engine]) =
++        FxPreset("fx-"+engine+"-"+recipe+"-"+envelope,name,category,engine,recipe,envelope)
++
++    val all:List<FxPreset> = listOf(
++        fx(2,0,6,"Shake curto","Shake"),
++        fx(2,0,8,"Shake no beat","Shake"),
++        fx(2,1,0,"Shake suave","Shake"),
++        fx(3,0,8,"Punch no beat","Trap"),
++        fx(3,0,0,"Punch zoom","Trap"),
++
++        fx(1,0,0,"RGB Split suave","RGB"),
++        fx(1,0,6,"RGB Impact","RGB"),
++        fx(17,0,7,"Prisma leve","RGB"),
++
++        fx(0,0,6,"Glitch rápido","Glitch"),
++        fx(0,0,8,"Glitch no beat","Glitch"),
++        fx(0,1,0,"Glitch horizontal","Glitch"),
++
++        fx(4,0,7,"Movimento orbital leve","Motion"),
++        fx(19,0,1,"Zoom túnel suave","Motion"),
++
++        fx(18,0,9,"Blur direcional","Blur"),
++        fx(18,1,7,"Motion blur estilizado","Blur"),
++
++        fx(16,0,1,"Light leak entrada","Light"),
++        fx(16,0,0,"Light leak pulsante","Light"),
++        fx(16,1,7,"Glow de luz","Light"),
++
++        fx(14,0,9,"Grão cinematográfico","Cinematic"),
++        fx(15,0,9,"Duotone cinema","Cinematic"),
++        fx(15,1,7,"Color grade estilizado","Cinematic"),
++
++        fx(12,0,5,"Scanlines VHS","VHS"),
++        fx(13,0,6,"Tracking VHS","VHS"),
++
++        fx(9,0,9,"Pixel leve","Retro"),
++        fx(11,0,9,"Posterize","Retro"),
++        fx(8,0,9,"Espelho","Retro")
++    )
++
++    val categories=all.map {it.category}.distinct()
++    private val index=all.associateBy {it.id}
++
++    fun allWith(custom:List<FxPreset>):List<FxPreset> = (all+custom).distinctBy {it.id}
++
++    fun get(id:String):FxPreset? = index[id] ?: parseLegacy(id)
++    fun get(id:String,custom:List<FxPreset>):FxPreset? = custom.firstOrNull {it.id==id} ?: get(id)
++
++    fun search(query:String,category:String?=null,custom:List<FxPreset> = emptyList()):List<FxPreset> =
++        allWith(custom).filter {
++            (category==null || it.category==category) &&
++                (query.isBlank() || it.name.contains(query,true) || it.category.contains(query,true))
++        }
++
++    fun isCurated(id:String)=id in index
++
++    fun curatedReplacement(id:String):FxPreset? {
++        index[id]?.let {return it}
++        val legacy=parseLegacy(id) ?: return null
++        return all.filter {it.engine==legacy.engine}.minByOrNull {
++            kotlin.math.abs(it.recipe-legacy.recipe)*10+kotlin.math.abs(it.envelope-legacy.envelope)
++        } ?: all.firstOrNull {it.category==legacy.category}
++    }
++
++    fun sanitizeProject(project:StudioProject):StudioProject {
++        val custom=project.customFx.distinctBy {it.id}.take(200)
++        fun resolve(id:String):FxPreset? = custom.firstOrNull {it.id==id} ?: curatedReplacement(id)
++        val remapped=project.fx.mapNotNull {layer->
++            resolve(layer.presetId)?.let {preset->
++                layer.copy(presetId=preset.id,intensity=layer.intensity.coerceIn(.1f,1.35f))
++            }
++        }
++        fun remapIds(ids:Collection<String>)=ids.mapNotNull {resolve(it)?.id}.distinct()
++        return project.copy(
++            fx=remapped,
++            favorites=remapIds(project.favorites).toSet(),
++            recent=remapIds(project.recent).take(20),
++            customFx=custom
++        )
++    }
++
++    private fun parseLegacy(id:String):FxPreset? {
++        val parts=id.removePrefix("fx-").split("-")
++        if(parts.size!=3)return null
++        val e=parts[0].toIntOrNull() ?: return null
++        val r=parts[1].toIntOrNull() ?: return null
++        val t=parts[2].toIntOrNull() ?: return null
++        if(e !in engineNames.indices || r !in recipeNames.indices || t !in envelopeNames.indices)return null
++        return FxPreset(
++            id=id,
++            name=engineNames[e]+" "+recipeNames[r]+" · "+envelopeNames[t],
++            category=engineCategories[e],
++            engine=e,recipe=r,envelope=t
++        )
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/FxPack.kt b/app/src/main/java/com/monstro/v18/monstro/FxPack.kt
+new file mode 100644
+index 0000000..cbb89b4
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/FxPack.kt
+@@ -0,0 +1,93 @@
++package com.monstro.v18.monstro
++
++import org.json.JSONArray
++import org.json.JSONObject
++import org.json.JSONTokener
++import java.security.MessageDigest
++
++/**
++ * Imports Monstro FX packs and performs a safe best-effort conversion of
++ * Premiere .prfpset XML files to equivalent Monstro render recipes.
++ * Downloaded files never execute code inside the app.
++ */
++object FxPackParser {
++    private const val MAX_EFFECTS = 200
++
++    fun parse(source:String):List<FxPreset> {
++        require(source.length <= 1_000_000) { "Pacote de efeitos muito grande (máximo 1 MB)." }
++        val clean=source.trimStart()
++        return if(clean.startsWith("<")) parsePremiereXml(source) else parseMonstroJson(source)
++    }
++
++    private fun parseMonstroJson(source:String):List<FxPreset> {
++        val root=JSONTokener(source).nextValue()
++        val items=when(root){
++            is JSONArray -> root
++            is JSONObject -> root.optJSONArray("effects") ?: JSONArray().put(root)
++            else -> error("Formato de pacote inválido.")
++        }
++        require(items.length() in 1..MAX_EFFECTS) { "O pacote precisa ter entre 1 e $MAX_EFFECTS efeitos." }
++        val result=mutableListOf<FxPreset>()
++        for(i in 0 until items.length()){
++            val o=items.optJSONObject(i) ?: continue
++            val name=o.optString("name").trim().take(80)
++            require(name.isNotBlank()) { "Efeito ${i+1} está sem nome." }
++            val engine=o.optInt("engine",-1)
++            val recipe=o.optInt("recipe",-1)
++            val envelope=o.optInt("envelope",-1)
++            require(engine in 0..19) { "$name: engine precisa estar entre 0 e 19." }
++            require(recipe in 0..4) { "$name: recipe precisa estar entre 0 e 4." }
++            require(envelope in 0..9) { "$name: envelope precisa estar entre 0 e 9." }
++            val category=o.optString("category","Meus efeitos").trim().ifBlank {"Meus efeitos"}.take(40)
++            val rawId=o.optString("id").trim().take(80)
++            val id="custom-"+stableId(if(rawId.isBlank()) "$name|$category|$engine|$recipe|$envelope" else rawId)
++            result+=FxPreset(id,name,category,engine,recipe,envelope)
++        }
++        require(result.isNotEmpty()) { "Nenhum efeito compatível foi encontrado no pacote." }
++        return result.distinctBy {it.id}
++    }
++
++    private data class Family(val words:List<String>,val name:String,val category:String,val engine:Int,val recipe:Int,val envelope:Int)
++
++    private val premiereFamilies=listOf(
++        Family(listOf("gaussian blur","directional blur","blur"),"Blur Premiere","Blur",18,1,7),
++        Family(listOf("shake","camera shake","wiggle"),"Shake Premiere","Shake",2,0,8),
++        Family(listOf("transform","zoom","scale"),"Zoom / Transform Premiere","Motion",19,0,1),
++        Family(listOf("chromatic","rgb split","rgb"),"RGB Split Premiere","RGB",1,0,6),
++        Family(listOf("glitch","digital distortion"),"Glitch Premiere","Glitch",0,0,6),
++        Family(listOf("glow","light leak","light"),"Glow / Light Premiere","Light",16,1,7),
++        Family(listOf("grain","noise"),"Film Grain Premiere","Cinematic",14,0,9),
++        Family(listOf("mirror","reflect"),"Mirror Premiere","Retro",8,0,9),
++        Family(listOf("mosaic","pixelate","pixel"),"Pixel / Mosaic Premiere","Retro",9,0,9),
++        Family(listOf("posterize"),"Posterize Premiere","Retro",11,0,9),
++        Family(listOf("vhs","scanline","scan line"),"VHS Premiere","VHS",12,0,5),
++        Family(listOf("prism"),"Prism Premiere","RGB",17,0,7),
++        Family(listOf("wave","warp","distort","twirl"),"Distortion Premiere","Distortion",5,0,7)
++    )
++
++    private fun parsePremiereXml(source:String):List<FxPreset> {
++        val lower=source.lowercase()
++        require("preset" in lower || "premiere" in lower || "filter" in lower || "effect" in lower) {
++            "Esse XML não parece ser um preset de efeito do Premiere."
++        }
++        val names=Regex("""(?i)(?:name|displayname)\s*=\s*["\']([^"\']{2,80})["\']""")
++            .findAll(source).map {it.groupValues[1].trim()}.filter {it.isNotBlank()}.distinct().take(20).toList()
++        val result=premiereFamilies.filter {family->family.words.any {it in lower}}.mapIndexed {index,family->
++            val label=names.getOrNull(index)?.takeIf {it.length in 2..80 } ?: family.name
++            FxPreset(
++                id="custom-"+stableId("prfpset|$label|${family.engine}|${family.recipe}|${family.envelope}"),
++                name=label,category="Premiere · ${family.category}",
++                engine=family.engine,recipe=family.recipe,envelope=family.envelope
++            )
++        }
++        require(result.isNotEmpty()) {
++            "O .prfpset abriu, mas usa efeitos que o Monstro ainda não consegue converter."
++        }
++        return result.distinctBy {it.id}.take(MAX_EFFECTS)
++    }
++
++    private fun stableId(value:String):String {
++        val digest=MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
++        return digest.take(8).joinToString("") {"%02x".format(it)}
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/GeminiAudioCaptions.kt b/app/src/main/java/com/monstro/v18/monstro/GeminiAudioCaptions.kt
+new file mode 100644
+index 0000000..0ad1e0b
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/GeminiAudioCaptions.kt
+@@ -0,0 +1,240 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import android.media.MediaCodec
++import android.media.MediaExtractor
++import android.media.MediaFormat
++import android.media.MediaMuxer
++import android.net.Uri
++import com.google.firebase.Firebase
++import com.google.firebase.FirebaseApp
++import com.google.firebase.ai.ai
++import com.google.firebase.ai.type.GenerativeBackend
++import com.google.firebase.ai.type.content
++import com.google.firebase.ai.type.generationConfig
++import kotlinx.coroutines.currentCoroutineContext
++import kotlinx.coroutines.ensureActive
++import org.json.JSONArray
++import org.json.JSONObject
++import org.json.JSONTokener
++import java.io.File
++import java.nio.ByteBuffer
++import kotlin.math.max
++
++/**
++ * High-quality cloud captioning through Firebase AI Logic.
++ *
++ * Firebase AI Logic currently exposes general Gemini models, not the dedicated
++ * gemini-3.5-transcribe endpoint. Gemini 3.5 Flash Lite handles the audio here and
++ * the local Vosk engine remains available as an offline fallback.
++ */
++class GeminiAudioCaptions(private val context: Context) {
++    val configured: Boolean
++        get() = FirebaseApp.getApps(context).isNotEmpty()
++
++    suspend fun transcribe(
++        clips: List<VideoClip>,
++        project: StudioProject,
++        progress: (Int) -> Unit
++    ): SrtTrack {
++        require(configured) {
++            "Firebase ainda não está conectado a este APK. Adicione app/google-services.json e ative AI Logic."
++        }
++
++        val model = Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel(
++            modelName = GeminiSupport.GENERAL_MODEL,
++            generationConfig = generationConfig {
++                responseMimeType = "application/json"
++                maxOutputTokens = 8192
++            }
++        )
++
++        val cues = mutableListOf<SrtCue>()
++        var timelineOffset = 0L
++
++        clips.forEachIndexed { index, clip ->
++            currentCoroutineContext().ensureActive()
++            val base = index * 100 / clips.size
++            val slice = max(1, 100 / clips.size)
++            progress((base + slice * 5 / 100).coerceAtMost(99))
++
++            val audioFile = extractAudio(clip)
++            try {
++                require(audioFile.length() in 1 until 19_000_000) {
++                    "O áudio deste clipe é grande demais para o modo Gemini direto. Use um clipe menor ou o modo Offline."
++                }
++
++                progress((base + slice * 15 / 100).coerceAtMost(99))
++                val prompt = content {
++                    inlineData(audioFile.readBytes(), "audio/mp4")
++                    text(
++                        """
++                        Transcreva todo o áudio falado exatamente no idioma original.
++                        Retorne SOMENTE JSON válido neste formato:
++                        {
++                          "words": [
++                            {"text":"palavra","start_ms":0,"end_ms":320}
++                          ]
++                        }
++
++                        Regras:
++                        - Um item por palavra falada, na ordem.
++                        - start_ms e end_ms são relativos ao início deste arquivo de áudio.
++                        - Preserve repetições reais.
++                        - Não invente fala quando houver silêncio ou música.
++                        - Pontuação pode ficar anexada à palavra anterior.
++                        - Use números inteiros em milissegundos.
++                        - O áudio tem aproximadamente ${clip.trim.duration} ms.
++                        """.trimIndent()
++                    )
++                }
++
++                progress((base + slice * 30 / 100).coerceAtMost(99))
++                val response = model.generateContent(prompt).text
++                    ?: error("Gemini não retornou uma transcrição.")
++                progress((base + slice * 80 / 100).coerceAtMost(99))
++
++                val rawWords = parseWords(response, clip.trim.duration)
++                require(rawWords.isNotEmpty()) {
++                    "Gemini não encontrou fala reconhecível neste clipe."
++                }
++
++                val speed = SpeedMap(
++                    clip.trim.duration,
++                    project.motions[clip.id]?.speed ?: emptyList()
++                )
++                rawWords.chunked(6).forEach { group ->
++                    val timed = group.map { word ->
++                        WordTime(
++                            timelineOffset + speed.toOutput(word.start),
++                            timelineOffset + speed.toOutput(word.end)
++                        )
++                    }
++                    val start = timed.first().start
++                    val end = max(start + 1, timed.last().end)
++                    cues += SrtCue(
++                        startMs = start,
++                        endMs = end,
++                        text = group.joinToString(" ") { it.text },
++                        wordTimes = timed
++                    )
++                }
++                timelineOffset += speed.outputDuration
++                progress((base + slice).coerceAtMost(99))
++            } finally {
++                audioFile.delete()
++            }
++        }
++
++        require(cues.isNotEmpty()) {
++            "Não encontrei fala reconhecível. Tente outro áudio ou use o modo Offline."
++        }
++        progress(100)
++        return SrtTrack(cues.sortedBy { it.startMs })
++    }
++
++    private data class AiWord(val text: String, val start: Long, val end: Long)
++
++    private fun parseWords(raw: String, duration: Long): List<AiWord> {
++        val clean = raw.trim()
++            .removePrefix("```json").removePrefix("```")
++            .removeSuffix("```").trim()
++
++        val root = JSONTokener(clean).nextValue()
++        val array = when (root) {
++            is JSONObject -> root.optJSONArray("words") ?: JSONArray()
++            is JSONArray -> root
++            else -> JSONArray()
++        }
++
++        val result = mutableListOf<AiWord>()
++        var previousEnd = 0L
++        for (i in 0 until array.length()) {
++            val item = array.optJSONObject(i) ?: continue
++            val token = item.optString("text").trim()
++            if (token.isBlank()) continue
++
++            var start = item.optLong("start_ms", previousEnd)
++                .coerceIn(0L, duration)
++            var end = item.optLong("end_ms", start + 1)
++                .coerceIn(0L, duration)
++
++            start = max(start, previousEnd.coerceAtMost(duration))
++            if (end <= start) end = (start + 1).coerceAtMost(duration)
++            if (end <= start) continue
++
++            val pieces = token.split(Regex("\\s+")).filter { it.isNotBlank() }
++            if (pieces.size <= 1) {
++                result += AiWord(token, start, end)
++            } else {
++                val span = max(1L, end - start)
++                pieces.forEachIndexed { index, piece ->
++                    val partStart = start + span * index / pieces.size
++                    val partEnd = start + span * (index + 1) / pieces.size
++                    result += AiWord(piece, partStart, max(partStart + 1, partEnd))
++                }
++            }
++            previousEnd = end
++        }
++        return result
++    }
++
++    private suspend fun extractAudio(clip: VideoClip): File {
++        val output = File.createTempFile("monstro-gemini-", ".m4a", context.cacheDir)
++        val extractor = MediaExtractor()
++        var muxer: MediaMuxer? = null
++        var started = false
++
++        try {
++            extractor.setDataSource(context, Uri.parse(clip.uri), null)
++            val sourceTrack = (0 until extractor.trackCount).firstOrNull { index ->
++                extractor.getTrackFormat(index)
++                    .getString(MediaFormat.KEY_MIME)
++                    ?.startsWith("audio/") == true
++            } ?: error("Este clipe não possui uma faixa de áudio.")
++
++            extractor.selectTrack(sourceTrack)
++            val format = extractor.getTrackFormat(sourceTrack)
++            muxer = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
++            val targetTrack = muxer.addTrack(format)
++            muxer.start()
++            started = true
++
++            val startUs = clip.trim.start * 1000L
++            val endUs = clip.trim.end * 1000L
++            extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
++            while (extractor.sampleTime in 0 until startUs) extractor.advance()
++
++            val maxInput = if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
++                format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE).coerceAtLeast(256 * 1024)
++            } else 1024 * 1024
++            val buffer = ByteBuffer.allocate(maxInput)
++            val info = MediaCodec.BufferInfo()
++            var wrote = false
++
++            while (true) {
++                val sampleTime = extractor.sampleTime
++                if (sampleTime < 0 || sampleTime >= endUs) break
++                currentCoroutineContext().ensureActive()
++
++                buffer.clear()
++                val size = extractor.readSampleData(buffer, 0)
++                if (size < 0) break
++
++                info.offset = 0
++                info.size = size
++                info.presentationTimeUs = (sampleTime - startUs).coerceAtLeast(0)
++                info.flags = if ((extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC) != 0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0
++                muxer.writeSampleData(targetTrack, buffer, info)
++                wrote = true
++                extractor.advance()
++            }
++            require(wrote) { "Não foi possível extrair o áudio deste trecho." }
++        } finally {
++            extractor.release()
++            if (started) runCatching { muxer?.stop() }
++            runCatching { muxer?.release() }
++        }
++        return output
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/GeminiAutoEdit.kt b/app/src/main/java/com/monstro/v18/monstro/GeminiAutoEdit.kt
+new file mode 100644
+index 0000000..2ae563e
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/GeminiAutoEdit.kt
+@@ -0,0 +1,262 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import android.graphics.Bitmap
++import android.media.MediaMetadataRetriever
++import android.net.Uri
++import android.os.Build
++import com.google.firebase.Firebase
++import com.google.firebase.FirebaseApp
++import com.google.firebase.ai.ai
++import com.google.firebase.ai.type.GenerativeBackend
++import com.google.firebase.ai.type.content
++import com.google.firebase.ai.type.generationConfig
++import kotlinx.coroutines.currentCoroutineContext
++import kotlinx.coroutines.ensureActive
++import org.json.JSONArray
++import org.json.JSONObject
++import org.json.JSONTokener
++import kotlin.math.max
++
++data class AiClipLook(
++    val clipIndex:Int,
++    val preset:String,
++    val brightness:Float,
++    val contrast:Float,
++    val saturation:Float,
++    val temperature:Float
++)
++data class AiMotionKey(
++    val clipIndex:Int,
++    val timeMs:Long,
++    val zoom:Float,
++    val x:Float,
++    val y:Float,
++    val rotation:Float
++)
++data class AiSpeedKey(val clipIndex:Int,val timeMs:Long,val speed:Float)
++data class AiFxSuggestion(
++    val startMs:Long,val endMs:Long,val category:String,val intensity:Float,val variant:Int
++)
++data class AiMarker(val timeMs:Long,val label:String)
++data class AiEditPlan(
++    val summary:String,
++    val ratio:String,
++    val looks:List<AiClipLook>,
++    val motions:List<AiMotionKey>,
++    val speeds:List<AiSpeedKey>,
++    val effects:List<AiFxSuggestion>,
++    val markers:List<AiMarker>
++)
++
++/**
++ * Gemini-powered creative edit planner.
++ * It samples a small number of frames instead of uploading the whole source video,
++ * then combines visual context with existing captions and beat markers.
++ */
++class GeminiAutoEdit(private val context:Context){
++    val configured get()=FirebaseApp.getApps(context).isNotEmpty()
++    private data class Sample(val timeMs:Long,val clipIndex:Int,val bitmap:Bitmap)
++
++    suspend fun analyze(
++        clips:List<VideoClip>,
++        project:StudioProject,
++        captions:SrtTrack?,
++        requestedStyle:String,
++        progress:(Int)->Unit,
++        currentRatio:String="9:16"
++    ):AiEditPlan{
++        require(configured){"Firebase AI Logic não está conectado."}
++        require(clips.isNotEmpty()){"Importe pelo menos um vídeo."}
++        progress(3)
++        val profile=VideoPerceptionAnalyzer.analyze(clips,project,captions,currentRatio)
++        val samples=sampleFrames(clips,project,profile.frameBudget){progress((3+it*27/100).coerceAtMost(30))}
++        require(samples.isNotEmpty()){"Não consegui extrair quadros para a análise de IA."}
++        try{
++            val model=Firebase.ai(backend=GenerativeBackend.googleAI()).generativeModel(
++                modelName=GeminiSupport.GENERAL_MODEL,
++                generationConfig=generationConfig {
++                    responseMimeType="application/json"
++                    maxOutputTokens=4096
++                }
++            )
++            val total=profile.durationMs
++            val transcript=captions?.cues?.take(80)?.joinToString("\n"){cue->
++                "[${cue.startMs}-${cue.endMs}ms] ${cue.text}"
++            }?.take(9000).orEmpty()
++            val beats=project.markers.filter {it.label.equals("Beat",true)}.take(160).joinToString(","){it.time.toString()}
++            val clipInfo=buildString {
++                var offset=0L
++                clips.forEachIndexed {index,clip->
++                    val map=SpeedMap(clip.trim.duration,project.motions[clip.id]?.speed ?: emptyList())
++                    append("clip=$index nome=${clip.name} timeline=${offset}..${offset+map.outputDuration}ms duracao=${map.outputDuration}ms\n")
++                    offset+=map.outputDuration
++                }
++            }
++
++            progress(35)
++            val prompt=content {
++                samples.forEach {sample->
++                    text("FRAME clip=${sample.clipIndex} timeline_ms=${sample.timeMs}")
++                    image(sample.bitmap)
++                }
++                text(
++                    """
++                    Você é o editor automático do app Monstro V18. Analise os frames, o contexto temporal,
++                    a fala e os beats. Crie uma edição coerente com o conteúdo; não jogue efeitos aleatórios.
++
++                    Estilo pedido pelo usuário: $requestedStyle
++                    Percepção automática local: ${profile.label}
++                    Vídeo curto: ${profile.shortForm}
++                    Duração total: $total ms
++                    Clipes:
++                    $clipInfo
++
++                    Transcrição existente:
++                    ${if(transcript.isBlank())"(sem transcrição)" else transcript}
++
++                    Beats detectados (timeline ms):
++                    ${if(beats.isBlank())"(sem beats)" else beats}
++
++                    Recursos reais disponíveis no app:
++                    - presets de cor: raw, neon, trap, dark, cinema
++                    - FX curados por categoria: Glitch, RGB, Shake, Trap, Motion, Retro, VHS, Cinematic, Light, Blur
++                    - keyframes de zoom, posição X/Y e rotação
++                    - speed curve de 0.25x até 4x
++                    - proporções: 9:16, 16:9, 1:1, 4:5
++
++                    Retorne SOMENTE JSON válido:
++                    {
++                      "summary":"resumo curto do conceito",
++                      "ratio":"9:16",
++                      "looks":[
++                        {"clip_index":0,"preset":"cinema","brightness":0.0,"contrast":0.1,"saturation":8.0,"temperature":0.05}
++                      ],
++                      "motions":[
++                        {"clip_index":0,"time_ms":0,"zoom":1.0,"x":0.0,"y":0.0,"rotation":0.0}
++                      ],
++                      "speeds":[
++                        {"clip_index":0,"time_ms":0,"speed":1.0}
++                      ],
++                      "effects":[
++                        {"start_ms":500,"end_ms":900,"category":"Shake","intensity":0.8,"variant":4}
++                      ],
++                      "markers":[
++                        {"time_ms":1000,"label":"Impacto"}
++                      ]
++                    }
++
++                    Regras:
++                    - Use poucos efeitos e somente quando fizerem sentido com cena, fala, movimento ou beat.
++                    - intensity entre 0.15 e 1.35.
++                    - variant entre 0 e 49.
++                    - motion x/y entre -0.35 e 0.35; zoom entre 0.75 e 2.2; rotation entre -20 e 20 graus.
++                    - speed entre 0.25 e 4.0.
++                    - time_ms de motions/speeds é relativo ao clipe indicado.
++                    - start_ms/end_ms de effects e time_ms de markers são relativos à timeline completa.
++                    - Preserve legibilidade de legendas; evite excesso de shake/glitch quando houver fala.
++                    - Se o conteúdo for conversa/vlog, prefira cortes visuais limpos, zoom discreto e cor natural.
++                    - Se for música/trap, sincronize impactos com beats e use FX de forma rítmica.
++                    - Se for gameplay/ação, destaque picos de movimento.
++                    - Máximo: 3 motions por clipe, 4 speed keys por clipe, ${profile.effectBudget} efeitos e 16 marcadores.
++                    - Em vídeo de fala/conversa, prefira zero efeitos ou no máximo efeitos muito discretos.
++                    - Em vídeo curto, preserve ritmo e clareza; não empilhe efeitos só para preencher a edição.
++                    """.trimIndent()
++                )
++            }
++            progress(50)
++            val raw=model.generateContent(prompt).text ?: error("Gemini não retornou um plano de edição.")
++            progress(88)
++            return parse(raw,clips,total,profile.effectBudget,profile.recommendedRatio).also {progress(100)}
++        } finally {
++            samples.forEach {if(!it.bitmap.isRecycled)it.bitmap.recycle()}
++        }
++    }
++
++    private suspend fun sampleFrames(
++        clips:List<VideoClip>,
++        project:StudioProject,
++        maxFrames:Int,
++        progress:(Int)->Unit
++    ):List<Sample>{
++        val result=mutableListOf<Sample>()
++        val perClip=max(1,maxFrames/clips.size.coerceAtMost(maxFrames))
++        var timelineOffset=0L
++        clips.forEachIndexed {index,clip->
++            currentCoroutineContext().ensureActive()
++            val map=SpeedMap(clip.trim.duration,project.motions[clip.id]?.speed ?: emptyList())
++            val count=minOf(perClip,maxFrames-result.size)
++            if(count<=0)return@forEachIndexed
++            val retriever=MediaMetadataRetriever()
++            try{
++                retriever.setDataSource(context,Uri.parse(clip.uri))
++                repeat(count){n->
++                    currentCoroutineContext().ensureActive()
++                    val fraction=(n+1f)/(count+1f)
++                    val local=(clip.trim.duration*fraction).toLong().coerceIn(0,(clip.trim.duration-1).coerceAtLeast(0))
++                    val source=clip.trim.start+local
++                    val raw=if(Build.VERSION.SDK_INT>=27)
++                        retriever.getScaledFrameAtTime(source*1000,MediaMetadataRetriever.OPTION_CLOSEST,384,216)
++                    else retriever.getFrameAtTime(source*1000,MediaMetadataRetriever.OPTION_CLOSEST)
++                    raw?.let {frame->
++                        val bitmap=if(frame.width>512 || frame.height>512){
++                            val scale=minOf(512f/frame.width,512f/frame.height)
++                            Bitmap.createScaledBitmap(frame,(frame.width*scale).toInt().coerceAtLeast(1),(frame.height*scale).toInt().coerceAtLeast(1),true)
++                                .also {if(it!==frame)frame.recycle()}
++                        }else frame
++                        result+=Sample(timelineOffset+map.toOutput(local),index,bitmap)
++                    }
++                    progress(((index*count+n+1)*100/(clips.size*count).coerceAtLeast(1)).coerceIn(0,100))
++                    if(result.size>=maxFrames)return@repeat
++                }
++            } finally {retriever.release()}
++            timelineOffset+=map.outputDuration
++            if(result.size>=maxFrames)return@forEachIndexed
++        }
++        return result
++    }
++
++    private fun parse(raw:String,clips:List<VideoClip>,total:Long,effectBudget:Int,fallbackRatio:String):AiEditPlan{
++        val clean=raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
++        val root=JSONTokener(clean).nextValue() as? JSONObject ?: error("Plano de edição inválido.")
++        fun JSONArray?.objects()=if(this==null)emptyList() else (0 until length()).mapNotNull {optJSONObject(it)}
++        val looks=root.optJSONArray("looks").objects().mapNotNull {o->
++            val i=o.optInt("clip_index",-1);if(i !in clips.indices)null else AiClipLook(
++                i,o.optString("preset","raw").takeIf {it in setOf("raw","neon","trap","dark","cinema")} ?: "raw",
++                o.optDouble("brightness",0.0).toFloat().coerceIn(-.5f,.5f),
++                o.optDouble("contrast",0.0).toFloat().coerceIn(-.6f,.6f),
++                o.optDouble("saturation",0.0).toFloat().coerceIn(-60f,60f),
++                o.optDouble("temperature",0.0).toFloat().coerceIn(-.6f,.6f)
++            )
++        }
++        val motions=root.optJSONArray("motions").objects().mapNotNull {o->
++            val i=o.optInt("clip_index",-1);if(i !in clips.indices)null else AiMotionKey(
++                i,o.optLong("time_ms",0).coerceIn(0,clips[i].trim.duration),
++                o.optDouble("zoom",1.0).toFloat().coerceIn(.75f,2.2f),
++                o.optDouble("x",0.0).toFloat().coerceIn(-.35f,.35f),
++                o.optDouble("y",0.0).toFloat().coerceIn(-.35f,.35f),
++                o.optDouble("rotation",0.0).toFloat().coerceIn(-20f,20f)
++            )
++        }.groupBy {it.clipIndex}.flatMap {(_,v)->v.sortedBy {it.timeMs}.take(3)}
++        val speeds=root.optJSONArray("speeds").objects().mapNotNull {o->
++            val i=o.optInt("clip_index",-1);if(i !in clips.indices)null else AiSpeedKey(
++                i,o.optLong("time_ms",0).coerceIn(0,clips[i].trim.duration),
++                o.optDouble("speed",1.0).toFloat().coerceIn(.25f,4f)
++            )
++        }.groupBy {it.clipIndex}.flatMap {(_,v)->v.sortedBy {it.timeMs}.take(4)}
++        val validCategories=setOf("Glitch","RGB","Shake","Trap","Motion","Retro","VHS","Cinematic","Light","Blur")
++        val effects=root.optJSONArray("effects").objects().mapNotNull {o->
++            val start=o.optLong("start_ms",0).coerceIn(0,total)
++            val end=o.optLong("end_ms",start+300).coerceIn(start,total)
++            val category=o.optString("category","Cinematic")
++            if(end<=start || category !in validCategories)null else AiFxSuggestion(
++                start,end,category,o.optDouble("intensity",.7).toFloat().coerceIn(.15f,1.35f),o.optInt("variant",0).coerceIn(0,49)
++            )
++        }.take(effectBudget)
++        val markers=root.optJSONArray("markers").objects().map {o->
++            AiMarker(o.optLong("time_ms",0).coerceIn(0,total),o.optString("label","IA").take(28))
++        }.take(16)
++        val ratio=root.optString("ratio",fallbackRatio).takeIf {it in setOf("9:16","16:9","1:1","4:5")} ?: fallbackRatio
++        return AiEditPlan(root.optString("summary","Edição automática pronta."),ratio,looks,motions,speeds,effects,markers)
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/GeminiCaptionTranslation.kt b/app/src/main/java/com/monstro/v18/monstro/GeminiCaptionTranslation.kt
+new file mode 100644
+index 0000000..7f4f7b6
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/GeminiCaptionTranslation.kt
+@@ -0,0 +1,95 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import com.google.firebase.Firebase
++import com.google.firebase.FirebaseApp
++import com.google.firebase.ai.ai
++import com.google.firebase.ai.type.GenerativeBackend
++import com.google.firebase.ai.type.content
++import com.google.firebase.ai.type.generationConfig
++import kotlinx.coroutines.currentCoroutineContext
++import kotlinx.coroutines.ensureActive
++import org.json.JSONArray
++import org.json.JSONObject
++import org.json.JSONTokener
++
++class GeminiCaptionTranslation(private val context:Context) {
++    val configured:Boolean get()=FirebaseApp.getApps(context).isNotEmpty()
++
++    suspend fun translate(track:SrtTrack,targetLanguage:String,progress:(Int)->Unit):SrtTrack {
++        require(configured){"Firebase AI Logic não está configurado neste APK."}
++        require(track.cues.isNotEmpty()){"Não há legendas para traduzir."}
++        val model=Firebase.ai(backend=GenerativeBackend.googleAI()).generativeModel(
++            modelName=GeminiSupport.GENERAL_MODEL,
++            generationConfig=generationConfig {
++                responseMimeType="application/json"
++                maxOutputTokens=8192
++            }
++        )
++        val result=track.cues.toMutableList()
++        val batches=track.cues.withIndex().chunked(40)
++        batches.forEachIndexed {batchIndex,batch->
++            currentCoroutineContext().ensureActive()
++            val input=JSONArray().also {array->
++                batch.forEach {entry->array.put(JSONObject().put("index",entry.index).put("text",entry.value.text))}
++            }
++            val prompt=content {
++                text(
++                    """
++                    Traduza as legendas abaixo para $targetLanguage.
++                    Preserve o sentido, tom, gírias, nomes próprios e palavrões quando existirem.
++                    Não resuma, não explique e não acrescente informações.
++                    Retorne SOMENTE JSON válido no formato:
++                    {"translations":[{"index":0,"text":"texto traduzido"}]}
++                    Mantenha exatamente os mesmos índices recebidos.
++
++                    Entrada:
++                    $input
++                    """.trimIndent()
++                )
++            }
++            val raw=model.generateContent(prompt).text ?: error("Gemini não retornou a tradução.")
++            val translated=parse(raw)
++            batch.forEach {entry->
++                val text=translated[entry.index]?.trim().orEmpty()
++                if(text.isNotBlank()){
++                    val cue=entry.value
++                    result[entry.index]=cue.copy(text=text,wordTimes=translatedWordTimes(cue,text))
++                }
++            }
++            progress(((batchIndex+1)*100/batches.size).coerceIn(1,100))
++        }
++        return SrtTrack(result)
++    }
++
++    private fun parse(raw:String):Map<Int,String> {
++        val clean=raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
++        val root=JSONTokener(clean).nextValue()
++        val array=when(root){
++            is JSONObject -> root.optJSONArray("translations") ?: JSONArray()
++            is JSONArray -> root
++            else -> JSONArray()
++        }
++        val map=mutableMapOf<Int,String>()
++        for(i in 0 until array.length()){
++            val item=array.optJSONObject(i) ?: continue
++            val index=item.optInt("index",-1)
++            val text=item.optString("text").trim()
++            if(index>=0 && text.isNotBlank())map[index]=text
++        }
++        require(map.isNotEmpty()){"Gemini respondeu sem traduções válidas."}
++        return map
++    }
++
++    private fun translatedWordTimes(cue:SrtCue,text:String):List<WordTime> {
++        val count=text.split(Regex("\\s+")).count {it.isNotBlank()}
++        if(count<=0)return emptyList()
++        if(cue.wordTimes.size==count)return cue.wordTimes
++        val duration=(cue.endMs-cue.startMs).coerceAtLeast(1)
++        return (0 until count).map {i->
++            val start=cue.startMs+duration*i/count
++            val end=cue.startMs+duration*(i+1)/count
++            WordTime(start,maxOf(start+1,end))
++        }
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/GeminiSupport.kt b/app/src/main/java/com/monstro/v18/monstro/GeminiSupport.kt
+new file mode 100644
+index 0000000..869c2fe
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/GeminiSupport.kt
+@@ -0,0 +1,22 @@
++package com.monstro.v18.monstro
++
++object GeminiSupport {
++    const val GENERAL_MODEL = "gemini-3.5-flash-lite"
++    const val TTS_MODEL = "gemini-3.1-flash-tts-preview"
++
++    fun userMessage(error:Throwable):String {
++        val detail=generateSequence(error as Throwable?){it?.cause}
++            .take(8).mapNotNull {it?.message}.joinToString(" ").lowercase()
++        return when {
++            "429" in detail || "quota" in detail || "resource_exhausted" in detail || "resource exhausted" in detail ->
++                "A cota do Gemini deste projeto acabou ou está temporariamente ocupada."
++            "app check" in detail || "permission_denied" in detail || "403" in detail ->
++                "O Firebase bloqueou a IA pelo App Check. Verifique o registro do app e o Play Integrity no Firebase."
++            "api key" in detail || "400" in detail ->
++                "A configuração do Firebase deste APK não corresponde ao projeto atual."
++            "network" in detail || "timeout" in detail || "unavailable" in detail || "socket" in detail ->
++                "A IA online está sem conexão ou temporariamente indisponível."
++            else -> "O Gemini não respondeu agora."
++        }
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/GeminiTts.kt b/app/src/main/java/com/monstro/v18/monstro/GeminiTts.kt
+new file mode 100644
+index 0000000..ec8716c
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/GeminiTts.kt
+@@ -0,0 +1,78 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import com.google.firebase.Firebase
++import com.google.firebase.FirebaseApp
++import com.google.firebase.ai.ai
++import com.google.firebase.ai.type.GenerativeBackend
++import com.google.firebase.ai.type.InlineDataPart
++import com.google.firebase.ai.type.PublicPreviewAPI
++import com.google.firebase.ai.type.ResponseModality
++import com.google.firebase.ai.type.SpeechConfig
++import com.google.firebase.ai.type.Voice
++import com.google.firebase.ai.type.generationConfig
++import java.io.File
++import java.io.FileOutputStream
++import java.nio.ByteBuffer
++import java.nio.ByteOrder
++
++data class GeneratedNarration(val file:File,val durationMs:Long)
++
++@OptIn(PublicPreviewAPI::class)
++class GeminiTts(private val context:Context){
++    val configured get()=FirebaseApp.getApps(context).isNotEmpty()
++
++    suspend fun generate(text:String,voice:String,style:String):GeneratedNarration{
++        require(configured){"Firebase AI Logic não está conectado."}
++        val clean=text.trim()
++        require(clean.isNotEmpty()){"Digite um texto para narrar."}
++        require(clean.length<=5000){"A narração aceita até 5.000 caracteres por vez."}
++
++        val config=generationConfig {
++            responseModalities=listOf(ResponseModality.AUDIO)
++            speechConfig=SpeechConfig(voice=Voice(voice),languageCode="pt-BR")
++        }
++        val model=Firebase.ai(backend=GenerativeBackend.googleAI()).generativeModel(
++            modelName=GeminiSupport.TTS_MODEL,
++            generationConfig=config
++        )
++        val instruction=when(style){
++            "Animado"->"Fale em português do Brasil, com energia, ritmo de vídeo curto e entonação expressiva."
++            "Calmo"->"Fale em português do Brasil, com voz calma, natural, pausas leves e ritmo confortável."
++            "Narrador"->"Fale em português do Brasil como um narrador profissional, claro, firme e cinematográfico."
++            else->"Fale em português do Brasil de forma natural, clara e humana."
++        }
++        val response=model.generateContent("$instruction\n\nLeia exatamente este texto, sem acrescentar conteúdo:\n$clean")
++        val part=response.candidates.asSequence().flatMap {it.content.parts.asSequence()}.filterIsInstance<InlineDataPart>().firstOrNull()
++            ?: error("Gemini não retornou áudio.")
++        val pcm=part.inlineData
++        require(pcm.isNotEmpty()){"Gemini retornou áudio vazio."}
++
++        val dir=File(context.filesDir,"tts").apply {mkdirs()}
++        val file=File(dir,"narracao-${System.currentTimeMillis()}.wav")
++        writeWav(file,pcm,24000,1,16)
++        val duration=(pcm.size.toLong()*1000L/(24000L*2L)).coerceAtLeast(1)
++        return GeneratedNarration(file,duration)
++    }
++
++    private fun writeWav(file:File,pcm:ByteArray,sampleRate:Int,channels:Int,bits:Int){
++        val byteRate=sampleRate*channels*bits/8
++        val blockAlign=channels*bits/8
++        val header=ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN).apply {
++            put("RIFF".toByteArray(Charsets.US_ASCII))
++            putInt(36+pcm.size)
++            put("WAVE".toByteArray(Charsets.US_ASCII))
++            put("fmt ".toByteArray(Charsets.US_ASCII))
++            putInt(16)
++            putShort(1)
++            putShort(channels.toShort())
++            putInt(sampleRate)
++            putInt(byteRate)
++            putShort(blockAlign.toShort())
++            putShort(bits.toShort())
++            put("data".toByteArray(Charsets.US_ASCII))
++            putInt(pcm.size)
++        }
++        FileOutputStream(file).use {out->out.write(header.array());out.write(pcm)}
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/LegacyClip.kt b/app/src/main/java/com/monstro/v18/monstro/LegacyClip.kt
+new file mode 100644
+index 0000000..d4fa7af
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/LegacyClip.kt
+@@ -0,0 +1,25 @@
++package com.monstro.v18.monstro
++
++import java.util.UUID
++
++data class TrimRange(val start: Long, val end: Long) {
++    init { require(start >= 0 && end > start) }
++    val duration: Long get() = end - start
++    fun split(offset: Long): Pair<TrimRange, TrimRange>? {
++        if (offset <= 0 || offset >= duration) return null
++        return TrimRange(start, start + offset) to TrimRange(start + offset, end)
++    }
++}
++
++data class VideoClip(
++    val id: String = UUID.randomUUID().toString(),
++    val uri: String,
++    val name: String,
++    val duration: Long,
++    val trim: TrimRange = TrimRange(0, duration),
++    val preset: String = "raw",
++    val chaos: ChaosSettings = ChaosSettings(),
++    val volume: Float = 1f,
++    val mirror: Boolean = false
++)
++
+diff --git a/app/src/main/java/com/monstro/v18/monstro/MonstroAiBridge.kt b/app/src/main/java/com/monstro/v18/monstro/MonstroAiBridge.kt
+new file mode 100644
+index 0000000..36e77fa
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/MonstroAiBridge.kt
+@@ -0,0 +1,41 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import com.monstro.v18.model.*
++import com.monstro.v18.model.Effect as NewEffect
++import com.monstro.v18.model.TimelineMarker as NewMarker
++
++object MonstroAiBridge {
++    fun oldClips(clips:List<Clip>)=clips.map {c->VideoClip(id=c.id,uri=c.sourceUri.toString(),name=c.name ?: "Vídeo",duration=c.sourceDurationMs,
++        trim=TrimRange(c.trimStartMs,c.trimEndMs),volume=c.volume,mirror=c.flipHorizontal)}
++    fun oldStudio(clips:List<Clip>)=StudioProject(motions=clips.associate {c->c.id to ClipMotion(speed=
++        c.speedCurve?.points?.map{KeyPoint((it.position*(c.trimEndMs-c.trimStartMs)).toLong(),it.speed)} ?: listOf(KeyPoint(0,c.speed),KeyPoint(c.trimEndMs-c.trimStartMs,c.speed)))})
++    fun oldCaptions(clips:List<Clip>)=SrtTrack(clips.flatMap{c->c.captions.map{q->SrtCue(q.startTimeMs+c.timelineStartMs,q.endTimeMs+c.timelineStartMs,q.text,
++        q.words.map{WordTime(it.startTimeMs+c.timelineStartMs,it.endTimeMs+c.timelineStartMs)})}}.sortedBy{it.startMs})
++    fun newCaptions(track:SrtTrack,clip:Clip)=track.cues.mapNotNull {q->
++        val start=maxOf(q.startMs,clip.timelineStartMs);val end=minOf(q.endMs,clip.timelineEndMs)
++        if(end<=start)null else Caption(text=q.text,startTimeMs=start-clip.timelineStartMs,endTimeMs=end-clip.timelineStartMs,
++            words=q.words.mapIndexedNotNull{i,w->q.wordTimes.getOrNull(i)?.let{CaptionWord(w,(it.start-clip.timelineStartMs).coerceAtLeast(0),(it.end-clip.timelineStartMs).coerceAtLeast(0))}},
++            style=CaptionStyle(type=CaptionStyleType.KARAOKE,highlightColor=0xFFB46AFF))
++    }
++    fun applyPlan(clips:List<Clip>,plan:AiEditPlan):List<Clip> = clips.mapIndexed {index,c->
++        val extra=mutableListOf<NewEffect>()
++        plan.looks.firstOrNull{it.clipIndex==index}?.let {a->
++            val presets=listOf("neon","trap","dark","cinema")
++            presets.indexOf(a.preset).takeIf{it>=0}?.let{extra+=NewEffect(type=EffectType.MONSTRO_COLOR,params=mapOf("preset" to it.toFloat()))}
++            extra+=NewEffect(type=EffectType.BRIGHTNESS,params=mapOf("value" to a.brightness))
++            extra+=NewEffect(type=EffectType.CONTRAST,params=mapOf("value" to a.contrast+1f))
++            extra+=NewEffect(type=EffectType.SATURATION,params=mapOf("value" to a.saturation/100f+1f))
++            extra+=NewEffect(type=EffectType.TEMPERATURE,params=mapOf("value" to a.temperature/20f))
++        }
++        val motions=plan.motions.filter{it.clipIndex==index}.flatMap{a->listOf(
++            Keyframe(a.timeMs,KeyframeProperty.SCALE_X,a.zoom),Keyframe(a.timeMs,KeyframeProperty.SCALE_Y,a.zoom),Keyframe(a.timeMs,KeyframeProperty.POSITION_X,a.x),Keyframe(a.timeMs,KeyframeProperty.POSITION_Y,a.y),Keyframe(a.timeMs,KeyframeProperty.ROTATION,a.rotation))}
++        plan.effects.filter{it.startMs<c.timelineEndMs && it.endMs>c.timelineStartMs}.forEach {a->
++            val candidates=FxCatalog.all.filter{it.category.equals(a.category,true)}.ifEmpty{FxCatalog.all}
++            val p=candidates[Math.floorMod(a.variant,candidates.size)]
++            extra+=MonstroEffectBridge.preset(p).let{it.copy(params=it.params+mapOf("start" to (a.startMs-c.timelineStartMs).coerceAtLeast(0).toFloat(),"end" to (a.endMs-c.timelineStartMs).coerceAtMost(c.durationMs).toFloat(),"intensity" to a.intensity))}
++        }
++        val speeds=plan.speeds.filter{it.clipIndex==index}.map{SpeedPoint((it.timeMs.toFloat()/(c.trimEndMs-c.trimStartMs)).coerceIn(0f,1f),it.speed.coerceIn(.25f,4f))}
++        c.copy(effects=c.effects.filterNot{e->extra.any{it.type==e.type && it.type!=EffectType.MONSTRO_STUDIO}}+extra,keyframes=c.keyframes+motions,speedCurve=if(speeds.size>=2)SpeedCurve(speeds) else c.speedCurve)
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/MonstroEffectBridge.kt b/app/src/main/java/com/monstro/v18/monstro/MonstroEffectBridge.kt
+new file mode 100644
+index 0000000..264c000
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/MonstroEffectBridge.kt
+@@ -0,0 +1,34 @@
++package com.monstro.v18.monstro
++
++import androidx.media3.common.Effect as VideoEffect
++import androidx.media3.common.util.UnstableApi
++import com.monstro.v18.model.Effect
++import com.monstro.v18.model.EffectType
++
++@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
++object MonstroEffectBridge {
++    fun build(effect:Effect):VideoEffect {
++        fun value(key:String,default:Float,min:Float,max:Float)=
++            effect.params[key]?.takeIf{it.isFinite()}?.coerceIn(min,max) ?: default
++        return when(effect.type) {
++            EffectType.MONSTRO_STUDIO -> {
++                val engine=value("engine",2f,0f,19f).toInt()
++                val recipe=value("recipe",0f,0f,4f).toInt()
++                val envelope=value("envelope",6f,0f,9f).toInt()
++                StudioEffect(FxLayer(presetId="fx-$engine-$recipe-$envelope",
++                    start=value("start",0f,0f,Float.MAX_VALUE).toLong(),
++                    end=value("end",Float.MAX_VALUE,0f,Float.MAX_VALUE).toLong(),
++                    intensity=value("intensity",1f,0f,2f),speed=value("speed",1f,.1f,4f),direction=value("direction",0f,-180f,180f)),
++                    emptyList(),FrameClock())
++            }
++            EffectType.MONSTRO_CHAOS -> {
++                val enabled=ChaosFx.entries.filter {value(it.id,0f,0f,1f)>=.5f}.map{it.id}.toSet()
++                ChaosEffect(ChaosSettings(enabled,value("zoom",1f,1f,3f)))
++            }
++            EffectType.MONSTRO_COLOR -> ColorPreset(listOf("neon","trap","dark","cinema")[value("preset",0f,0f,3f).toInt()])
++            else -> error("Not a Monstro effect")
++        }
++    }
++    fun preset(p:FxPreset)=Effect(type=EffectType.MONSTRO_STUDIO,params=mapOf(
++        "engine" to p.engine.toFloat(),"recipe" to p.recipe.toFloat(),"envelope" to p.envelope.toFloat(),"intensity" to 1f,"speed" to 1f,"direction" to 0f))
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/MonstroProjectConverter.kt b/app/src/main/java/com/monstro/v18/monstro/MonstroProjectConverter.kt
+new file mode 100644
+index 0000000..9e2800a
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/MonstroProjectConverter.kt
+@@ -0,0 +1,80 @@
++package com.monstro.v18.monstro
++
++import android.net.Uri
++import com.monstro.v18.engine.AutoSaveState
++import com.monstro.v18.engine.ProjectDocument
++import com.monstro.v18.model.*
++import com.monstro.v18.model.TimelineMarker as NewMarker
++import org.json.JSONArray
++import org.json.JSONObject
++import java.util.UUID
++
++/** Loss-aware conversion; the originals are never changed or deleted. */
++@androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
++object MonstroProjectConverter {
++    fun convert(document:JSONObject):ProjectDocument {
++        require(document.optInt("version",1)==1)
++        val settings=document.getJSONObject("settings")
++        val studio=StudioCodec.decode(settings.optString("studio","{}"))
++        val id=UUID.nameUUIDFromBytes(("monstro:"+document.getString("id")).toByteArray()).toString()
++        val all=JSONArray(settings.optString("clips","[]"))
++        require(all.length()<=500)
++        var cursor=0L
++        val clips=(0 until all.length()).map {index->
++            val c=all.getJSONObject(index);val oldId=c.getString("id")
++            val duration=c.getLong("duration");val start=c.getLong("start");val end=c.getLong("end")
++            require(duration in 1..86_400_000L && start>=0 && end>start && end<=duration)
++            val motion=studio.motions[oldId]
++            val speedCurve=motion?.speed?.takeIf{it.size>=2}?.let {keys->SpeedCurve(points=keys.map{SpeedPoint(position=(it.time.toFloat()/(end-start)).coerceIn(0f,1f),speed=it.value.coerceIn(.25f,4f))})}
++            val params=buildMap<String,Float> {
++                c.optJSONArray("fx")?.let {a->for(j in 0 until a.length())put(a.getString(j),1f)}
++                put("zoom",c.optDouble("zoom",1.0).toFloat().coerceIn(1f,3f))
++            }
++            val effects=mutableListOf<com.monstro.v18.model.Effect>()
++            if(params.size>1 || params.getValue("zoom")>1f)effects+=com.monstro.v18.model.Effect(type=EffectType.MONSTRO_CHAOS,params=params)
++            val colors=listOf("neon","trap","dark","cinema")
++            colors.indexOf(c.optString("preset")).takeIf{it>=0}?.let {effects+=com.monstro.v18.model.Effect(type=EffectType.MONSTRO_COLOR,params=mapOf("preset" to it.toFloat()))}
++            studio.adjustments[oldId]?.let {a->
++                effects+=com.monstro.v18.model.Effect(type=EffectType.BRIGHTNESS,params=mapOf("value" to a.brightness))
++                effects+=com.monstro.v18.model.Effect(type=EffectType.CONTRAST,params=mapOf("value" to a.contrast+1f))
++                effects+=com.monstro.v18.model.Effect(type=EffectType.SATURATION,params=mapOf("value" to a.saturation/100f+1f))
++                effects+=com.monstro.v18.model.Effect(type=EffectType.TEMPERATURE,params=mapOf("value" to a.temperature/20f))
++            }
++            val base=Clip(id=oldId,sourceUri=Uri.parse(c.getString("uri")),sourceDurationMs=duration,
++                timelineStartMs=cursor,trimStartMs=start,trimEndMs=end,name=c.optString("name"),
++                volume=c.optDouble("volume",1.0).toFloat().coerceIn(0f,2f),flipHorizontal=c.optBoolean("mirror"),
++                speedCurve=speedCurve,effects=effects)
++            studio.fx.filter{it.start<cursor+base.durationMs && it.end>cursor}.forEach {f->
++                val p=FxCatalog.get(f.presetId,studio.customFx) ?: return@forEach
++                effects+=MonstroEffectBridge.preset(p).copy(params=MonstroEffectBridge.preset(p).params+mapOf(
++                    "start" to (f.start-cursor).coerceAtLeast(0).toFloat(),"end" to (f.end-cursor).coerceAtMost(base.durationMs).toFloat(),"intensity" to f.intensity,"speed" to f.speed,"direction" to f.direction))
++            }
++            val keys=buildList {motion?.let {m->
++                fun add(values:List<KeyPoint>,property:KeyframeProperty){values.forEach{add(Keyframe(it.time,property,it.value,interpolation=KeyframeInterpolation.LINEAR))}}
++                add(m.zoom,KeyframeProperty.SCALE_X);add(m.zoom,KeyframeProperty.SCALE_Y);add(m.rotation,KeyframeProperty.ROTATION);add(m.x,KeyframeProperty.POSITION_X);add(m.y,KeyframeProperty.POSITION_Y)
++            }}
++            val captions=document.optJSONArray("captions") ?: JSONArray()
++            val localCaptions=(0 until captions.length()).mapNotNull {i->
++                val q=captions.getJSONObject(i);val qs=q.getLong("start");val qe=q.getLong("end")
++                if(qs>=cursor+base.durationMs || qe<=cursor)null else {
++                    val text=q.getString("text");val words=text.split(Regex("\\s+"));val times=q.optJSONArray("words")
++                    Caption(text=text,startTimeMs=(qs-cursor).coerceAtLeast(0),endTimeMs=(qe-cursor).coerceAtMost(base.durationMs),
++                        words=if(times==null)emptyList()else(0 until minOf(words.size,times.length())).map{j->val w=times.getJSONArray(j);CaptionWord(words[j],(w.getLong(0)-cursor).coerceAtLeast(0),(w.getLong(1)-cursor).coerceAtLeast(0))},
++                        style=CaptionStyle(type=CaptionStyleType.KARAOKE,highlightColor=0xFFB46AFF))
++                }
++            }
++            base.copy(effects=effects.toList(),keyframes=keys,captions=localCaptions).also {cursor+=it.durationMs}
++        }
++        val tracks=mutableListOf(Track(type=TrackType.VIDEO,index=0,clips=clips,isMuted=settings.optBoolean("mute")))
++        if(studio.audio.isNotEmpty())tracks+=Track(type=TrackType.AUDIO,index=1,clips=studio.audio.map{a->
++            Clip(id=a.id,sourceUri=Uri.parse(a.uri),sourceDurationMs=a.duration,timelineStartMs=a.start,trimStartMs=a.trimStart,trimEndMs=a.trimEnd,volume=a.volume.coerceIn(0f,2f),fadeInMs=a.fadeIn,fadeOutMs=a.fadeOut,name=a.name)})
++        fun style(t:TextLayer):TextOverlay {val s=t.style;return TextOverlay(id=t.id,text=t.text.ifBlank{" "},startTimeMs=t.start,endTimeMs=t.end,fontSize=(s.size*1080f).coerceAtLeast(1f),fontFamily=s.font,color=s.color.toLong() and 0xFFFFFFFFL,strokeWidth=s.stroke*1080f,positionX=s.x,positionY=s.y,shadowBlur=s.shadow*1080f,glowRadius=s.glow*1080f,
++            animationIn=when(s.animation){"Pop"->TextAnimation.BOUNCE;"Fade"->TextAnimation.FADE;"Digitar"->TextAnimation.TYPEWRITER;else->TextAnimation.NONE})}
++        val texts=studio.texts.map(::style)
++        val images=studio.images.filter{it.path.isNotBlank() && it.end>it.start}.map{i->ImageOverlay(id=i.id,sourceUri=Uri.fromFile(java.io.File(i.path)),startTimeMs=i.start,endTimeMs=i.end,positionX=i.x,positionY=i.y,scale=i.scale.coerceAtLeast(.01f),rotation=i.rotation,opacity=i.opacity.coerceIn(0f,1f))}
++        val aspect=AspectRatio.entries.firstOrNull{it.label==settings.optString("canvasRatio","9:16")} ?: AspectRatio.RATIO_9_16
++        val project=Project(id=id,name=document.optString("name","Projeto Monstro"),aspectRatio=aspect,frameRate=settings.optInt("exportFps",30),durationMs=cursor,deletedAtEpochMs=if(document.optBoolean("trashed"))System.currentTimeMillis() else null,
++            notes="Migrado do Monstro 18.6. O documento original está preservado em files/projects. Revise composição e tempos antes de exportar.")
++        return ProjectDocument(project,AutoSaveState(projectId=id,tracks=tracks,textOverlays=texts,imageOverlays=images,timelineMarkers=studio.markers.map{NewMarker(id=it.id,timeMs=it.time,label=it.label)}))
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/MonstroProjectMigration.kt b/app/src/main/java/com/monstro/v18/monstro/MonstroProjectMigration.kt
+new file mode 100644
+index 0000000..80fb84f
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/MonstroProjectMigration.kt
+@@ -0,0 +1,58 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import androidx.media3.common.util.UnstableApi
++import com.monstro.v18.engine.ProjectAutoSave
++import com.monstro.v18.engine.db.ProjectDao
++import dagger.hilt.android.qualifiers.ApplicationContext
++import kotlinx.coroutines.sync.Mutex
++import kotlinx.coroutines.sync.withLock
++import org.json.JSONArray
++import org.json.JSONObject
++import java.io.File
++import javax.inject.Inject
++import javax.inject.Singleton
++
++@Singleton
++@androidx.annotation.OptIn(markerClass = [UnstableApi::class])
++class MonstroProjectMigration @Inject constructor(
++    @ApplicationContext private val context:Context,
++    private val dao:ProjectDao,
++    private val autoSave:ProjectAutoSave,
++) {
++    private val lock=Mutex()
++    suspend fun migrate()=lock.withLock {
++        val progress=context.getSharedPreferences("monstro-migration-v18",0)
++        val directory=File(context.filesDir,"projects")
++        val sources=directory.listFiles().orEmpty().filter{it.extension in listOf("json","bak")}
++            .map{it.nameWithoutExtension}.distinct()
++        val errors=JSONArray()
++        for(id in sources) {
++            if(progress.getBoolean(id,false))continue
++            runCatching {
++                fun read(suffix:String):JSONObject {
++                    val file=File(directory,"$id.$suffix")
++                    require(file.length()<=4*1024*1024)
++                    return JSONObject(file.readText())
++                }
++                val converted=runCatching{MonstroProjectConverter.convert(read("json"))}
++                    .getOrElse{MonstroProjectConverter.convert(read("bak"))}
++                check(autoSave.saveNow(converted)){"Autosave indisponível"}
++                dao.insertProject(converted.project)
++                check(progress.edit().putBoolean(id,true).commit())
++            }.onFailure { errors.put(JSONObject().put("id",id).put("error",it.javaClass.simpleName)) }
++        }
++        if(sources.isEmpty() && !progress.getBoolean("journal",false)) {
++            val prefs=context.getSharedPreferences("editor",0)
++            if(prefs.contains("clips"))runCatching {
++                val settings=JSONObject();prefs.all.forEach{(k,v)->if(v!=null && k!="activeProjectId")settings.put(k,v)}
++                val captions=File(context.filesDir,"captions.json").takeIf{it.isFile && it.length()<4*1024*1024}?.readText()?.let(::JSONArray) ?: JSONArray()
++                val converted=MonstroProjectConverter.convert(JSONObject().put("version",1).put("id","legacy-journal").put("name","Projeto Monstro recuperado").put("settings",settings).put("captions",captions))
++                check(autoSave.saveNow(converted));dao.insertProject(converted.project)
++                check(progress.edit().putBoolean("journal",true).commit())
++            }.onFailure{errors.put(JSONObject().put("id","journal").put("error",it.javaClass.simpleName))}
++        }
++        // No document, preference or media from the original editor is removed.
++        File(context.filesDir,"monstro-migration-report.json").writeText(JSONObject().put("failed",errors).put("originalsPreserved",true).toString())
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/MonstroToolsDialog.kt b/app/src/main/java/com/monstro/v18/monstro/MonstroToolsDialog.kt
+new file mode 100644
+index 0000000..d8de53c
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/MonstroToolsDialog.kt
+@@ -0,0 +1,76 @@
++package com.monstro.v18.monstro
++
++import androidx.activity.compose.rememberLauncherForActivityResult
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.compose.foundation.layout.*
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.*
++import androidx.compose.runtime.*
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.unit.dp
++import androidx.lifecycle.compose.collectAsStateWithLifecycle
++import com.google.firebase.FirebaseApp
++import com.monstro.v18.ui.editor.EditorViewModel
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++import java.io.File
++
++@Composable
++fun MonstroToolsDialog(model:EditorViewModel,onClose:()->Unit) {
++    val context=LocalContext.current
++    val scope=rememberCoroutineScope()
++    val state by model.state.collectAsStateWithLifecycle()
++    val progress by model.monstroProgress.collectAsStateWithLifecycle()
++    var query by remember{mutableStateOf("")}
++    var text by remember{mutableStateOf("")}
++    var style by remember{mutableStateOf("Trap cinematográfico")}
++    var language by remember{mutableStateOf("Português brasileiro")}
++    var account by remember{mutableStateOf(false)}
++    var custom by remember{mutableStateOf(runCatching {FxPackParser.parse(File(context.filesDir,"monstro-fxpack.json").readText())}.getOrDefault(emptyList()))}
++    val presets=remember(query,custom){
++        val all=FxCatalog.all+custom+(0..19).flatMap{e->(0..4).flatMap{r->(0..9).mapNotNull{t->FxCatalog.get("fx-$e-$r-$t")}}}
++        all.distinctBy{it.id}.filter{query.isBlank() || it.name.contains(query,true) || it.category.contains(query,true)}
++    }
++    val importPack=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri->
++        if(uri!=null)scope.launch {
++            runCatching {withContext(Dispatchers.IO) {
++                val source=context.contentResolver.openInputStream(uri)!!.use{input->val out=java.io.ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=1_000_000);out.write(buffer,0,n)};out.toString("UTF-8")}
++                val parsed=FxPackParser.parse(source)
++                // Save canonical JSON even when the input was a Premiere XML.
++                val json=org.json.JSONArray().also{a->parsed.forEach{p->a.put(org.json.JSONObject().put("name",p.name).put("category",p.category).put("engine",p.engine).put("recipe",p.recipe).put("envelope",p.envelope))}}
++                File(context.filesDir,"monstro-fxpack.json").writeText(json.toString());parsed
++            }}.onSuccess{custom=it}.onFailure{model.showToast("Pacote: ${it.localizedMessage}")}
++        }
++    }
++    val busy=progress!=null
++    val configured=remember{FirebaseApp.getApps(context).isNotEmpty()}
++    if(account && configured)AccountDialog{account=false}
++    AlertDialog(onDismissRequest=onClose,title={Text("Monstro V18 · ferramentas")},text={
++        Column(Modifier.heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
++            Text("Efeitos e IA do Monstro na mesma timeline do motor ClearCut.")
++            progress?.let{Text(it);LinearProgressIndicator(Modifier.fillMaxWidth());TextButton(onClick=model::cancelMonstroOperation){Text("Cancelar operação")}}
++            Button(onClick={model.monstroCaptions(false)},enabled=!busy){Text("Legendas offline · Vosk português")}
++            Text("Vosk baixa o modelo uma vez e reconhece no aparelho. Gemini envia áudio ou quadros ao serviço configurado no Firebase.",style=MaterialTheme.typography.bodySmall)
++            Button(onClick={model.monstroCaptions(true)},enabled=!busy && configured){Text("Legendas Gemini · fallback offline")}
++            OutlinedTextField(style,{style=it},label={Text("Estilo para Auto Edit")})
++            Button(onClick={model.monstroAutoEdit(style)},enabled=!busy && configured){Text("Auto Edit · Gemini")}
++            OutlinedTextField(language,{language=it},label={Text("Idioma da tradução")})
++            Button(onClick={model.monstroTranslate(language)},enabled=!busy && configured && state.selectedClipId!=null){Text("Traduzir legendas do clipe · Gemini")}
++            OutlinedTextField(text,{text=it.take(5000)},label={Text("Texto da narração")})
++            Button(onClick={model.monstroNarration(text)},enabled=!busy && configured && text.isNotBlank()){Text("Narrar com Gemini e adicionar áudio")}
++            OutlinedButton(onClick={account=true},enabled=configured){Text("Conta / perfil Monstro")}
++            HorizontalDivider()
++            OutlinedTextField(query,{query=it},label={Text("Buscar Chaos / Studio FX")})
++            OutlinedButton(onClick={importPack.launch(arrayOf("application/json","application/xml","text/xml","text/plain","application/octet-stream"))},enabled=!busy){Text("Importar pacote Monstro / Premiere")}
++            Text("${presets.size} presets · selecione um clipe para aplicar")
++            LazyColumn(Modifier.height(180.dp)) {
++                items(presets,key={it.id}){p->TextButton(onClick={model.applyMonstroPreset(p)},enabled=!busy && state.selectedClipId!=null){Text("${p.category} · ${p.name}")}}
++            }
++        }
++    },confirmButton={TextButton(onClick=onClose){Text("Fechar")}})
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/SrtTrack.kt b/app/src/main/java/com/monstro/v18/monstro/SrtTrack.kt
+new file mode 100644
+index 0000000..43fc674
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/SrtTrack.kt
+@@ -0,0 +1,45 @@
++package com.monstro.v18.monstro
++
++import kotlin.math.floor
++
++data class WordTime(val start:Long,val end:Long)
++data class SrtCue(val startMs: Long, val endMs: Long, val text: String, val wordTimes:List<WordTime> = emptyList()) {
++    val words = text.split(Regex("\\s+")).filter { it.isNotBlank() }
++    fun wordAt(timeMs: Long): Int = if(wordTimes.size==words.size && wordTimes.isNotEmpty()) wordTimes.indexOfLast { timeMs>=it.start && timeMs<it.end } else floor((timeMs-startMs).toDouble() * words.size / (endMs-startMs)).toInt().coerceIn(0, words.lastIndex)
++    fun wordStart(index: Int): Long = wordTimes.getOrNull(index)?.start ?: (startMs + (endMs-startMs) * index / words.size)
++}
++data class SrtParseResult(val track: SrtTrack, val skipped: Int)
++class SrtTrack(val cues: List<SrtCue>) {
++    private val maxEnds = cues.runningFold(0L) { end, cue -> maxOf(end, cue.endMs) }
++    fun at(timeMs: Long): SrtCue? {
++        var lo = 0; var hi = cues.size
++        while (lo < hi) { val mid = (lo+hi)/2; if (cues[mid].startMs <= timeMs) lo = mid+1 else hi = mid }
++        var i = lo-1
++        while (i >= 0 && maxEnds[i+1] > timeMs) {
++            if (timeMs < cues[i].endMs) return cues[i]
++            i--
++        }
++        return null
++    }
++}
++object SrtParser {
++    private val timing = Regex("^(\\d{1,3}):([0-5]\\d):([0-5]\\d)[,.](\\d{3})\\s*-->\\s*(\\d{1,3}):([0-5]\\d):([0-5]\\d)[,.](\\d{3})(?:\\s+.*)?$")
++    fun parse(source: String): SrtParseResult {
++        require(source.length <= 2_000_000) { "SRT muito grande (máximo 2 MB)." }
++        var skipped = 0
++        val cues = source.removePrefix("\uFEFF").replace("\r\n", "\n").replace('\r','\n').trim()
++            .split(Regex("\n[ \\t]*\n+")).mapNotNull { block ->
++                val lines = block.lines().map { it.trim() }
++                val index = if (lines.firstOrNull()?.matches(Regex("\\d+")) == true) 1 else 0
++                val match = lines.getOrNull(index)?.let { timing.matchEntire(it) }
++                if (match == null) { if (block.isNotBlank()) skipped++; return@mapNotNull null }
++                fun ms(i: Int) = match.groupValues[i].toLong()*3600000 + match.groupValues[i+1].toLong()*60000 + match.groupValues[i+2].toLong()*1000 + match.groupValues[i+3].toLong()
++                val start = ms(1); val end = ms(5)
++                val text = lines.drop(index+1).joinToString(" ").replace(Regex("<[^>]*>"), "").replace("&amp;","&").replace("&lt;","<").replace("&gt;",">").trim()
++                if (end <= start || text.isBlank() || text.length > 2000) { skipped++; null } else SrtCue(start,end,text)
++            }.sortedBy { it.startMs }
++        require(cues.isNotEmpty()) { "Nenhuma legenda válida encontrada." }
++        require(cues.size <= 5000) { "Máximo de 5.000 frases por arquivo." }
++        return SrtParseResult(SrtTrack(cues), skipped)
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/StudioEffect.kt b/app/src/main/java/com/monstro/v18/monstro/StudioEffect.kt
+new file mode 100644
+index 0000000..ac810d0
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/StudioEffect.kt
+@@ -0,0 +1,39 @@
++package com.monstro.v18.monstro
++
++import android.content.Context
++import android.opengl.GLES20
++import androidx.media3.common.util.*
++import androidx.media3.effect.*
++
++/** Export timestamps are normalized per item. Preview supplies its authoritative playhead. */
++class FrameClock(private val start:Long=0,private val speed:Float=1f,private val preview:(()->Long)?=null,private val sourceStart:Long?=null) {
++    private var first:Long?=sourceStart?.times(1000)
++    fun at(us:Long):Long { preview?.let { return it() }; if(first==null) first=us; return start+((us-first!!)/1000.0/speed).toLong() }
++    fun reset(){first=sourceStart?.times(1000)}
++}
++@UnstableApi
++class StudioEffect(private val layer:FxLayer?,private val zoom:List<KeyPoint>,private val clock:FrameClock,private val clipStart:Long=0,private val rotation:List<KeyPoint> = emptyList(),private val x:List<KeyPoint> = emptyList(),private val y:List<KeyPoint> = emptyList(),private val customPresets:List<FxPreset> = emptyList()):GlEffect {
++    override fun toGlShaderProgram(context:Context,useHdr:Boolean):GlShaderProgram = object:BaseGlShaderProgram(useHdr,1) {
++        val gl=GlProgram(context,"shaders/chaos.vert","shaders/studio.frag").apply { setBufferAttribute("aPosition",GlUtil.getNormalizedCoordinateBounds(),4) }
++        override fun configure(inputWidth:Int,inputHeight:Int)=Size(inputWidth,inputHeight)
++        override fun drawFrame(inputTexId:Int,presentationTimeUs:Long) {
++            val time=clock.at(presentationTimeUs); val preset=layer?.let { FxCatalog.get(it.presetId,customPresets) }
++            val active=layer!=null && time>=layer.start && time<layer.end
++            gl.use();gl.setSamplerTexIdUniform("uInput",inputTexId,0)
++            val local=time-clipStart
++            gl.setFloatUniform("uZoom",animated(zoom,local,1f).coerceIn(.25f,4f))
++            gl.setFloatUniform("uRotation",animated(rotation,local,0f))
++            gl.setFloatUniform("uTranslateX",animated(x,local,0f).coerceIn(-1f,1f))
++            gl.setFloatUniform("uTranslateY",animated(y,local,0f).coerceIn(-1f,1f))
++            gl.setFloatUniform("uEngine",preset?.engine?.toFloat() ?: 0f)
++            gl.setFloatUniform("uRecipe",preset?.recipe?.toFloat() ?: 0f)
++            gl.setFloatUniform("uEnvelope",preset?.envelope?.toFloat() ?: 0f)
++            gl.setFloatUniform("uTime",((time-(layer?.start ?: 0))/1000f)*(layer?.speed ?: 1f))
++            gl.setFloatUniform("uIntensity",if(active) animated(layer!!.keys,time-layer.start,layer.intensity) else 0f)
++            gl.setFloatUniform("uDirection",(layer?.direction ?: 0f)*Math.PI.toFloat()/180f)
++            gl.bindAttributesAndUniforms();GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP,0,4);GlUtil.checkGlError()
++        }
++        override fun flush(){clock.reset();super.flush()}
++        override fun release(){try{gl.delete()}finally{super.release()}}
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/StudioProject.kt b/app/src/main/java/com/monstro/v18/monstro/StudioProject.kt
+new file mode 100644
+index 0000000..7f3a6c3
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/StudioProject.kt
+@@ -0,0 +1,161 @@
++package com.monstro.v18.monstro
++
++import androidx.media3.common.Effect
++import androidx.media3.common.util.UnstableApi
++import androidx.media3.effect.Brightness
++import androidx.media3.effect.Contrast
++import androidx.media3.effect.HslAdjustment
++import androidx.media3.effect.RgbAdjustment
++import org.json.JSONArray
++import org.json.JSONObject
++import java.util.UUID
++import kotlin.math.*
++
++data class KeyPoint(val time: Long, val value: Float)
++fun animated(keys: List<KeyPoint>, time: Long, fallback: Float): Float {
++    if (keys.isEmpty()) return fallback
++    val sorted = keys.sortedBy { it.time }
++    if (time <= sorted.first().time) return sorted.first().value
++    val right = sorted.indexOfFirst { it.time > time }
++    if (right < 0) return sorted.last().value
++    val a = sorted[right-1]; val b = sorted[right]
++    val t = (time-a.time).toFloat()/(b.time-a.time)
++    return a.value + (b.value-a.value)*t
++}
++fun putKey(keys: List<KeyPoint>, time: Long, value: Float) = (keys.filter { abs(it.time-time)>30 } + KeyPoint(time,value)).sortedBy { it.time }
++
++fun splitCurve(keys:List<KeyPoint>,cut:Long,right:Boolean):List<KeyPoint> {
++    if(keys.isEmpty())return emptyList()
++    val value=animated(keys,cut,1f)
++    return if(right)listOf(KeyPoint(0,value))+keys.filter {it.time>cut}.map {it.copy(time=it.time-cut)} else keys.filter {it.time<cut}+KeyPoint(cut,value)
++}
++
++data class SpeedSlice(val sourceStart: Long, val sourceEnd: Long, val speed: Float, val outputStart: Long) {
++    val outputDuration get() = ((sourceEnd-sourceStart)/speed).roundToLong().coerceAtLeast(1)
++}
++/** The same piecewise speed map drives playback, speech times and export. */
++class SpeedMap(val duration: Long, val keys: List<KeyPoint>) {
++    val slices: List<SpeedSlice> = buildList {
++        if (keys.isEmpty()) { add(SpeedSlice(0,duration,1f,0)); return@buildList }
++        val step = max(200L, (duration+119)/120)
++        var start = 0L; var output = 0L
++        while (start < duration) {
++            val end = min(duration,start+step)
++            val speed = animated(keys,(start+end)/2,1f).coerceIn(.25f,4f)
++            val previous = lastOrNull()
++            if (previous != null && abs(previous.speed-speed)<.001f) {
++                removeAt(lastIndex); add(previous.copy(sourceEnd=end)); output=last().outputStart+last().outputDuration
++            } else {
++                val slice = SpeedSlice(start,end,speed,output); add(slice); output += slice.outputDuration
++            }
++            start=end
++        }
++    }
++    val outputDuration get() = slices.lastOrNull()?.let { it.outputStart+it.outputDuration } ?: 0L
++    fun toOutput(source: Long): Long { val s=slices.lastOrNull { source>=it.sourceStart } ?: return 0; return (s.outputStart+(source.coerceAtMost(duration)-s.sourceStart)/s.speed).roundToLong() }
++    fun toSource(output: Long): Long { val s=slices.lastOrNull { output>=it.outputStart } ?: return 0; return (s.sourceStart+(output-s.outputStart)*s.speed).roundToLong().coerceIn(0,duration) }
++    fun speedAt(source: Long) = slices.lastOrNull { source>=it.sourceStart }?.speed ?: 1f
++}
++
++data class TextStyle(
++    val font: String="sans-serif-condensed", val size: Float=.11f, val color: Int=0xffc250ff.toInt(),
++    val stroke: Float=.005f, val shadow: Float=.008f, val glow: Float=.02f,
++    val x: Float=.5f, val y: Float=.72f, val animation: String="Pop", val opacity: Float=1f,
++    val xKeys: List<KeyPoint> = emptyList(), val yKeys: List<KeyPoint> = emptyList(), val scaleKeys: List<KeyPoint> = emptyList()
++)
++data class TextLayer(val id:String=UUID.randomUUID().toString(),val text:String="MONSTRO",val start:Long=0,val end:Long=3000,val style:TextStyle=TextStyle())
++data class AudioLayer(val id:String=UUID.randomUUID().toString(),val uri:String,val name:String,val duration:Long,val start:Long=0,val trimStart:Long=0,val trimEnd:Long=duration,val volume:Float=1f,val pitch:Float=1f,val fadeIn:Long=0,val fadeOut:Long=0) { val end get()=start+trimEnd-trimStart }
++data class FxLayer(val id:String=UUID.randomUUID().toString(),val presetId:String,val start:Long,val end:Long,val intensity:Float=1f,val speed:Float=1f,val direction:Float=0f,val keys:List<KeyPoint> = emptyList())
++data class TimelineMarker(val id:String=UUID.randomUUID().toString(),val time:Long,val label:String="Marcador")
++data class ImageLayer(
++    val id:String=UUID.randomUUID().toString(),val path:String,val name:String,
++    val start:Long,val end:Long,val x:Float=.5f,val y:Float=.5f,val scale:Float=.35f,
++    val rotation:Float=0f,val opacity:Float=1f,
++    val xKeys:List<KeyPoint> = emptyList(),val yKeys:List<KeyPoint> = emptyList(),
++    val scaleKeys:List<KeyPoint> = emptyList(),val rotationKeys:List<KeyPoint> = emptyList(),
++    val opacityKeys:List<KeyPoint> = emptyList()
++)
++data class ClipMotion(val speed:List<KeyPoint> = emptyList(),val zoom:List<KeyPoint> = emptyList(),val rotation:List<KeyPoint> = emptyList(),val x:List<KeyPoint> = emptyList(),val y:List<KeyPoint> = emptyList())
++data class ClipAdjust(
++    val brightness:Float=0f,val contrast:Float=0f,val saturation:Float=0f,
++    val hue:Float=0f,val lightness:Float=0f,val temperature:Float=0f
++)
++@UnstableApi
++fun colorAdjustEffects(a:ClipAdjust):List<Effect> = buildList {
++    if(abs(a.brightness)>.001f)add(Brightness(a.brightness.coerceIn(-1f,1f)))
++    if(abs(a.contrast)>.001f)add(Contrast(a.contrast.coerceIn(-1f,1f)))
++    if(abs(a.saturation)>.001f || abs(a.hue)>.001f || abs(a.lightness)>.001f)
++        add(HslAdjustment.Builder().adjustSaturation(a.saturation.coerceIn(-100f,100f))
++            .adjustHue(a.hue.coerceIn(-180f,180f)).adjustLightness(a.lightness.coerceIn(-100f,100f)).build())
++    if(abs(a.temperature)>.001f){
++        val t=a.temperature.coerceIn(-1f,1f)
++        add(RgbAdjustment.Builder().setRedScale((1f+t*.18f).coerceAtLeast(.1f))
++            .setGreenScale(1f).setBlueScale((1f-t*.18f).coerceAtLeast(.1f)).build())
++    }
++}
++data class StudioProject(
++    val texts:List<TextLayer> = emptyList(),val audio:List<AudioLayer> = emptyList(),val fx:List<FxLayer> = emptyList(),
++    val motions:Map<String,ClipMotion> = emptyMap(), val captionStyle:TextStyle=TextStyle(),
++    val captionStyles:Map<Int,TextStyle> = emptyMap(),val favorites:Set<String> = emptySet(),val recent:List<String> = emptyList(),
++    val adjustments:Map<String,ClipAdjust> = emptyMap(),val markers:List<TimelineMarker> = emptyList(),
++    val images:List<ImageLayer> = emptyList(),val customFx:List<FxPreset> = emptyList()
++)
++
++private fun keysJson(keys:List<KeyPoint>)=JSONArray().also { a->keys.forEach { a.put(JSONArray().put(it.time).put(it.value.toDouble())) } }
++private fun readKeys(a:JSONArray?)=if(a==null) emptyList() else (0 until a.length()).map { val k=a.getJSONArray(it); KeyPoint(k.getLong(0),k.getDouble(1).toFloat()) }
++private fun TextStyle.json()=JSONObject().put("font",font).put("size",size.toDouble()).put("color",color).put("stroke",stroke.toDouble()).put("shadow",shadow.toDouble()).put("glow",glow.toDouble()).put("x",x.toDouble()).put("y",y.toDouble()).put("animation",animation).put("opacity",opacity.toDouble()).put("xk",keysJson(xKeys)).put("yk",keysJson(yKeys)).put("sk",keysJson(scaleKeys))
++private fun style(o:JSONObject?)=if(o==null) TextStyle() else TextStyle(o.optString("font","sans-serif-condensed"),o.optDouble("size",.11).toFloat(),o.optInt("color",0xffc250ff.toInt()),o.optDouble("stroke",.005).toFloat(),o.optDouble("shadow",.008).toFloat(),o.optDouble("glow",.02).toFloat(),o.optDouble("x",.5).toFloat(),o.optDouble("y",.72).toFloat(),o.optString("animation","Pop"),o.optDouble("opacity",1.0).toFloat(),readKeys(o.optJSONArray("xk")),readKeys(o.optJSONArray("yk")),readKeys(o.optJSONArray("sk")))
++private fun <T> JSONArray?.objects(f:(JSONObject)->T):List<T> = if(this==null) emptyList() else (0 until length()).map { f(getJSONObject(it)) }
++object StudioCodec {
++    fun encode(p:StudioProject):String = JSONObject().apply {
++        put("texts",JSONArray().also { a->p.texts.forEach { a.put(JSONObject().put("id",it.id).put("text",it.text).put("start",it.start).put("end",it.end).put("style",it.style.json())) } })
++        put("audio",JSONArray().also { a->p.audio.forEach { a.put(JSONObject().put("id",it.id).put("uri",it.uri).put("name",it.name).put("duration",it.duration).put("start",it.start).put("in",it.trimStart).put("out",it.trimEnd).put("volume",it.volume.toDouble()).put("pitch",it.pitch.toDouble()).put("fadeIn",it.fadeIn).put("fadeOut",it.fadeOut)) } })
++        put("fx",JSONArray().also { a->p.fx.forEach { a.put(JSONObject().put("id",it.id).put("preset",it.presetId).put("start",it.start).put("end",it.end).put("intensity",it.intensity.toDouble()).put("speed",it.speed.toDouble()).put("direction",it.direction.toDouble()).put("keys",keysJson(it.keys))) } })
++        put("motions",JSONObject().also { o->p.motions.forEach { (id,m)->o.put(id,JSONObject().put("speed",keysJson(m.speed)).put("zoom",keysJson(m.zoom)).put("rotation",keysJson(m.rotation)).put("x",keysJson(m.x)).put("y",keysJson(m.y))) } })
++        put("caption",p.captionStyle.json()); put("styles",JSONObject().also { o->p.captionStyles.forEach { (i,s)->o.put(i.toString(),s.json()) } })
++        put("favorites",JSONArray(p.favorites.toList())); put("recent",JSONArray(p.recent))
++        put("adjustments",JSONObject().also { o->p.adjustments.forEach { (id,a)->o.put(id,JSONObject().put("brightness",a.brightness.toDouble()).put("contrast",a.contrast.toDouble()).put("saturation",a.saturation.toDouble()).put("hue",a.hue.toDouble()).put("lightness",a.lightness.toDouble()).put("temperature",a.temperature.toDouble())) } })
++        put("markers",JSONArray().also { a->p.markers.forEach { m->a.put(JSONObject().put("id",m.id).put("time",m.time).put("label",m.label)) } })
++        put("images",JSONArray().also { a->p.images.forEach { it->a.put(JSONObject()
++            .put("id",it.id).put("path",it.path).put("name",it.name).put("start",it.start).put("end",it.end)
++            .put("x",it.x.toDouble()).put("y",it.y.toDouble()).put("scale",it.scale.toDouble()).put("rotation",it.rotation.toDouble()).put("opacity",it.opacity.toDouble())
++            .put("xk",keysJson(it.xKeys)).put("yk",keysJson(it.yKeys)).put("sk",keysJson(it.scaleKeys)).put("rk",keysJson(it.rotationKeys)).put("ok",keysJson(it.opacityKeys))) } })
++        put("customFx",JSONArray().also { a->p.customFx.forEach { fx->a.put(JSONObject()
++            .put("id",fx.id).put("name",fx.name).put("category",fx.category)
++            .put("engine",fx.engine).put("recipe",fx.recipe).put("envelope",fx.envelope)) } })
++    }.toString()
++    fun decode(source:String):StudioProject {
++        val o=JSONObject(source);val motions=mutableMapOf<String,ClipMotion>(); val styles=mutableMapOf<Int,TextStyle>();val adjustments=mutableMapOf<String,ClipAdjust>()
++        o.optJSONObject("adjustments")?.let { m->m.keys().forEach { id->val a=m.getJSONObject(id);adjustments[id]=ClipAdjust(a.optDouble("brightness",0.0).toFloat(),a.optDouble("contrast",0.0).toFloat(),a.optDouble("saturation",0.0).toFloat(),a.optDouble("hue",0.0).toFloat(),a.optDouble("lightness",0.0).toFloat(),a.optDouble("temperature",0.0).toFloat()) } }
++        o.optJSONObject("motions")?.let { m->m.keys().forEach { id-> val j=m.getJSONObject(id); motions[id]=ClipMotion(readKeys(j.optJSONArray("speed")),readKeys(j.optJSONArray("zoom")),readKeys(j.optJSONArray("rotation")),readKeys(j.optJSONArray("x")),readKeys(j.optJSONArray("y"))) } }
++        o.optJSONObject("styles")?.let { m->m.keys().forEach { id->id.toIntOrNull()?.let { styles[it]=style(m.getJSONObject(id)) } } }
++        fun strings(name:String)=o.optJSONArray(name)?.let { a->(0 until a.length()).map { a.getString(it) } } ?: emptyList()
++        return StudioProject(o.optJSONArray("texts").objects { TextLayer(it.getString("id"),it.getString("text"),it.getLong("start"),it.getLong("end"),style(it.optJSONObject("style"))) },
++            o.optJSONArray("audio").objects { AudioLayer(it.getString("id"),it.getString("uri"),it.getString("name"),it.getLong("duration"),it.getLong("start"),it.getLong("in"),it.getLong("out"),it.optDouble("volume",1.0).toFloat(),it.optDouble("pitch",1.0).toFloat(),it.optLong("fadeIn",0),it.optLong("fadeOut",0)) },
++            o.optJSONArray("fx").objects { FxLayer(it.getString("id"),it.getString("preset"),it.getLong("start"),it.getLong("end"),it.getDouble("intensity").toFloat(),it.getDouble("speed").toFloat(),it.getDouble("direction").toFloat(),readKeys(it.optJSONArray("keys"))) },motions,style(o.optJSONObject("caption")),styles,strings("favorites").toSet(),strings("recent"),adjustments,
++            o.optJSONArray("markers").objects { TimelineMarker(it.optString("id",UUID.randomUUID().toString()),it.optLong("time",0L),it.optString("label","Marcador")) },
++            o.optJSONArray("images").objects { ImageLayer(
++                id=it.optString("id",UUID.randomUUID().toString()),path=it.optString("path",""),name=it.optString("name","Imagem"),
++                start=it.optLong("start",0L),end=it.optLong("end",3000L),
++                x=it.optDouble("x",.5).toFloat(),y=it.optDouble("y",.5).toFloat(),scale=it.optDouble("scale",.35).toFloat(),
++                rotation=it.optDouble("rotation",0.0).toFloat(),opacity=it.optDouble("opacity",1.0).toFloat(),
++                xKeys=readKeys(it.optJSONArray("xk")),yKeys=readKeys(it.optJSONArray("yk")),scaleKeys=readKeys(it.optJSONArray("sk")),
++                rotationKeys=readKeys(it.optJSONArray("rk")),opacityKeys=readKeys(it.optJSONArray("ok"))
++            ) },
++            o.optJSONArray("customFx").objects { FxPreset(
++                id=it.optString("id"),name=it.optString("name"),category=it.optString("category","Meus efeitos"),
++                engine=it.optInt("engine"),recipe=it.optInt("recipe"),envelope=it.optInt("envelope")
++            ) }
++        )
++    }
++}
++
++/** Immediate frame selection: unlike Media3 1.2's cached dropper, no tail frame is lost at EOS. */
++class FrameRateGate(private val fps:Int=30) {
++    private var lastSlot=Long.MIN_VALUE
++    @Synchronized fun accept(timeUs:Long):Boolean {
++        val slot=(timeUs+500)*fps.coerceIn(1,120)/1_000_000
++        if(slot<=lastSlot)return false
++        lastSlot=slot;return true
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/monstro/VideoPerception.kt b/app/src/main/java/com/monstro/v18/monstro/VideoPerception.kt
+new file mode 100644
+index 0000000..15723b4
+--- /dev/null
++++ b/app/src/main/java/com/monstro/v18/monstro/VideoPerception.kt
+@@ -0,0 +1,79 @@
++package com.monstro.v18.monstro
++
++enum class VideoLengthKind { MICRO, SHORT, STANDARD, LONG }
++enum class VideoContentKind { TALK, RHYTHMIC, MIXED, VISUAL }
++
++data class VideoPerception(
++    val durationMs:Long,
++    val lengthKind:VideoLengthKind,
++    val contentKind:VideoContentKind,
++    val speechRatio:Float,
++    val beatsPerMinute:Float,
++    val effectBudget:Int,
++    val frameBudget:Int,
++    val recommendedRatio:String
++) {
++    val shortForm get()=lengthKind==VideoLengthKind.MICRO || lengthKind==VideoLengthKind.SHORT
++    val label:String get() {
++        val length=when(lengthKind){
++            VideoLengthKind.MICRO->"Vídeo muito curto"
++            VideoLengthKind.SHORT->"Vídeo curto"
++            VideoLengthKind.STANDARD->"Vídeo médio"
++            VideoLengthKind.LONG->"Vídeo longo"
++        }
++        val content=when(contentKind){
++            VideoContentKind.TALK->"fala/conversa"
++            VideoContentKind.RHYTHMIC->"ritmo/música"
++            VideoContentKind.MIXED->"fala + ritmo"
++            VideoContentKind.VISUAL->"visual"
++        }
++        return "$length · $content"
++    }
++}
++
++object VideoPerceptionAnalyzer {
++    fun analyze(
++        clips:List<VideoClip>,
++        project:StudioProject,
++        captions:SrtTrack?,
++        currentRatio:String="9:16"
++    ):VideoPerception {
++        val total=clips.sumOf {clip->
++            SpeedMap(clip.trim.duration,project.motions[clip.id]?.speed ?: emptyList()).outputDuration
++        }.coerceAtLeast(1L)
++        val length=when {
++            total<=15_000L->VideoLengthKind.MICRO
++            total<=90_000L->VideoLengthKind.SHORT
++            total<=300_000L->VideoLengthKind.STANDARD
++            else->VideoLengthKind.LONG
++        }
++        val spoken=captions?.cues.orEmpty().sumOf {cue->
++            (cue.endMs-cue.startMs).coerceAtLeast(0)
++        }.coerceAtMost(total)
++        val speechRatio=(spoken.toDouble()/total).toFloat().coerceIn(0f,1f)
++        val beatCount=project.markers.count {it.label.equals("Beat",true)}
++        val minutes=(total/60_000.0).coerceAtLeast(.05)
++        val bpm=(beatCount/minutes).toFloat()
++        val content=when {
++            speechRatio>=.30f && bpm>=18f->VideoContentKind.MIXED
++            speechRatio>=.30f->VideoContentKind.TALK
++            beatCount>=3 && bpm>=18f->VideoContentKind.RHYTHMIC
++            else->VideoContentKind.VISUAL
++        }
++        val effectBudget=when(length){
++            VideoLengthKind.MICRO->4
++            VideoLengthKind.SHORT->6
++            VideoLengthKind.STANDARD->4
++            VideoLengthKind.LONG->2
++        }.let {base->if(content==VideoContentKind.TALK)minOf(base,2) else base}
++        val frameBudget=when(length){
++            VideoLengthKind.MICRO->4
++            VideoLengthKind.SHORT->6
++            VideoLengthKind.STANDARD->8
++            VideoLengthKind.LONG->10
++        }
++        val ratio=currentRatio.takeIf {it in setOf("9:16","16:9","1:1","4:5")}
++            ?: if(length==VideoLengthKind.MICRO || length==VideoLengthKind.SHORT)"9:16" else "16:9"
++        return VideoPerception(total,length,content,speechRatio,bpm,effectBudget,frameBudget,ratio)
++    }
++}
+diff --git a/app/src/main/java/com/monstro/v18/ui/editor/EditorScreen.kt b/app/src/main/java/com/monstro/v18/ui/editor/EditorScreen.kt
+index 5cc3ba7..1b87bed 100644
+--- a/app/src/main/java/com/monstro/v18/ui/editor/EditorScreen.kt
++++ b/app/src/main/java/com/monstro/v18/ui/editor/EditorScreen.kt
+@@ -123,6 +123,8 @@ fun EditorScreen(
+         targetValue = if (state.exportState == ExportState.EXPORTING) 120.dp else 48.dp,
+         label = "autoSaveOverlayOffset"
+     )
++    var monstroTools by remember { mutableStateOf(false) }
++    if (monstroTools) com.monstro.v18.monstro.MonstroToolsDialog(viewModel) { monstroTools = false }
+     val context = LocalContext.current
+     val audioMicPermissionRequired = stringResource(R.string.audio_mic_permission_required)
+     val exportNotificationPermissionFallback = stringResource(
+@@ -654,6 +656,7 @@ fun EditorScreen(
+                 "audio_tool" -> viewModel.showAudioPanel()
+                 "speed" -> viewModel.showSpeedCurveEditor()
+                 "transform" -> viewModel.showTransformPanel()
++                "monstro" -> monstroTools = true
+                 "effects" -> viewModel.showEffectsPanel()
+                 "effects_disabled" -> viewModel.showToast(selectClipEffects)
+                 "transition" -> viewModel.showTransitionPicker()
+@@ -977,7 +980,8 @@ fun EditorScreen(
+                                 "snapshot" -> viewModel.createSnapshot()
+                                 "split" -> viewModel.splitClipAtPlayhead()
+                                 "duplicate" -> viewModel.duplicateSelectedClip()
+-                                "effects" -> viewModel.showEffectsPanel()
++                                "monstro" -> monstroTools = true
++                "effects" -> viewModel.showEffectsPanel()
+                                 "speed" -> viewModel.showSpeedCurveEditor()
+                                 "transform" -> viewModel.showTransformPanel()
+                                 "delete" -> viewModel.deleteSelectedClip()
+diff --git a/app/src/main/java/com/monstro/v18/ui/editor/EditorViewModel.kt b/app/src/main/java/com/monstro/v18/ui/editor/EditorViewModel.kt
+index 0e02fac..f7678d7 100644
+--- a/app/src/main/java/com/monstro/v18/ui/editor/EditorViewModel.kt
++++ b/app/src/main/java/com/monstro/v18/ui/editor/EditorViewModel.kt
+@@ -1793,6 +1793,70 @@ class EditorViewModel @Inject constructor(
+         saveProject()
+     }
+ 
++
++    val monstroProgress = MutableStateFlow<String?>(null)
++    private var monstroJob: kotlinx.coroutines.Job? = null
++    fun cancelMonstroOperation() { monstroJob?.cancel() }
++    private fun monstroOperation(name:String, work:suspend ()->Unit) {
++        if(monstroJob?.isActive==true || _state.value.exportState==ExportState.EXPORTING)return
++        monstroJob=viewModelScope.launch {
++            monstroProgress.value=name
++            try { work() } catch(e:kotlinx.coroutines.CancellationException) { throw e }
++            catch(e:Exception) { showToast("Monstro: ${e.localizedMessage}") }
++            finally { monstroProgress.value=null }
++        }
++    }
++    fun monstroCaptions(gemini:Boolean) = monstroOperation("Reconhecendo fala…") {
++        val clips=_state.value.tracks.firstOrNull{it.type==TrackType.VIDEO}?.clips.orEmpty()
++        if(clips.isEmpty())return@monstroOperation
++        val inputs=com.monstro.v18.monstro.MonstroAiBridge.oldClips(clips)
++        val project=com.monstro.v18.monstro.MonstroAiBridge.oldStudio(clips)
++        val progress:(Int)->Unit={monstroProgress.value="Reconhecendo fala: $it%"}
++        val captions=withContext(Dispatchers.IO) {
++            if(gemini)runCatching { com.monstro.v18.monstro.GeminiAudioCaptions(appContext).transcribe(inputs,project,progress) }.getOrElse {
++                if(it is kotlinx.coroutines.CancellationException)throw it
++                val offline=com.monstro.v18.monstro.AutoCaptions(appContext)
++                if(!offline.ready)offline.install(progress)
++                offline.transcribe(inputs,project,progress)
++            } else {
++                val offline=com.monstro.v18.monstro.AutoCaptions(appContext)
++                if(!offline.ready)offline.install(progress)
++                offline.transcribe(inputs,project,progress)
++            }
++        }
++        saveUndoState("Monstro captions")
++        _state.update {st->st.copy(tracks=st.tracks.map{t->t.copy(clips=t.clips.map{c->if(clips.any{it.id==c.id})c.copy(captions=com.monstro.v18.monstro.MonstroAiBridge.newCaptions(captions,c)) else c})})}
++        updatePreview();saveProject()
++    }
++    fun monstroAutoEdit(style:String) = monstroOperation("Gemini analisando a montagem…") {
++        val clips=_state.value.tracks.firstOrNull{it.type==TrackType.VIDEO}?.clips.orEmpty()
++        if(clips.isEmpty())return@monstroOperation
++        val bridge=com.monstro.v18.monstro.MonstroAiBridge
++        val plan=withContext(Dispatchers.IO) {com.monstro.v18.monstro.GeminiAutoEdit(appContext).analyze(bridge.oldClips(clips),bridge.oldStudio(clips),bridge.oldCaptions(clips),style,{monstroProgress.value="Gemini: $it%"},_state.value.project.aspectRatio.label)}
++        val edited=bridge.applyPlan(clips,plan).associateBy{it.id}
++        saveUndoState("Monstro Gemini Auto Edit")
++        _state.update {st->st.copy(tracks=st.tracks.map{t->t.copy(clips=t.clips.map{edited[it.id] ?: it})},timelineMarkers=st.timelineMarkers+plan.markers.map{com.monstro.v18.model.TimelineMarker(timeMs=it.timeMs,label=it.label)})}
++        rebuildPlayerTimeline();saveProject();showToast(plan.summary)
++    }
++    fun monstroTranslate(language:String) = monstroOperation("Traduzindo legendas…") {
++        val clip=getSelectedClip() ?: return@monstroOperation
++        val bridge=com.monstro.v18.monstro.MonstroAiBridge
++        val translated=withContext(Dispatchers.IO){com.monstro.v18.monstro.GeminiCaptionTranslation(appContext).translate(bridge.oldCaptions(listOf(clip)),language,{monstroProgress.value="Tradução: $it%"})}
++        saveUndoState("Monstro Gemini translation")
++        _state.update {st->st.copy(tracks=st.tracks.map{t->t.copy(clips=t.clips.map{if(it.id==clip.id)it.copy(captions=bridge.newCaptions(translated,it)) else it})})}
++        updatePreview();saveProject()
++    }
++    fun monstroNarration(text:String) = monstroOperation("Gerando narração Gemini…") {
++        val narration=withContext(Dispatchers.IO){com.monstro.v18.monstro.GeminiTts(appContext).generate(text,"Kore","Natural")}
++        addClipToTrack(Uri.fromFile(narration.file),TrackType.AUDIO)
++    }
++    fun applyMonstroPreset(p:com.monstro.v18.monstro.FxPreset) {
++        val clip=getSelectedClip() ?: return
++        val e=com.monstro.v18.monstro.MonstroEffectBridge.preset(p)
++        val old=clip.effects.firstOrNull{it.type==EffectType.MONSTRO_STUDIO}
++        if(old==null)addEffect(clip.id,e) else {beginEffectAdjust();updateEffect(clip.id,old.id,e.params);endEffectAdjust()}
++    }
++
+     // --- Effects & Transitions (delegated) ---
+     fun addEffect(clipId: String, effect: Effect) = effectsDelegate.addEffect(clipId, effect)
+     fun beginEffectAdjust() = effectsDelegate.beginEffectAdjust()
+diff --git a/app/src/main/java/com/monstro/v18/ui/editor/ToolPanel.kt b/app/src/main/java/com/monstro/v18/ui/editor/ToolPanel.kt
+index ea8056b..5d482c9 100644
+--- a/app/src/main/java/com/monstro/v18/ui/editor/ToolPanel.kt
++++ b/app/src/main/java/com/monstro/v18/ui/editor/ToolPanel.kt
+@@ -124,6 +124,7 @@ private val projectTextSubMenu = textSubMenu.filterNot { it.id == "captions" }
+ // Secondary clip workflows live behind one deliberate More workbench so the
+ // persistent rail stays stable and scannable at six categories.
+ private val clipMoreSubMenu = listOf(
++    SubMenuItem("monstro", Icons.Default.AutoAwesome, R.string.monstro_tools),
+     SubMenuItem("back", Icons.AutoMirrored.Filled.ArrowBack, R.string.back),
+     SubMenuItem("speed", Icons.Default.Speed, R.string.tool_tab_speed),
+     SubMenuItem("transform", Icons.Default.Transform, R.string.tool_submenu_transform),
+@@ -176,6 +177,7 @@ private val clipAiSubMenu = listOf(
+ 
+ // Project mode — Tools tab sub-menu
+ private val projectToolsSubMenu = listOf(
++    SubMenuItem("monstro", Icons.Default.AutoAwesome, R.string.monstro_tools),
+     SubMenuItem("audio_mixer", Icons.Default.Equalizer, R.string.tool_audio_mixer),
+     SubMenuItem("beat_detect", Icons.Default.GraphicEq, R.string.tool_beat_detect),
+     SubMenuItem("auto_duck", Icons.Default.RecordVoiceOver, R.string.tool_auto_duck),
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index ee8c9dc..0522898 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -3636,4 +3636,5 @@
+     <string name="ai_requirement_unmet_generic">%1$s is not ready yet, so this tool cannot run.</string>
+     <string name="ai_requirement_unknown_tool_title">This tool needs something that is not listed</string>
+     <string name="ai_requirement_unknown_tool_body">ClearCut has no requirement entry for this tool, so it cannot say what is missing. Open AI Tools to see which models are installed.</string>
++    <string name="monstro_tools">Monstro FX / Gemini</string>
+ </resources>
+diff --git a/app/src/qa/java/com/monstro/v18/AppCheckSetup.kt b/app/src/qa/java/com/monstro/v18/AppCheckSetup.kt
+new file mode 100644
+index 0000000..501e39c
+--- /dev/null
++++ b/app/src/qa/java/com/monstro/v18/AppCheckSetup.kt
+@@ -0,0 +1,14 @@
++package com.monstro.v18
++
++import android.content.Context
++import com.google.firebase.Firebase
++import com.google.firebase.appcheck.appCheck
++import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
++import com.google.firebase.initialize
++
++fun configureAppCheck(context: Context) {
++    val app = runCatching { Firebase.initialize(context) }.getOrNull() ?: return
++    Firebase.appCheck.installAppCheckProviderFactory(
++        DebugAppCheckProviderFactory.getInstance()
++    )
++}
+diff --git a/app/src/release/java/com/monstro/v18/AppCheckSetup.kt b/app/src/release/java/com/monstro/v18/AppCheckSetup.kt
+new file mode 100644
+index 0000000..5b21797
+--- /dev/null
++++ b/app/src/release/java/com/monstro/v18/AppCheckSetup.kt
+@@ -0,0 +1,14 @@
++package com.monstro.v18
++
++import android.content.Context
++import com.google.firebase.Firebase
++import com.google.firebase.appcheck.appCheck
++import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
++import com.google.firebase.initialize
++
++fun configureAppCheck(context: Context) {
++    val app = runCatching { Firebase.initialize(context) }.getOrNull() ?: return
++    Firebase.appCheck.installAppCheckProviderFactory(
++        PlayIntegrityAppCheckProviderFactory.getInstance()
++    )
++}
+diff --git a/app/src/streaming/java/com/monstro/v18/AppCheckSetup.kt b/app/src/streaming/java/com/monstro/v18/AppCheckSetup.kt
+new file mode 100644
+index 0000000..501e39c
+--- /dev/null
++++ b/app/src/streaming/java/com/monstro/v18/AppCheckSetup.kt
+@@ -0,0 +1,14 @@
++package com.monstro.v18
++
++import android.content.Context
++import com.google.firebase.Firebase
++import com.google.firebase.appcheck.appCheck
++import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
++import com.google.firebase.initialize
++
++fun configureAppCheck(context: Context) {
++    val app = runCatching { Firebase.initialize(context) }.getOrNull() ?: return
++    Firebase.appCheck.installAppCheckProviderFactory(
++        DebugAppCheckProviderFactory.getInstance()
++    )
++}
+diff --git a/app/src/test/java/com/monstro/v18/monstro/MonstroFxTest.kt b/app/src/test/java/com/monstro/v18/monstro/MonstroFxTest.kt
+new file mode 100644
+index 0000000..3777071
+--- /dev/null
++++ b/app/src/test/java/com/monstro/v18/monstro/MonstroFxTest.kt
+@@ -0,0 +1,13 @@
++package com.monstro.v18.monstro
++
++import com.monstro.v18.model.EffectType
++import org.junit.Assert.*
++import org.junit.Test
++
++class MonstroFxTest {
++    @Test fun allThousandOriginalRecipesRemainAddressable() {
++        val presets=(0..19).flatMap{e->(0..4).flatMap{r->(0..9).map{t->FxCatalog.get("fx-$e-$r-$t")!!}}}
++        assertEquals(1000,presets.map{it.signature}.toSet().size)
++        presets.forEach{p->val effect=MonstroEffectBridge.preset(p);assertEquals(EffectType.MONSTRO_STUDIO,effect.type);assertEquals(p.engine.toFloat(),effect.params.getValue("engine"))}
++    }
++}
+diff --git a/app/src/test/java/com/monstro/v18/monstro/MonstroProjectConverterTest.kt b/app/src/test/java/com/monstro/v18/monstro/MonstroProjectConverterTest.kt
+new file mode 100644
+index 0000000..44d8988
+--- /dev/null
++++ b/app/src/test/java/com/monstro/v18/monstro/MonstroProjectConverterTest.kt
+@@ -0,0 +1,41 @@
++package com.monstro.v18.monstro
++
++import com.monstro.v18.engine.ProjectDocumentApplicator
++import com.monstro.v18.engine.ProjectDocumentReadResult
++import com.monstro.v18.model.EffectType
++import org.json.JSONArray
++import org.json.JSONObject
++import org.junit.Assert.*
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.annotation.Config
++
++@RunWith(RobolectricTestRunner::class)
++@Config(sdk=[35])
++class MonstroProjectConverterTest {
++    private fun old()=JSONObject().put("version",1).put("id","legacy-id").put("name","Minha edição").put("settings",JSONObject()
++        .put("canvasRatio","9:16").put("clips",JSONArray().put(JSONObject().put("id","c").put("uri","content://local/1").put("name","Vídeo").put("duration",3000).put("start",100).put("end",2500).put("fx",JSONArray().put("glitch")).put("preset","trap")).toString())
++        .put("studio",StudioCodec.encode(StudioProject(texts=listOf(TextLayer(text="MONSTRO")),markers=listOf(TimelineMarker(time=500,label="Beat")),fx=listOf(FxLayer(presetId="fx-2-0-6",start=100,end=2000))))))
++        .put("captions",JSONArray().put(JSONObject().put("start",200).put("end",800).put("text","Olá mundo")))
++    @Test fun sourceIsUnchangedAndFullDocumentRoundTrips() {
++        val source=old();val before=source.toString();val converted=MonstroProjectConverter.convert(source)
++        assertEquals(before,source.toString())
++        assertEquals("Minha edição",converted.project.name)
++        val clip=converted.state.tracks.single().clips.single()
++        assertEquals(100L,clip.trimStartMs);assertEquals(2500L,clip.trimEndMs)
++        assertTrue(clip.effects.any{it.type==EffectType.MONSTRO_CHAOS})
++        assertTrue(clip.effects.any{it.type==EffectType.MONSTRO_COLOR})
++        assertTrue(clip.effects.any{it.type==EffectType.MONSTRO_STUDIO})
++        assertEquals("Olá mundo",clip.captions.single().text)
++        assertEquals("MONSTRO",converted.state.textOverlays.single().text)
++        assertEquals("Beat",converted.state.timelineMarkers.single().label)
++        val read=ProjectDocumentApplicator.read(ProjectDocumentApplicator.encode(converted))
++        assertTrue(read is ProjectDocumentReadResult.Loaded)
++    }
++    @Test fun migrationIdIsStableAndInvalidTrimIsRejected() {
++        assertEquals(MonstroProjectConverter.convert(old()).project.id,MonstroProjectConverter.convert(old()).project.id)
++        val bad=old();val settings=bad.getJSONObject("settings");val clips=JSONArray(settings.getString("clips"));clips.getJSONObject(0).put("end",4000);settings.put("clips",clips.toString())
++        assertThrows(IllegalArgumentException::class.java){MonstroProjectConverter.convert(bad)}
++    }
++}
