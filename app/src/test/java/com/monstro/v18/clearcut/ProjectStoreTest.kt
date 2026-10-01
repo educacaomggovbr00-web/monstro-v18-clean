@@ -57,4 +57,11 @@ class ProjectStoreTest {
         assertThrows(IllegalArgumentException::class.java){store.save(invalid)}
         assertEquals(1,dir.listFiles()!!.count{it.extension=="json"})
     }
+    @Test fun malformedCaptionBackupDoesNotReplaceValidGeneration()=withStore {store,_->
+        val saved=store.create("Original",settings(),JSONArray())
+        val malformed=JSONObject(saved.toString()).put("captions",JSONArray().put(JSONObject().put("start",100).put("end",50).put("text","bad")))
+        assertThrows(IllegalArgumentException::class.java){store.save(malformed)}
+        assertEquals(0,store.load(saved.getString("id")).getJSONArray("captions").length())
+    }
+
 }

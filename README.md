@@ -1,6 +1,6 @@
 # Monstro V18 Studio
 
-Editor Android nativo em Kotlin/Compose, Media3 e OpenGL ES. Versão 18.5-Studio.
+Editor Android nativo em Kotlin/Compose, Media3 e OpenGL ES. Versão 18.6-Studio.
 
 ## Edição no celular
 
@@ -12,6 +12,16 @@ Editor Android nativo em Kotlin/Compose, Media3 e OpenGL ES. Versão 18.5-Studio
 - Keyframes lineares de zoom, posição/escala do texto e intensidade de FX. Crie pontos nos tempos desejados e ajuste os valores. Limpar remove a curva daquela propriedade.
 - Velocity: velocidade constante de 0,25× a 4×, presets Montanha/Hero/Bullet e pontos editáveis. A curva é amostrada em segmentos constantes de pelo menos 200 ms, até 120 segmentos por clipe. A mesma tabela mapeia a prévia, tempos da fala e exportação; o áudio original muda de duração preservando pitch.
 - Motion Blur temporal após os efeitos espaciais, sem acumular recursivamente flashes ou ganho de cor.
+
+## Projetos e estabilidade
+
+A aba Projetos permite criar, abrir, buscar, renomear, duplicar e restaurar projetos da lixeira. Autosave mantém uma geração anterior válida e recupera o diário de edição após interrupção. Backup JSON guarda a edição, sem embutir mídias; mantenha os arquivos originais acessíveis.
+
+A exportação verifica espaço e suporte do codec, escreve um MP4 temporário e só apresenta o arquivo após validar a faixa de vídeo e sua duração. A prévia respeita foco de áudio e desconexão de fones. A aba Eu permite salvar diagnóstico local de falhas e ler a licença ClearCut.
+
+No painel Legendas, exporte SRT, WebVTT ou ASS. Na montagem, ordene clipes pelo nome ou importe marcadores/intervalos de uma lista de timecodes. Estas ações entram no histórico de desfazer.
+
+Recursos portados e pendências: [CLEARCUT_INTEGRATION.md](CLEARCUT_INTEGRATION.md).
 
 ## Legendas
 
@@ -37,7 +47,7 @@ YUV/faixa/transferência são convertidos pelo input sampler Media3 usando Color
 
 Actions → **Android - testar e gerar APK** → artefato **MonstroV18-APK**, extraia e instale `app-debug.apk`. Android 7+. Esta edição usa `com.monstro.v18.studio`: instala ao lado das edições anteriores, sem apagar seus projetos. Importe as mídias novamente na nova edição. APK de desenvolvimento assinado pelo build; não é versão publicada em loja.
 
-Mantenha os arquivos originais acessíveis. Os tempos de textos, legendas, músicas e FX são absolutos na timeline; mudanças posteriores na montagem podem exigir reposicioná-los ou gerar novamente as legendas. Há uma faixa principal de vídeo sequencial, não composição de vários vídeos simultâneos/PiP. Não inclui desfazer, transições entre clipes, múltiplos projetos ou renderização em serviço de segundo plano. Mantenha o aplicativo aberto durante reconhecimento/exportação. Cancelar/falhar conserva o último MP4 concluído.
+Mantenha os arquivos originais acessíveis. Os tempos de textos, legendas, músicas e FX são absolutos na timeline; mudanças posteriores na montagem podem exigir reposicioná-los ou gerar novamente as legendas. Há uma faixa principal de vídeo sequencial, não composição de vários vídeos simultâneos/PiP. Inclui desfazer/refazer e biblioteca de múltiplos projetos. Ainda não inclui transições entre clipes ou renderização em serviço de segundo plano. Mantenha o aplicativo aberto durante reconhecimento/exportação. Cancelar/falhar conserva o último MP4 concluído.
 
 ## Compilar e testar
 
@@ -56,3 +66,5 @@ Testes unitários: trims, SRT, word timing, color presets, catálogo, keyframes 
 - [Vosk Android](https://alphacephei.com/vosk/android) e [modelos](https://alphacephei.com/vosk/models). `vosk-model-small-pt-0.3`, Apache 2.0, atribuição Alpha Cephei/contribuidores. Modelo baixado separado, não embutido no APK.
 - Vosk Android 0.3.45; JNA 5.13.0 (licenciamento LGPL 2.1/Apache 2.0). Licenças de dependências preservadas no empacotamento.
 - [SpeedChangeEffect](https://developer.android.com/reference/androidx/media3/effect/SpeedChangeEffect): a implementação 1.2.1 divide timestamps absolutos. Studio normaliza cada segmento no próprio shader para preservar junções na timeline.
+
+- [ClearCut](https://github.com/SysAdminDoc/ClearCut), MIT; código adaptado e licença preservados em `third_party/clearcut/`.

@@ -832,6 +832,8 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
                 val w=words.getJSONArray(j);WordTime(w.getLong(0),w.getLong(1))
             })
         })
+        // Fail a disk write before touching the active project or players.
+        writeUtf8TextAtomically(File(context.filesDir,"captions.json"),captions.toString())
         pauseAll();audioPlayers.values.forEach {it.release()};audioPlayers.clear()
         applyingProject=true
         try {
@@ -852,7 +854,6 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             simpleLyrics=settings.optBoolean("simpleLyrics",false);purpleLyrics=settings.optBoolean("purpleLyrics",true)
             lyricsName=settings.optString("lyricsName","");output=settings.optString("output","").takeIf {it.isNotBlank()}?.let {File(it)}?.takeIf {it.isFile && it.length()>0}
             undoStack.clear();redoStack.clear();historyVersion++;focusedId="";playhead=0
-            writeUtf8TextAtomically(File(context.filesDir,"captions.json"),captions.toString())
             // The active document is authoritative. Stale SRT from a different
             // project must not return after an activity/process restart.
             File(context.filesDir,"lyrics.srt").delete()

@@ -21,6 +21,8 @@ class ProjectStore(private val directory: File) {
             require(clips.length() <= 500) { "Projeto tem clipes demais." }
             for (i in 0 until clips.length()) {
                 val clip = clips.getJSONObject(i)
+                require(clip.getString("id").isNotBlank())
+                clip.getString("name")
                 val duration = clip.getLong("duration")
                 require(MediaDurationPolicy.isPlausible(duration)) { "Duração de mídia inválida." }
                 require(clip.getLong("start") in 0 until clip.getLong("end") && clip.getLong("end") <= duration)
@@ -31,7 +33,20 @@ class ProjectStore(private val directory: File) {
             listOf("texts", "audio", "fx", "images", "markers").forEach { key ->
                 require((studio.optJSONArray(key)?.length() ?: 0) <= 5000) { "Camadas demais no projeto." }
             }
-            require(document.optJSONArray("captions")?.length()?.let { it <= 20000 } != false)
+            val captions=document.optJSONArray("captions") ?: JSONArray()
+            require(captions.length() <= 20000)
+            for(i in 0 until captions.length()) {
+                val cue=captions.getJSONObject(i)
+                val start=cue.getLong("start");val end=cue.getLong("end")
+                require(start>=0 && end>start && MediaDurationPolicy.isPlausible(end)) { "Tempo de legenda inválido." }
+                cue.getString("text")
+                val words=cue.optJSONArray("words") ?: JSONArray()
+                require(words.length()<=10000)
+                for(j in 0 until words.length()) {
+                    val word=words.getJSONArray(j)
+                    require(word.length()==2 && word.getLong(0)>=start && word.getLong(1)>word.getLong(0) && word.getLong(1)<=end) { "Tempo por palavra inválido." }
+                }
+            }
             require(document.toString().toByteArray(Charsets.UTF_8).size <= MAX_DOCUMENT_BYTES)
             return document
         }
