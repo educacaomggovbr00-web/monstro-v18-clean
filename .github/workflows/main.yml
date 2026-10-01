@@ -73,7 +73,10 @@ jobs:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v4
       - name: Instalar SDK do motor completo
-        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
+        run: |
+          sdkmanager --channel=3 --list > /tmp/monstro-sdk-packages.txt
+          rg 'platforms;android-(37|Cinnamon)|build-tools;(36|37)' /tmp/monstro-sdk-packages.txt || true
+          sdkmanager --channel=3 'platforms;android-37' 'build-tools;37.0.0' 
       - name: Compilar aplicação e testes de integração
         run: ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest --no-daemon --stacktrace
       - name: Testes unitários e lint
