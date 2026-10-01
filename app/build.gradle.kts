@@ -29,12 +29,12 @@ val bundleTaskRequested = gradle.startParameter.taskNames.any { taskName ->
 
 android {
     namespace = "com.monstro.v18"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.monstro.v18.studio"
         minSdk = 26
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 25
         versionName = "18.7-ClearCut"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
