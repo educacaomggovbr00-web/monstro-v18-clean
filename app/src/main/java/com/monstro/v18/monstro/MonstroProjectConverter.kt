@@ -56,7 +56,7 @@ object MonstroProjectConverter {
                 effects+=com.monstro.v18.model.Effect(type=EffectType.BRIGHTNESS,params=mapOf("value" to a.brightness))
                 effects+=com.monstro.v18.model.Effect(type=EffectType.CONTRAST,params=mapOf("value" to a.contrast+1f))
                 effects+=com.monstro.v18.model.Effect(type=EffectType.SATURATION,params=mapOf("value" to a.saturation/100f+1f))
-                effects+=com.monstro.v18.model.Effect(type=EffectType.TEMPERATURE,params=mapOf("value" to a.temperature/20f))
+                effects+=com.monstro.v18.model.Effect(type=EffectType.TEMPERATURE,params=mapOf("value" to a.temperature*1.8f))
             }
             val base=Clip(id=oldId,sourceUri=Uri.parse(c.getString("uri")),sourceDurationMs=duration,
                 timelineStartMs=cursor,trimStartMs=start,trimEndMs=end,name=c.optString("name"),

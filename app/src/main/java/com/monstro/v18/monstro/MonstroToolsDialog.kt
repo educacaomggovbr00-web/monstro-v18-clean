@@ -31,7 +31,13 @@ fun MonstroToolsDialog(model:EditorViewModel,onClose:()->Unit) {
     var style by remember{mutableStateOf("Trap cinematográfico")}
     var language by remember{mutableStateOf("Português brasileiro")}
     var account by remember{mutableStateOf(false)}
-    var custom by remember{mutableStateOf(runCatching {FxPackParser.parse(File(context.filesDir,"monstro-fxpack.json").readText())}.getOrDefault(emptyList()))}
+    var custom by remember{mutableStateOf(emptyList<FxPreset>())}
+    LaunchedEffect(context) {
+        custom=withContext(Dispatchers.IO) {
+            runCatching {FxPackParser.parse(File(context.filesDir,"monstro-fxpack.json").readText())}
+                .getOrDefault(emptyList())
+        }
+    }
     val presets=remember(query,custom){
         val all=FxCatalog.all+custom+(0..19).flatMap{e->(0..4).flatMap{r->(0..9).mapNotNull{t->FxCatalog.get("fx-$e-$r-$t")}}}
         all.distinctBy{it.id}.filter{query.isBlank() || it.name.contains(query,true) || it.category.contains(query,true)}
@@ -44,7 +50,10 @@ fun MonstroToolsDialog(model:EditorViewModel,onClose:()->Unit) {
                 // Save canonical JSON even when the input was a Premiere XML.
                 val json=org.json.JSONArray().also{a->parsed.forEach{p->a.put(org.json.JSONObject().put("name",p.name).put("category",p.category).put("engine",p.engine).put("recipe",p.recipe).put("envelope",p.envelope))}}
                 File(context.filesDir,"monstro-fxpack.json").writeText(json.toString());parsed
-            }}.onSuccess{custom=it}.onFailure{model.showToast("Pacote: ${it.localizedMessage}")}
+            }}.onSuccess{custom=it}.onFailure{
+                if(it is kotlinx.coroutines.CancellationException)throw it
+                model.showToast("Pacote: ${it.localizedMessage}")
+            }
         }
     }
     val busy=progress!=null

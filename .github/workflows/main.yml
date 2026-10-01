@@ -2,7 +2,7 @@ name: Android - ClearCut completo no Monstro
 
 on:
   push:
-    branches: [main, principal, fix/editor-funcional, integration/clearcut-completo]
+    branches: [main, principal, fix/editor-funcional]
   pull_request:
     branches: [fix/editor-funcional]
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: monstro-completo-${{ github.head_ref || github.ref_name }}
+  group: monstro-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -117,6 +117,14 @@ jobs:
         id: quality
         continue-on-error: true
         run: ./gradlew :app:testQaUnitTest :app:lintQa --no-daemon --stacktrace --continue
+      - name: Publicar diagnóstico dos testes unitários
+        uses: actions/upload-artifact@v4
+        if: always() && steps.quality.outcome != 'skipped'
+        with:
+          name: relatorios-unidade
+          path: |
+            monstro/app/build/test-results/testQaUnitTest
+            monstro/app/build/reports/lint-results-qa.*
       - name: Validar efeitos Monstro por pixels
         run: |
           sudo apt-get update -qq

@@ -1797,6 +1797,12 @@ class EditorViewModel @Inject constructor(
     val monstroProgress = MutableStateFlow<String?>(null)
     private var monstroJob: kotlinx.coroutines.Job? = null
     fun cancelMonstroOperation() { monstroJob?.cancel() }
+    private fun requireUnchangedMonstroInputs(clips:List<Clip>) {
+        val current=_state.value.tracks.flatMap{it.clips}.associateBy{it.id}
+        check(clips.all{current[it.id]==it}) {
+            "A edição mudou durante a análise. Execute a operação novamente para usar os cortes atuais."
+        }
+    }
     private fun monstroOperation(name:String, work:suspend ()->Unit) {
         if(monstroJob?.isActive==true || _state.value.exportState==ExportState.EXPORTING)return
         monstroJob=viewModelScope.launch {
@@ -1807,7 +1813,7 @@ class EditorViewModel @Inject constructor(
         }
     }
     fun monstroCaptions(gemini:Boolean) = monstroOperation("Reconhecendo fala…") {
-        val clips=_state.value.tracks.firstOrNull{it.type==TrackType.VIDEO}?.clips.orEmpty()
+        val clips=_state.value.tracks.firstOrNull{it.type==TrackType.VIDEO}?.clips.orEmpty().sortedBy{it.timelineStartMs}
         if(clips.isEmpty())return@monstroOperation
         val inputs=com.monstro.v18.monstro.MonstroAiBridge.oldClips(clips)
         val project=com.monstro.v18.monstro.MonstroAiBridge.oldStudio(clips)
@@ -1824,24 +1830,28 @@ class EditorViewModel @Inject constructor(
                 offline.transcribe(inputs,project,progress)
             }
         }
+        requireUnchangedMonstroInputs(clips)
+        val converted=com.monstro.v18.monstro.MonstroAiBridge.captionsFromPacked(captions,clips)
         saveUndoState("Monstro captions")
-        _state.update {st->st.copy(tracks=st.tracks.map{t->t.copy(clips=t.clips.map{c->if(clips.any{it.id==c.id})c.copy(captions=com.monstro.v18.monstro.MonstroAiBridge.newCaptions(captions,c)) else c})})}
+        _state.update {st->st.copy(tracks=st.tracks.map{t->t.copy(clips=t.clips.map{c->converted[c.id]?.let{c.copy(captions=it)} ?: c})})}
         updatePreview();saveProject()
     }
     fun monstroAutoEdit(style:String) = monstroOperation("Gemini analisando a montagem…") {
-        val clips=_state.value.tracks.firstOrNull{it.type==TrackType.VIDEO}?.clips.orEmpty()
+        val clips=_state.value.tracks.firstOrNull{it.type==TrackType.VIDEO}?.clips.orEmpty().sortedBy{it.timelineStartMs}
         if(clips.isEmpty())return@monstroOperation
         val bridge=com.monstro.v18.monstro.MonstroAiBridge
-        val plan=withContext(Dispatchers.IO) {com.monstro.v18.monstro.GeminiAutoEdit(appContext).analyze(bridge.oldClips(clips),bridge.oldStudio(clips),bridge.oldCaptions(clips),style,{monstroProgress.value="Gemini: $it%"},_state.value.project.aspectRatio.label)}
+        val plan=withContext(Dispatchers.IO) {com.monstro.v18.monstro.GeminiAutoEdit(appContext).analyze(bridge.oldClips(clips),bridge.oldStudio(clips),bridge.oldPackedCaptions(clips),style,{monstroProgress.value="Gemini: $it%"},_state.value.project.aspectRatio.label)}
+        requireUnchangedMonstroInputs(clips)
         val edited=bridge.applyPlan(clips,plan).associateBy{it.id}
         saveUndoState("Monstro Gemini Auto Edit")
-        _state.update {st->st.copy(tracks=st.tracks.map{t->t.copy(clips=t.clips.map{edited[it.id] ?: it})},timelineMarkers=st.timelineMarkers+plan.markers.map{com.monstro.v18.model.TimelineMarker(timeMs=it.timeMs,label=it.label)})}
+        _state.update {st->st.copy(tracks=st.tracks.map{t->t.copy(clips=t.clips.map{edited[it.id] ?: it})},timelineMarkers=st.timelineMarkers+bridge.timelineMarkers(plan,clips))}
         rebuildPlayerTimeline();saveProject();showToast(plan.summary)
     }
     fun monstroTranslate(language:String) = monstroOperation("Traduzindo legendas…") {
         val clip=getSelectedClip() ?: return@monstroOperation
         val bridge=com.monstro.v18.monstro.MonstroAiBridge
         val translated=withContext(Dispatchers.IO){com.monstro.v18.monstro.GeminiCaptionTranslation(appContext).translate(bridge.oldCaptions(listOf(clip)),language,{monstroProgress.value="Tradução: $it%"})}
+        requireUnchangedMonstroInputs(listOf(clip))
         saveUndoState("Monstro Gemini translation")
         _state.update {st->st.copy(tracks=st.tracks.map{t->t.copy(clips=t.clips.map{if(it.id==clip.id)it.copy(captions=bridge.newCaptions(translated,it)) else it})})}
         updatePreview();saveProject()
