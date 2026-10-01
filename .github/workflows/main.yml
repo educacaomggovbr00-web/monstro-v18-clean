@@ -19,13 +19,15 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      MONSTRO_CI_BRANCH: ${{ github.head_ref || github.ref_name }}
     permissions:
       contents: write
     defaults:
       run:
         working-directory: monstro
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: monstro
           ref: ${{ github.head_ref || github.ref_name }}
@@ -46,7 +48,7 @@ jobs:
           else
             echo 'import=true' >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.source.outputs.import == 'true'
         with:
           repository: SysAdminDoc/ClearCut
@@ -63,7 +65,7 @@ jobs:
           git config user.email 'monstro-integration@users.noreply.github.com'
           git add -A
           git commit -m 'feat: integrar motor completo ClearCut, efeitos Monstro e migração de projetos'
-          git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          git push origin "HEAD:$MONSTRO_CI_BRANCH"
       - name: Ajustar identidade e contratos do fork Monstro
         if: hashFiles('monstro/.integration/apply-fork-contracts') != ''
         run: |
@@ -79,15 +81,19 @@ jobs:
           git add app/src/qa/res/xml/shortcuts.xml app/src/streaming/res/xml/shortcuts.xml
           git rm .integration/apply-fork-contracts
           git commit -m 'fix: compatibilidade SDK 37.0, efeitos, atalhos e contratos Monstro'
-          git push origin HEAD:${{ github.head_ref || github.ref_name }}
-      - uses: actions/setup-java@v4
+          git push origin "HEAD:$MONSTRO_CI_BRANCH"
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Preparar ferramentas e licenças Android
+        run: |
+          # yes exits with SIGPIPE after sdkmanager finishes reading its input.
+          # Preserve sdkmanager's status instead of treating that as a failure.
+          set +o pipefail
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager 'platform-tools'
+      - uses: gradle/actions/setup-gradle@v5
         with:
           cache-read-only: false
       - name: Instalar SDK do motor completo
@@ -109,7 +115,7 @@ jobs:
           git add gradle/verification-metadata.xml
           git rm .integration/refresh-dependency-lock
           git commit -m 'build: registrar checksums das dependências adicionadas ao Monstro'
-          git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          git push origin "HEAD:$MONSTRO_CI_BRANCH"
           exit "$result"
       - name: Compilar aplicação e testes de integração
         run: ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest --no-daemon --stacktrace
@@ -118,7 +124,7 @@ jobs:
         continue-on-error: true
         run: ./gradlew :app:testQaUnitTest :app:lintQa --no-daemon --stacktrace --continue
       - name: Publicar diagnóstico dos testes unitários
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always() && steps.quality.outcome != 'skipped'
         with:
           name: relatorios-unidade
@@ -143,14 +149,14 @@ jobs:
           target: google_apis
           working-directory: monstro
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash scripts/run_android_integration.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: MonstroV18-ClearCut-APK
           path: monstro/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: relatorios-integracao-completa
