@@ -379,7 +379,8 @@ private fun BottomTabBar(
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp, vertical = 3.dp)
         ) {
-            val fitAllTabs = tabs.size <= 6
+            val minimumRowWidth = TouchTarget.minimum * tabs.size + 4.dp * (tabs.size - 1)
+            val fitAllTabs = tabs.size <= 6 && maxWidth >= minimumRowWidth
             val compactItem = maxWidth < 390.dp
 
             if (fitAllTabs) {

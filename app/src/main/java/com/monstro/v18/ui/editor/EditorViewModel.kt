@@ -248,6 +248,8 @@ data class PanelVisibility(
     val hasOpenPanel: Boolean get() = openPanels.isNotEmpty()
     fun isOpen(panel: PanelId): Boolean = panel in openPanels
     fun open(panel: PanelId): PanelVisibility = copy(openPanels = setOf(panel))
+    // Background diagnostics must not replace a panel the user already opened.
+    fun openIfIdle(panel: PanelId): PanelVisibility = if (hasOpenPanel) this else open(panel)
     fun close(panel: PanelId): PanelVisibility = copy(openPanels = openPanels - panel)
     fun closeAll(): PanelVisibility = copy(openPanels = emptySet())
 }
@@ -4983,7 +4985,7 @@ class EditorViewModel @Inject constructor(
                                 openPanelOnProblems &&
                                 missingCount + unknownCount + healthBlockingCount + healthWarningCount > 0
                             ) {
-                                panel.panels.open(PanelId.MEDIA_MANAGER)
+                                panel.panels.openIfIdle(PanelId.MEDIA_MANAGER)
                             } else {
                                 panel.panels
                             }

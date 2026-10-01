@@ -104,7 +104,7 @@ class JvmVisualVerificationTest {
 
         compose.onNodeWithTag("${ClearCutTestTags.PROJECT_CARD_PREFIX}$visualProjectId").performClick()
         waitUntilAtLeastOneExists(ClearCutTestTags.EDITOR_SCREEN)
-        dismissFixtureMediaWarningIfPresent()
+        dismissFixtureMediaWarning()
         capture("editor-dark.png")
 
         updateAppearance(AppearanceMode.HIGH_CONTRAST_DARK)
@@ -289,20 +289,13 @@ class JvmVisualVerificationTest {
         }
     }
 
-    private fun dismissFixtureMediaWarningIfPresent() {
-        val managerAppeared = runCatching {
-            compose.waitUntil(2_500L) {
-                compose.onAllNodesWithTag(ClearCutTestTags.MEDIA_MANAGER_PANEL)
-                    .fetchSemanticsNodes()
-                    .isNotEmpty()
-            }
-            true
-        }.getOrDefault(false)
-
-        if (managerAppeared) {
-            compose.onNodeWithTag(ClearCutTestTags.MEDIA_MANAGER_CLOSE).performClick()
-            waitUntilNoExists(ClearCutTestTags.MEDIA_MANAGER_PANEL)
-        }
+    private fun dismissFixtureMediaWarning() {
+        // Robolectric's extractor exposes no tracks for this fixture. Wait for
+        // the asynchronous probe's recovery panel before testing editor actions;
+        // an optional timed dismissal races its arrival over the Export button.
+        waitUntilAtLeastOneExists(ClearCutTestTags.MEDIA_MANAGER_PANEL, 20_000L)
+        compose.onNodeWithTag(ClearCutTestTags.MEDIA_MANAGER_CLOSE).performClick()
+        waitUntilNoExists(ClearCutTestTags.MEDIA_MANAGER_PANEL)
 
         compose.waitUntil(6_000L) {
             compose.onAllNodesWithText("Preview couldn't decode", substring = true)

@@ -95,9 +95,7 @@ class ClearCutSmokeTest {
         compose.waitUntilAtLeastOneExists(ClearCutTestTags.SETTINGS_SCREEN)
         compose.waitUntilNoNodesExist(ClearCutTestTags.EDITOR_SCREEN)
 
-        compose.onNodeWithTag(ClearCutTestTags.SETTINGS_BACK)
-            .performScrollTo()
-            .performClick()
+        compose.waitUntilDisplayed(ClearCutTestTags.SETTINGS_BACK).performClick()
 
         compose.waitUntilAtLeastOneExists(ClearCutTestTags.PROJECTS_SCREEN)
         compose.waitUntilNoNodesExist(ClearCutTestTags.SETTINGS_SCREEN)
