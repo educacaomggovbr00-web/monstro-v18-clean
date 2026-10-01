@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -13,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.monstro.v18.R
 import com.monstro.v18.engine.ExportColorConfidenceEngine
@@ -45,7 +47,11 @@ fun BoxScope.EditorPrimaryPanelHost(
 ) {
     BottomSheetSlot(
         visible = state.panels.isOpen(PanelId.MEDIA_PICKER),
-        modifier = Modifier.align(Alignment.BottomCenter)
+        // Keep the full toolbar reachable on short windows. The picker scrolls
+        // inside the remaining space instead of covering half of its buttons.
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(top = 68.dp)
     ) {
         MediaPickerSheet(
             onMediaSelected = { uri, mediaType ->

@@ -1,5 +1,7 @@
 # Monstro V18 — mapa de paridade funcional com editores mobile profissionais
 
+> Registro histórico do Monstro 18.6, anterior à integração do ClearCut. O estado atual está em [CLEARCUT_INTEGRATION.md](CLEARCUT_INTEGRATION.md) e no [registro de capacidades](scripts/capability_registry.json). A lista de pendências abaixo descreve a base antiga preservada em `legacy/monstro-v18`.
+
 Objetivo: oferecer no Monstro fluxos e capacidades equivalentes aos principais recursos documentados do CapCut,
 mantendo identidade, código, assets e marca próprios. Nenhum recurso proprietário do CapCut é copiado.
 

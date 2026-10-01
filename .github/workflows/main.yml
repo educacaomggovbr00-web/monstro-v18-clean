@@ -144,15 +144,7 @@ jobs:
           working-directory: monstro
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            mkdir -p app/build/reports/device
-            adb logcat -c
-            set +e
-            ./gradlew :app:connectedQaAndroidTest --no-daemon --stacktrace
-            result=$?
-            adb logcat -d -v threadtime > app/build/reports/device/logcat.txt
-            adb pull /sdcard/Android/media/com.monstro.v18.studio.qa/additional_test_output app/build/reports/device/screenshots || true
-            exit "$result"
+          script: bash scripts/run_android_integration.sh
       - uses: actions/upload-artifact@v4
         with:
           name: MonstroV18-ClearCut-APK
