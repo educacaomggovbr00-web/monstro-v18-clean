@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/SysAdminDoc/ClearCut",
+  "commit": "8a18de40dd474bbc01f43fd5a6d8e1356ce5600f",
+  "upstreamVersion": "3.81.0",
+  "applicationId": "com.monstro.v18.studio",
+  "sourcePackage": "com.monstro.v18",
+  "legacySource": "legacy/monstro-v18",
+  "mode": "single-integrated-editor",
+  "sourceFiles": 1122
+}

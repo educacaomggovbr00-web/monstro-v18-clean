@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "publicProductName": "ClearCut",
+  "retiredPublicProductName": "NovaCut",
+  "applicationId": "com.monstro.v18.studio",
+  "namespace": "com.monstro.v18",
+  "sourcePackage": "com.monstro.v18",
+  "migrationPolicy": {
+    "applicationId": "retain-existing-lineage",
+    "namespace": "retain-existing-lineage",
+    "signingCertificate": "retain-pinned-release-identity",
+    "identityChange": "new-install-with-explicit-export-import"
+  },
+  "nonReleaseVariants": {
+    "streaming": {
+      "applicationIdSuffix": ".streaming",
+      "purpose": "local-debug-network-streaming"
+    }
+  },
+  "providerAuthorities": [
+    "${applicationId}.androidx-startup",
+    "${applicationId}.fileprovider"
+  ],
+  "shortcutTarget": {
+    "package": "com.monstro.v18.studio",
+    "class": "com.monstro.v18.MainActivity",
+    "actions": [
+      "com.monstro.v18.action.NEW_PROJECT",
+      "com.monstro.v18.action.OPEN_RECENT"
+    ]
+  },
+  "archiveAssociations": {
+    "extensions": [
+      ".clearcut",
+      ".clearcut-template"
+    ],
+    "mimeTypes": [
+      "application/octet-stream",
+      "application/json",
+      "application/zip",
+      "application/xml",
+      "text/xml",
+      "text/plain"
+    ]
+  },
+  "publicSurfacePaths": [
+    "README.md",
+    "docs/privacy-policy.md",
+    "docs/play-data-safety.md",
+    "fastlane/metadata/android/en-US/title.txt",
+    "fastlane/metadata/android/en-US/short_description.txt",
+    "fastlane/metadata/android/en-US/full_description.txt",
+    "fastlane/metadata/android/es-ES/title.txt",
+    "fastlane/metadata/android/es-ES/short_description.txt",
+    "fastlane/metadata/android/es-ES/full_description.txt"
+  ],
+  "readmePolicyPhrases": [
+    "### Package identity and upgrade policy",
+    "`com.monstro.v18`",
+    "new install with an explicit export/import path"
+  ]
+}
