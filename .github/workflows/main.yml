@@ -116,6 +116,11 @@ jobs:
           exit "$result"
       - name: Compilar aplicação e testes de integração
         run: ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest --no-daemon --stacktrace
+      - name: Validar bibliotecas nativas para páginas de 16 KB
+        run: |
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            python3 scripts/check_16kb_alignment.py "$apk"
+          done
       - name: Testes unitários e lint
         id: quality
         continue-on-error: true

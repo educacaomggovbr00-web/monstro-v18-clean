@@ -792,8 +792,9 @@ dependencies {
     add("qaImplementation", "com.google.firebase:firebase-appcheck-debug")
     add("streamingImplementation", "com.google.firebase:firebase-appcheck-debug")
     releaseImplementation("com.google.firebase:firebase-appcheck-playintegrity")
-    implementation("com.alphacephei:vosk-android:0.3.45") { exclude(group = "net.java.dev.jna", module = "jna") }
-    implementation("net.java.dev.jna:jna:5.13.0@aar")
+    // Both native libraries must support devices with 16 KB memory pages.
+    implementation("com.alphacephei:vosk-android:0.3.75") { exclude(group = "net.java.dev.jna", module = "jna") }
+    implementation("net.java.dev.jna:jna:5.19.1@aar")
     constraints {
         // MediaPipe Tasks Vision still resolves protobuf-javalite 4.26.1, which
         // carries GHSA-735f-pc8j-v9w8 (unbounded recursion on malformed input -> DoS).
