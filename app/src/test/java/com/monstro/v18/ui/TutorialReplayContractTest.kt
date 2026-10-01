@@ -9,15 +9,15 @@ class TutorialReplayContractTest {
 
     @Test
     fun replayIsAnExplicitNavigationActionAndOrdinaryEditorsStayQuiet() {
-        val mainActivity = locate("app/src/main/java/com/novacut/editor/MainActivity.kt").readText()
+        val mainActivity = locate("app/src/main/java/com/monstro/v18/MainActivity.kt").readText()
         val settings = locate(
-            "app/src/main/java/com/novacut/editor/ui/settings/SettingsScreen.kt"
+            "app/src/main/java/com/monstro/v18/ui/settings/SettingsScreen.kt"
         ).readText()
         val editorViewModel = locate(
-            "app/src/main/java/com/novacut/editor/ui/editor/EditorViewModel.kt"
+            "app/src/main/java/com/monstro/v18/ui/editor/EditorViewModel.kt"
         ).readText()
         val settingsRepository = locate(
-            "app/src/main/java/com/novacut/editor/engine/SettingsRepository.kt"
+            "app/src/main/java/com/monstro/v18/engine/SettingsRepository.kt"
         ).readText()
 
         assertTrue(mainActivity.contains("onReplayTutorial ="))

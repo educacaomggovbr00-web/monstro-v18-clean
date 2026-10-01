@@ -47,7 +47,7 @@ def require_before(source: str, earlier: str, later: str, path: Path) -> None:
 
 
 def verify_export_service_has_no_background_audio(root: Path = ROOT) -> None:
-    path = root / "app" / "src" / "main" / "java" / "com" / "novacut" / "editor" / "engine" / "ExportService.kt"
+    path = root / "app" / "src" / "main" / "java" / "com" / "monstro" / "v18" / "engine" / "ExportService.kt"
     source = read_text(path)
     forbidden_tokens = (
         "TextToSpeech",
@@ -69,9 +69,10 @@ def verify_export_service_has_no_background_audio(root: Path = ROOT) -> None:
 def verify_android_17_target(root: Path = ROOT) -> None:
     build_path = root / APP_GRADLE.relative_to(ROOT)
     build = read_text(build_path)
-    for assignment in ("compileSdk = 37", "targetSdk = 37"):
-        if not re.search(rf"(?m)^\s*{re.escape(assignment)}\s*$", build):
-            raise AudioPolicyError(f"{rel(build_path)} must pin {assignment}")
+    required = (r"compileSdk\s*\{\s*version\s*=\s*release\(37\)\s*\{\s*minorApiLevel\s*=\s*0", r"(?m)^\s*targetSdk\s*=\s*37\s*$")
+    if not all(re.search(pattern, build) for pattern in required):
+        raise AudioPolicyError(f"{rel(build_path)} must pin compile SDK 37.0 and target SDK 37")
+
 
 
 def verify_large_screen_configuration(root: Path = ROOT) -> None:
@@ -116,8 +117,8 @@ def verify_manifest_foreground_service_type(root: Path = ROOT) -> None:
 
 
 def verify_visible_audio_paths_request_focus(root: Path = ROOT) -> None:
-    tts_path = root / "app" / "src" / "main" / "java" / "com" / "novacut" / "editor" / "engine" / "TtsEngine.kt"
-    voiceover_path = root / "app" / "src" / "main" / "java" / "com" / "novacut" / "editor" / "engine" / "VoiceoverRecorder.kt"
+    tts_path = root / "app" / "src" / "main" / "java" / "com" / "monstro" / "v18" / "engine" / "TtsEngine.kt"
+    voiceover_path = root / "app" / "src" / "main" / "java" / "com" / "monstro" / "v18" / "engine" / "VoiceoverRecorder.kt"
     tts = read_text(tts_path)
     voiceover = read_text(voiceover_path)
     require_before(tts, "requestPreviewAudioFocus()", "engine.speak(", tts_path)
@@ -162,9 +163,9 @@ def write_valid_fixture(root: Path, export_service: str = "class ExportService {
     write_fixture(
         root,
         "app/build.gradle.kts",
-        "android {\n    compileSdk = 37\n    defaultConfig {\n        targetSdk = 37\n    }\n}\n",
+        "android {\n    compileSdk { version = release(37) { minorApiLevel = 0 } }\n    defaultConfig {\n        targetSdk = 37\n    }\n}\n",
     )
-    write_fixture(root, "app/src/main/java/com/novacut/editor/engine/ExportService.kt", export_service)
+    write_fixture(root, "app/src/main/java/com/monstro/v18/engine/ExportService.kt", export_service)
     write_fixture(
         root,
         "app/src/main/AndroidManifest.xml",
@@ -183,13 +184,13 @@ def write_valid_fixture(root: Path, export_service: str = "class ExportService {
     )
     write_fixture(
         root,
-        "app/src/main/java/com/novacut/editor/engine/TtsEngine.kt",
+        "app/src/main/java/com/monstro/v18/engine/TtsEngine.kt",
         "fun preview() { if (!requestPreviewAudioFocus()) return; engine.speak(text, queue, params, id) }\n"
         "AudioManager.AUDIOFOCUS_REQUEST_GRANTED\n",
     )
     write_fixture(
         root,
-        "app/src/main/java/com/novacut/editor/engine/VoiceoverRecorder.kt",
+        "app/src/main/java/com/monstro/v18/engine/VoiceoverRecorder.kt",
         "fun startRecording() { if (!requestVoiceoverAudioFocus()) return; setAudioSource(MediaRecorder.AudioSource.MIC) }\n"
         "AudioManager.AUDIOFOCUS_REQUEST_GRANTED\n",
     )

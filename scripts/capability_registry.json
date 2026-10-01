@@ -184,7 +184,7 @@
       "onDevice": "Yes",
       "status": "available",
       "reachability": "model_gated",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.AUTO_CAPTIONS", "Availability.MODEL_DOWNLOAD_REQUIRED"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.AUTO_CAPTIONS", "Availability.MODEL_DOWNLOAD_REQUIRED"]}]
     },
     {
       "id": "background_removal",
@@ -193,7 +193,7 @@
       "onDevice": "Yes",
       "status": "available",
       "reachability": "model_gated",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.REMOVE_BACKGROUND", "Availability.MODEL_DOWNLOAD_REQUIRED"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.REMOVE_BACKGROUND", "Availability.MODEL_DOWNLOAD_REQUIRED"]}]
     },
     {
       "id": "ai_green_screen",
@@ -202,7 +202,7 @@
       "onDevice": "Planned",
       "status": "planned",
       "reachability": "dependency_missing",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.AI_BACKGROUND", "Availability.DEPENDENCY_MISSING"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.AI_BACKGROUND", "Availability.DEPENDENCY_MISSING"]}]
     },
     {
       "id": "object_removal",
@@ -212,9 +212,9 @@
       "status": "available",
       "reachability": "model_gated",
       "evidence": [
-        {"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.OBJECT_REMOVE", "Availability.MODEL_DOWNLOAD_REQUIRED"]},
-        {"path": "app/src/main/java/com/novacut/editor/engine/InpaintingEngine.kt", "terms": ["fun inpaintFrame", "fun inpaintVideo", "encodeImageSequenceWithAudio"]},
-        {"path": "app/src/main/java/com/novacut/editor/ui/editor/AiToolsDelegate.kt", "terms": ["getSelectedMask", "inpaintingEngine.inpaintVideo", "inpaintingEngine.inpaintFrame"]}
+        {"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.OBJECT_REMOVE", "Availability.MODEL_DOWNLOAD_REQUIRED"]},
+        {"path": "app/src/main/java/com/monstro/v18/engine/InpaintingEngine.kt", "terms": ["fun inpaintFrame", "fun inpaintVideo", "encodeImageSequenceWithAudio"]},
+        {"path": "app/src/main/java/com/monstro/v18/ui/editor/AiToolsDelegate.kt", "terms": ["getSelectedMask", "inpaintingEngine.inpaintVideo", "inpaintingEngine.inpaintFrame"]}
       ]
     },
     {
@@ -224,7 +224,7 @@
       "onDevice": "Planned",
       "status": "planned",
       "reachability": "dependency_missing",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.AI_UPSCALE", "Availability.DEPENDENCY_MISSING"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.AI_UPSCALE", "Availability.DEPENDENCY_MISSING"]}]
     },
     {
       "id": "frame_interpolation",
@@ -233,7 +233,7 @@
       "onDevice": "Planned",
       "status": "planned",
       "reachability": "dependency_missing",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.FRAME_INTERP", "Availability.DEPENDENCY_MISSING"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.FRAME_INTERP", "Availability.DEPENDENCY_MISSING"]}]
     },
     {
       "id": "style_transfer",
@@ -242,7 +242,7 @@
       "onDevice": "Planned",
       "status": "planned",
       "reachability": "dependency_missing",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.AI_STYLE", "Availability.DEPENDENCY_MISSING"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.AI_STYLE", "Availability.DEPENDENCY_MISSING"]}]
     },
     {
       "id": "stabilization",
@@ -252,9 +252,9 @@
       "status": "available",
       "reachability": "reachable",
       "evidence": [
-        {"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.AI_STABILIZE", "modelDisplayName = \"ClearCut offline motion analysis\"", "availability = Availability.READY"]},
-        {"path": "app/src/main/java/com/novacut/editor/engine/StabilizationEngine.kt", "terms": ["class StabilizationEngine", "suspend fun analyzeMotion"]},
-        {"path": "app/src/main/java/com/novacut/editor/ui/editor/AiToolsDelegate.kt", "terms": ["StabilizationPreview", "StabilizationData", "EffectKind.STABILIZATION_LOCAL"]}
+        {"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.AI_STABILIZE", "modelDisplayName = \"ClearCut offline motion analysis\"", "availability = Availability.READY"]},
+        {"path": "app/src/main/java/com/monstro/v18/engine/StabilizationEngine.kt", "terms": ["class StabilizationEngine", "suspend fun analyzeMotion"]},
+        {"path": "app/src/main/java/com/monstro/v18/ui/editor/AiToolsDelegate.kt", "terms": ["StabilizationPreview", "StabilizationData", "EffectKind.STABILIZATION_LOCAL"]}
       ]
     },
     {
@@ -264,7 +264,7 @@
       "onDevice": "Yes",
       "status": "available",
       "reachability": "reachable",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/ui/editor/EditorViewModel.kt", "terms": ["smartReframeEngine.analyzeForReframe"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/ui/editor/EditorViewModel.kt", "terms": ["smartReframeEngine.analyzeForReframe"]}]
     },
     {
       "id": "tap_to_segment",
@@ -273,7 +273,7 @@
       "onDevice": "Planned",
       "status": "planned",
       "reachability": "dependency_missing",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt", "terms": ["Tool.TAP_SEGMENT", "Availability.DEPENDENCY_MISSING"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt", "terms": ["Tool.TAP_SEGMENT", "Availability.DEPENDENCY_MISSING"]}]
     },
     {
       "id": "scene_detection",
@@ -282,7 +282,7 @@
       "onDevice": "Yes",
       "status": "available",
       "reachability": "reachable",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/ai/AiFeatures.kt", "terms": ["suspend fun detectScenes"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/ai/AiFeatures.kt", "terms": ["suspend fun detectScenes"]}]
     },
     {
       "id": "auto_color",
@@ -291,7 +291,7 @@
       "onDevice": "Yes",
       "status": "available",
       "reachability": "reachable",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/ui/editor/AiToolsDelegate.kt", "terms": ["aiFeatures.autoColorCorrect"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/ui/editor/AiToolsDelegate.kt", "terms": ["aiFeatures.autoColorCorrect"]}]
     },
     {
       "id": "hdr_encode_feature_gate",
@@ -300,7 +300,7 @@
       "onDevice": "Yes",
       "status": "available",
       "reachability": "reachable",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/EncoderCapabilityProbe.kt", "terms": ["FEATURE_HdrEditing", "FEATURE_HlgEditing", "isFeatureSupported"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/EncoderCapabilityProbe.kt", "terms": ["FEATURE_HdrEditing", "FEATURE_HlgEditing", "isFeatureSupported"]}]
     },
     {
       "id": "motion_tracking",
@@ -309,7 +309,7 @@
       "onDevice": "Yes",
       "status": "available",
       "reachability": "reachable",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/ui/editor/TimelineEditing.kt", "terms": ["splitMotionTracking"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/ui/editor/TimelineEditing.kt", "terms": ["splitMotionTracking"]}]
     },
     {
       "id": "audio_denoise",
@@ -318,7 +318,7 @@
       "onDevice": "Yes",
       "status": "available",
       "reachability": "reachable",
-      "evidence": [{"path": "app/src/main/java/com/novacut/editor/engine/NoiseReductionEngine.kt", "terms": ["class NoiseReductionEngine", "DeepFilterNet 3"]}]
+      "evidence": [{"path": "app/src/main/java/com/monstro/v18/engine/NoiseReductionEngine.kt", "terms": ["class NoiseReductionEngine", "DeepFilterNet 3"]}]
     }
   ]
 }

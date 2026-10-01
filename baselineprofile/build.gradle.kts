@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.clearcut.baselineprofile"
-    compileSdk = 36
+    compileSdk { version = release(37) { minorApiLevel = 0 } }
     targetProjectPath = ":app"
 
     defaultConfig {
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR"
     }

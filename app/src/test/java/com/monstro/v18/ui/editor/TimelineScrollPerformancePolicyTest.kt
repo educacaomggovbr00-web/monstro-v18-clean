@@ -22,7 +22,7 @@ class TimelineScrollPerformancePolicyTest {
 
     @Test
     fun timelineUsesLazyCacheWindowAndVisibilityGating() {
-        val source = locate("app/src/main/java/com/novacut/editor/ui/editor/Timeline.kt").readText()
+        val source = locate("app/src/main/java/com/monstro/v18/ui/editor/Timeline.kt").readText()
 
         assertTrue(source.contains("LazyLayoutCacheWindow"))
         assertTrue(source.contains("LazyRow("))

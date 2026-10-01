@@ -29,12 +29,12 @@ val bundleTaskRequested = gradle.startParameter.taskNames.any { taskName ->
 
 android {
     namespace = "com.monstro.v18"
-    compileSdk = 36
+    compileSdk { version = release(37) { minorApiLevel = 0 } }
 
     defaultConfig {
         applicationId = "com.monstro.v18.studio"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 25
         versionName = "18.7-ClearCut"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -955,4 +955,18 @@ afterEvaluate {
     registerJvmVisualVerificationTask("verifyJvmVisualVerification", "verify")
 }
 
-if (file("google-services.json").exists()) { apply(plugin = "com.google.gms.google-services") }
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    // Isolated test/network variants require their own registered Firebase client.
+    // Keep production configuration intact; unsupported variants run offline.
+    listOf("qa", "streaming").forEach { variant ->
+        val expectedPackage = "com.monstro.v18.studio.$variant"
+        val clientPattern = Regex("\"package_name\"\\s*:\\s*\"${Regex.escape(expectedPackage)}\"")
+        val candidates = listOf(file("src/$variant/google-services.json"), file("google-services.json"))
+        val configured = candidates.any { it.isFile && clientPattern.containsMatchIn(it.readText()) }
+        if (!configured) {
+            val taskName = "process${variant.replaceFirstChar { it.uppercase() }}GoogleServices"
+            tasks.matching { it.name == taskName }.configureEach { enabled = false }
+        }
+    }
+}

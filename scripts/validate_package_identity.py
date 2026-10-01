@@ -63,8 +63,8 @@ def validate_registry_shape(data: dict[str, Any]) -> None:
 
     if data["publicProductName"] == data["retiredPublicProductName"]:
         raise PackageIdentityError("public and retired product names must differ")
-    if data["applicationId"] != data["namespace"] or data["namespace"] != data["sourcePackage"]:
-        raise PackageIdentityError("applicationId, namespace, and sourcePackage must remain aligned")
+    if data["namespace"] != data["sourcePackage"]:
+        raise PackageIdentityError("namespace and sourcePackage must remain aligned")
     if not re.fullmatch(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+", data["applicationId"]):
         raise PackageIdentityError("applicationId is not a valid Android package name")
 
@@ -101,8 +101,8 @@ def validate_registry_shape(data: dict[str, Any]) -> None:
         raise PackageIdentityError("shortcut target class must remain MainActivity in the package namespace")
     actions = shortcut.get("actions")
     if actions != [
-        f"{data['applicationId']}.action.NEW_PROJECT",
-        f"{data['applicationId']}.action.OPEN_RECENT",
+        f"{data['namespace']}.action.NEW_PROJECT",
+        f"{data['namespace']}.action.OPEN_RECENT",
     ]:
         raise PackageIdentityError("static shortcut actions must remain stable")
 
@@ -199,8 +199,8 @@ def validate_manifest(root: Path, registry: dict[str, Any]) -> None:
 def validate_shortcuts(root: Path, registry: dict[str, Any]) -> None:
     shortcut_root = parse_xml(root / "app/src/main/res/xml/shortcuts.xml", root)
     target = registry["shortcutTarget"]
-    expected_package = "${applicationId}"
-    expected_class = "${applicationId}.MainActivity"
+    expected_package = target["package"]
+    expected_class = target["class"]
     intents = shortcut_root.findall(".//intent")
     if len(intents) != len(target["actions"]):
         raise PackageIdentityError("shortcuts.xml must keep one intent for each registered static shortcut")
@@ -210,7 +210,7 @@ def validate_shortcuts(root: Path, registry: dict[str, Any]) -> None:
         if intent.get(ANDROID_ATTR("targetPackage")) != expected_package:
             raise PackageIdentityError("shortcut targetPackage must remain application-scoped")
         if intent.get(ANDROID_ATTR("targetClass")) != expected_class:
-            raise PackageIdentityError("shortcut targetClass must remain application-scoped")
+            raise PackageIdentityError("shortcut targetClass must match the activity namespace")
     actual_actions = [intent.get(ANDROID_ATTR("action")) for intent in intents]
     if actual_actions != target["actions"]:
         raise PackageIdentityError("shortcut action order or values changed")
@@ -220,8 +220,8 @@ def validate_archive_parser(root: Path, registry: dict[str, Any]) -> None:
     parser_sources = "\n".join(
         read_text(root / relative, root)
         for relative in (
-            "app/src/main/java/com/novacut/editor/engine/IncomingDocumentIntentParser.kt",
-            "app/src/main/java/com/novacut/editor/engine/PluginRegistry.kt",
+            "app/src/main/java/com/monstro/v18/engine/IncomingDocumentIntentParser.kt",
+            "app/src/main/java/com/monstro/v18/engine/PluginRegistry.kt",
         )
     ).lower()
     for extension in registry["archiveAssociations"]["extensions"]:
@@ -239,7 +239,7 @@ def validate_app_labels(root: Path, registry: dict[str, Any]) -> None:
             if element.get("name") == "app_name"
         ]
         if labels != [registry["publicProductName"]]:
-            raise PackageIdentityError(f"{rel(strings_path, root)} must expose the ClearCut app label")
+            raise PackageIdentityError(f"{rel(strings_path, root)} must expose the registered app label")
 
 
 def validate_public_surfaces(root: Path, registry: dict[str, Any]) -> None:
@@ -301,15 +301,15 @@ def run_self_test(root: Path = ROOT) -> None:
         shortcuts_path.parent.mkdir(parents=True)
         actions = registry["shortcutTarget"]["actions"]
         placeholder_xml = f'''<shortcuts xmlns:android="{ANDROID_NS}">
-    <shortcut><intent android:action="{actions[0]}" android:targetPackage="${{applicationId}}" android:targetClass="${{applicationId}}.MainActivity" /></shortcut>
-    <shortcut><intent android:action="{actions[1]}" android:targetPackage="${{applicationId}}" android:targetClass="${{applicationId}}.MainActivity" /></shortcut>
+    <shortcut><intent android:action="{actions[0]}" android:targetPackage="{registry['applicationId']}" android:targetClass="{registry['shortcutTarget']['class']}" /></shortcut>
+    <shortcut><intent android:action="{actions[1]}" android:targetPackage="{registry['applicationId']}" android:targetClass="{registry['shortcutTarget']['class']}" /></shortcut>
 </shortcuts>
 '''
         shortcuts_path.write_text(placeholder_xml, encoding="utf-8")
         validate_shortcuts(fixture_root, registry)
 
         shortcuts_path.write_text(
-            placeholder_xml.replace('targetPackage="${applicationId}"', f'targetPackage="{registry["applicationId"]}"'),
+            placeholder_xml.replace(registry['applicationId'], 'invalid.package'),
             encoding="utf-8",
         )
         try:
@@ -317,7 +317,7 @@ def run_self_test(root: Path = ROOT) -> None:
         except PackageIdentityError:
             pass
         else:
-            raise AssertionError("self-test expected a fixed shortcut package to fail")
+            raise AssertionError("self-test expected an incorrect shortcut package to fail")
 
 
 def main() -> int:

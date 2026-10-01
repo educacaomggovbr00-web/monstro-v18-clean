@@ -235,21 +235,21 @@ Reinforces existing items: this pass re-confirms the open P1 "Make public featur
 
 - [ ] P2: Give media scanning an explicit failure and retry state
   Why: The outer media scan exposes only an analyzing boolean and per-URI resolver exceptions are absorbed, so a provider-wide failure can leave users without a clear retry path or an explanation of partial results.
-  Evidence: `app/src/main/java/com/novacut/editor/ui/media/MediaManagerPanel.kt:95-108,1073-1165`; the current scan catches resolver failures per URI but has no typed terminal error state or retry action.
+  Evidence: `app/src/main/java/com/monstro/v18/ui/media/MediaManagerPanel.kt:95-108,1073-1165`; the current scan catches resolver failures per URI but has no typed terminal error state or retry action.
   Touches: `MediaManagerPanel.kt`, media scan state/diagnostics, strings, cancellation handling, and unit/Compose tests.
   Acceptance: The UI distinguishes idle, scanning, ready-with-partial-results, failed, and cancelled states; failed providers and skipped assets are counted with actionable detail; retry is explicit and idempotent; cancellation never leaves a permanent spinner; tests cover resolver failure, empty results, cancellation, and retry.
   Complexity: S
 
 - [ ] P2: Establish a Compose accessibility and font-scale matrix
   Why: Existing smoke tests cover pseudo-locale and RTL behavior, but there is no broad font-scale or large-screen matrix for dense export, batch, and media-manager surfaces. Compose semantics and state descriptions should be verified as part of the product’s accessibility contract.
-  Evidence: `app/src/androidTest/java/com/novacut/editor/ClearCutSmokeTest.kt`; existing locale/resource and semantic-theme tests; official guidance at https://developer.android.com/develop/ui/compose/accessibility, https://developer.android.com/develop/ui/compose/accessibility/semantics, and https://developer.android.com/develop/ui/compose/testing/semantics.
+  Evidence: `app/src/androidTest/java/com/monstro/v18/ClearCutSmokeTest.kt`; existing locale/resource and semantic-theme tests; official guidance at https://developer.android.com/develop/ui/compose/accessibility, https://developer.android.com/develop/ui/compose/accessibility/semantics, and https://developer.android.com/develop/ui/compose/testing/semantics.
   Touches: smoke/instrumentation tests, `ExportSheet.kt`, `BatchExportPanel.kt`, `MediaManagerPanel.kt`, semantics, and strings.
   Acceptance: Instrumentation covers wide layouts, 200% and 300% font scale, RTL, and pseudo-locales; no primary action, status, progress, or error is clipped or hidden; controls expose stable labels, roles, values, and state descriptions; the matrix runs in the invisible device test lane.
   Complexity: M
 
 - [ ] P2: Add a container and fast-start compatibility gate
   Why: The exporter accounts for MP4 `moov` size but does not assert atom order or clearly distinguish a stream-safe output contract from a merely playable file. Android’s format guidance makes codec/container combinations and streamed MP4 ordering explicit.
-  Evidence: `app/src/main/java/com/novacut/editor/model/ExportConfig.kt:81`; `app/src/main/java/com/novacut/editor/engine/ExportOutputVerifier.kt`; https://developer.android.com/media/platform/supported-formats; Media3’s current muxer notes at https://developer.android.com/blog/posts/media3-whats-new?hl=en.
+  Evidence: `app/src/main/java/com/monstro/v18/model/ExportConfig.kt:81`; `app/src/main/java/com/monstro/v18/engine/ExportOutputVerifier.kt`; https://developer.android.com/media/platform/supported-formats; Media3’s current muxer notes at https://developer.android.com/blog/posts/media3-whats-new?hl=en.
   Touches: `ExportOutputVerifier.kt`, container parser/policy, export diagnostics/share metadata, fixtures, and instrumentation tests.
   Acceptance: The output gate checks MP4 atom order and declared codec/container compatibility, reports when an output is playable but not stream-safe, and does not make an unverified live-streaming claim; fixtures cover valid and invalid `moov` placement and supported/unsupported audio combinations.
   Complexity: M

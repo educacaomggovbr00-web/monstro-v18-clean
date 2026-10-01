@@ -18,7 +18,8 @@ class PackageIdentityTest {
         val readme = locate("README.md").readText()
 
         assertEquals(1, registry.getInt("schemaVersion"))
-        assertEquals(applicationId, namespace)
+        assertEquals("com.monstro.v18.studio", applicationId)
+        assertEquals(namespace, registry.getString("sourcePackage"))
         assertTrue(build.contains("namespace = \"$namespace\""))
         assertTrue(build.contains("applicationId = \"$applicationId\""))
         assertTrue(build.contains("applicationIdSuffix = \".streaming\""))
@@ -34,8 +35,8 @@ class PackageIdentityTest {
         val applicationId = registry.getString("applicationId")
         val manifest = locate("app/src/main/AndroidManifest.xml").readText()
         val shortcuts = locate("app/src/main/res/xml/shortcuts.xml").readText()
-        val parser = locate("app/src/main/java/com/novacut/editor/engine/IncomingDocumentIntentParser.kt").readText()
-        val plugins = locate("app/src/main/java/com/novacut/editor/engine/PluginRegistry.kt").readText()
+        val parser = locate("app/src/main/java/com/monstro/v18/engine/IncomingDocumentIntentParser.kt").readText()
+        val plugins = locate("app/src/main/java/com/monstro/v18/engine/PluginRegistry.kt").readText()
 
         assertTrue(manifest.contains("\${applicationId}.androidx-startup"))
         assertTrue(manifest.contains("\${applicationId}.fileprovider"))
@@ -44,8 +45,8 @@ class PackageIdentityTest {
             val action = shortcutActions.getString(index)
             assertTrue("Manifest must keep shortcut action $action", manifest.contains(action))
         }
-        assertTrue(shortcuts.contains("android:targetPackage=\"\${applicationId}\""))
-        assertTrue(shortcuts.contains("android:targetClass=\"\${applicationId}.MainActivity\""))
+        assertTrue(shortcuts.contains("android:targetPackage=\"$applicationId\""))
+        assertTrue(shortcuts.contains("android:targetClass=\"com.monstro.v18.MainActivity\""))
 
         val associations = registry.getJSONObject("archiveAssociations")
         val extensions = associations.getJSONArray("extensions")
@@ -61,10 +62,10 @@ class PackageIdentityTest {
         }
 
         assertTrue(locate("app/src/main/res/values/strings.xml").readText().contains(
-            "<string name=\"app_name\">ClearCut</string>"
+            "<string name=\"app_name\">Monstro V18</string>"
         ))
         assertTrue(locate("app/src/main/res/values-es/strings.xml").readText().contains(
-            "<string name=\"app_name\">ClearCut</string>"
+            "<string name=\"app_name\">Monstro V18</string>"
         ))
     }
 

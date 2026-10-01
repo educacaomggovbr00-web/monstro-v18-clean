@@ -79,7 +79,7 @@ private class ChaosShaderProgram(context: Context, private val settings: ChaosSe
                 try {
                     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, readFramebuffer)
                     GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
-                    GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, history)
+                    GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, history, GLES20.GL_LINEAR)
                     GLES20.glCopyTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height)
                     GlUtil.checkGlError()
                 } finally {

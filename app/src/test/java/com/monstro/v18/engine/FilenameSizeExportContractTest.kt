@@ -9,7 +9,7 @@ class FilenameSizeExportContractTest {
     @Test
     fun specialExportPaths_finalizeSizeAwareNames() {
         val delegate = locate(
-            "app/src/main/java/com/novacut/editor/ui/editor/ExportDelegate.kt"
+            "app/src/main/java/com/monstro/v18/ui/editor/ExportDelegate.kt"
         ).readText()
 
         assertTrue(delegate.contains("val finalizedSheetFile = finalizeFilenameSize(targetSheetFile)"))

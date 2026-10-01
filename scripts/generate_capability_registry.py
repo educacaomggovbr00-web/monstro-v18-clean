@@ -12,7 +12,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "scripts" / "capability_registry.json"
-GENERATED_KOTLIN = ROOT / "app" / "src" / "main" / "java" / "com" / "novacut" / "editor" / "engine" / "CapabilityRegistryGenerated.kt"
+GENERATED_KOTLIN = ROOT / "app" / "src" / "main" / "java" / "com" / "monstro" / "v18" / "engine" / "CapabilityRegistryGenerated.kt"
 README = ROOT / "README.md"
 
 

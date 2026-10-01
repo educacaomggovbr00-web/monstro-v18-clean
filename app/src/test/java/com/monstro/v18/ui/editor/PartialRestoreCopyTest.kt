@@ -9,7 +9,7 @@ class PartialRestoreCopyTest {
 
     @Test
     fun editorUsesLocalizedQuantityCopyInsteadOfRawRestoreLabels() {
-        val editor = locate("app/src/main/java/com/novacut/editor/ui/editor/EditorScreen.kt").readText()
+        val editor = locate("app/src/main/java/com/monstro/v18/ui/editor/EditorScreen.kt").readText()
 
         assertTrue(editor.contains("partialRestoreBulletList("))
         assertFalse(editor.contains("report.countsByKind().joinToString"))

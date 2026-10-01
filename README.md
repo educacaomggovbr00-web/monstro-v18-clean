@@ -587,7 +587,7 @@ com.monstro.v18/
 # Debug build
 ./gradlew assembleDebug
 
-# Isolated QA timeline instrumentation (application ID: com.monstro.v18.qa)
+# Isolated QA timeline instrumentation (application ID: com.monstro.v18.studio.qa)
 ./gradlew :app:assembleQa :app:assembleQaAndroidTest
 # JVM/lint gate for the QA-targeted test graph
 ./gradlew :app:testQaUnitTest :app:lintDebug
@@ -757,7 +757,7 @@ Android developer verification is not complete. Starting in September 2026, Goog
 
 ### Package identity and upgrade policy
 
-ClearCut is the public product name. The Android application ID and source namespace are intentionally frozen at `com.monstro.v18`: it is the legacy technical identity that preserves the existing install lineage, not public branding. The machine-readable contract lives in `scripts/package_identity.json` and is checked by the release gate.
+Monstro V18 is the public product name. The Android application ID remains `com.monstro.v18.studio` and the source namespace remains `com.monstro.v18`, preserving the existing Monstro install lineage. The machine-readable contract lives in `scripts/package_identity.json` and is checked by the release gate.
 
 Keeping that ID and the pinned release certificate lets existing installs receive in-place updates and keeps app-private projects reachable. Provider authorities remain `${applicationId}.androidx-startup` and `${applicationId}.fileprovider`; `.clearcut` and `.clearcut-template` files and their document MIME associations remain stable.
 
@@ -792,7 +792,7 @@ Open-source notices are available in **Settings > Third-party notices > Open sou
 ## Supported Devices
 
 - **Min SDK:** 26 (Android 8.0 Oreo)
-- **Target SDK:** 37 (Android 17)
+- **Target SDK:** 37 (Android 17), compiled with the SDK 37.0 platform
 - **Required:** OpenGL ES 3.0
 - **Recommended:** 4GB+ RAM, Snapdragon 7-series or better for AI features
 - **AV1 hardware encoding:** Pixel 8+, Snapdragon 8 Gen 3+, Dimensity 9200+

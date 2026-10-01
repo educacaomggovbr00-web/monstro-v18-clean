@@ -13,9 +13,9 @@ from generate_capability_registry import RegistryError, check_or_write, load_reg
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AI_REQUIREMENTS = ROOT / "app" / "src" / "main" / "java" / "com" / "novacut" / "editor" / "engine" / "AiToolRequirements.kt"
-C2PA_ENGINE = ROOT / "app" / "src" / "main" / "java" / "com" / "novacut" / "editor" / "engine" / "C2paExportEngine.kt"
-DIRECT_PUBLISH_ENGINE = ROOT / "app" / "src" / "main" / "java" / "com" / "novacut" / "editor" / "engine" / "DirectPublishEngine.kt"
+AI_REQUIREMENTS = ROOT / "app" / "src" / "main" / "java" / "com" / "monstro" / "v18" / "engine" / "AiToolRequirements.kt"
+C2PA_ENGINE = ROOT / "app" / "src" / "main" / "java" / "com" / "monstro" / "v18" / "engine" / "C2paExportEngine.kt"
+DIRECT_PUBLISH_ENGINE = ROOT / "app" / "src" / "main" / "java" / "com" / "monstro" / "v18" / "engine" / "DirectPublishEngine.kt"
 
 
 class ClaimError(RuntimeError):
@@ -291,7 +291,7 @@ def write_minimal_sources(root: Path, readme: str, full_description: str, svg_te
     write_fixture(root, "scripts/generate_play_listing_assets.py", svg_text)
     write_fixture(
         root,
-        "app/src/main/java/com/novacut/editor/engine/AiToolRequirements.kt",
+        "app/src/main/java/com/monstro/v18/engine/AiToolRequirements.kt",
         '''
         Tool.AUTO_CAPTIONS to ToolRequirement(modelRegistryId = "whisper.tiny.en.onnx", availability = Availability.MODEL_DOWNLOAD_REQUIRED)
         Tool.AI_STABILIZE to ToolRequirement(availability = Availability.DEPENDENCY_MISSING)
@@ -305,8 +305,8 @@ def write_minimal_sources(root: Path, readme: str, full_description: str, svg_te
         Tool.CAPTION_TRANSLATE to ToolRequirement(availability = Availability.DEPENDENCY_MISSING)
         ''',
     )
-    write_fixture(root, "app/src/main/java/com/novacut/editor/engine/C2paExportEngine.kt", '"Content Credentials are unavailable because no C2PA signing library is bundled."\n')
-    write_fixture(root, "app/src/main/java/com/novacut/editor/engine/DirectPublishEngine.kt", "Today only the share-intent fallback is wired. Method.SHARE_INTENT\n")
+    write_fixture(root, "app/src/main/java/com/monstro/v18/engine/C2paExportEngine.kt", '"Content Credentials are unavailable because no C2PA signing library is bundled."\n')
+    write_fixture(root, "app/src/main/java/com/monstro/v18/engine/DirectPublishEngine.kt", "Today only the share-intent fallback is wired. Method.SHARE_INTENT\n")
 
 
 def run_self_tests() -> None:

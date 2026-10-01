@@ -18,7 +18,7 @@ From the repository root, run:
 rtk gradlew :app:testQaUnitTest --tests com.monstro.v18.LocaleResourceCoverageTest --tests com.monstro.v18.UiHardcodedLiteralRatchetTest --dependency-verification strict --no-daemon --max-workers=1 '-Dorg.gradle.jvmargs=-Xmx2048m' '-Dorg.gradle.workers.max=1'
 ```
 
-The locale test checks resource keys and formatting placeholders against English, verifies the locale config entry, and scans every translated resource directory. The UI literal test scans every Kotlin source file under `app/src/main/java/com/novacut/editor/ui` so new UI copy cannot bypass resources. Run the full QA unit suite and `:app:assembleQa` before requesting review.
+The locale test checks resource keys and formatting placeholders against English, verifies the locale config entry, and scans every translated resource directory. The UI literal test scans every Kotlin source file under `app/src/main/java/com/monstro/v18/ui` so new UI copy cannot bypass resources. Run the full QA unit suite and `:app:assembleQa` before requesting review.
 
 ## Pull request checklist
 

@@ -53,9 +53,9 @@ class EngineStringExtractionAuditTest {
         // Tests run with the working dir at the module or the project root, so
         // try both before giving up.
         val candidates = listOf(
-            File("app/src/main/java/com/novacut/editor/engine"),
-            File("src/main/java/com/novacut/editor/engine"),
-            File("../app/src/main/java/com/novacut/editor/engine"),
+            File("app/src/main/java/com/monstro/v18/engine"),
+            File("src/main/java/com/monstro/v18/engine"),
+            File("../app/src/main/java/com/monstro/v18/engine"),
         )
         return candidates.firstOrNull { it.exists() && it.isDirectory }
     }

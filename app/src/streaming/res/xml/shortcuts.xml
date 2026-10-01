@@ -18,7 +18,7 @@
         android:shortcutLongLabel="@string/shortcut_new_project_long">
         <intent
             android:action="com.monstro.v18.action.NEW_PROJECT"
-            android:targetPackage="com.monstro.v18.studio"
+            android:targetPackage="com.monstro.v18.studio.streaming"
             android:targetClass="com.monstro.v18.MainActivity" />
         <!-- Not a conversation shortcut — removed android.shortcut.conversation -->
 
@@ -32,7 +32,7 @@
         android:shortcutLongLabel="@string/shortcut_recent_long">
         <intent
             android:action="com.monstro.v18.action.OPEN_RECENT"
-            android:targetPackage="com.monstro.v18.studio"
+            android:targetPackage="com.monstro.v18.studio.streaming"
             android:targetClass="com.monstro.v18.MainActivity" />
     </shortcut>
 
