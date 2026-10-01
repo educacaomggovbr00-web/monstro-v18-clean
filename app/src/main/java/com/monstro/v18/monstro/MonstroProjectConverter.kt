@@ -12,6 +12,24 @@ import java.util.UUID
 /** Loss-aware conversion; the originals are never changed or deleted. */
 @androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 object MonstroProjectConverter {
+    /** Recover the last persisted editor state without changing the original document. */
+    fun recoverActiveDocument(
+        document: JSONObject,
+        activeId: String?,
+        journal: Map<String, *>,
+        captions: JSONArray?,
+    ): JSONObject {
+        if (activeId != document.optString("id") || document.optBoolean("trashed") ||
+            !journal.containsKey("clips")) return document
+        val recovered = JSONObject(document.toString())
+        val settings = recovered.getJSONObject("settings")
+        journal.forEach { (key, value) ->
+            if (key != "activeProjectId" && value != null) settings.put(key, value)
+        }
+        captions?.let { recovered.put("captions", JSONArray(it.toString())) }
+        return recovered
+    }
+
     fun convert(document:JSONObject):ProjectDocument {
         require(document.optInt("version",1)==1)
         val settings=document.getJSONObject("settings")

@@ -50,7 +50,7 @@ class TrackedFilesAuditTest {
     /**
      * Sanity check: the public local-build/release contract files must remain
      * tracked. Planning and research markdown are intentionally local-only; the
-     * README is the only tracked markdown file in this repo.
+     * public release and integration documents are explicitly approved below.
      */
     @Test
     fun requiredPublicFilesRemainTracked() {
@@ -68,7 +68,7 @@ class TrackedFilesAuditTest {
     }
 
     @Test
-    fun markdownDocsStayLocalExceptReadme() {
+    fun markdownDocsStayLocalExceptApprovedPublicDocs() {
         val repoRoot = locateRepoRoot() ?: return
         val tracked = gitLsFiles(repoRoot) ?: run {
             assumeTrue("git command unavailable; skipping tracked-markdown audit", false)
@@ -85,6 +85,9 @@ class TrackedFilesAuditTest {
             "docs/privacy-policy.md",
             "docs/play-data-safety.md",
             "docs/translations.md",
+            "CAPCUT_PARITY.md",
+            "CLEARCUT_INTEGRATION.md",
+            "legacy/monstro-v18/README.md",
         )
         val trackedPrivateMarkdown = tracked.filter { path ->
             path.endsWith(".md") && path !in releaseContractMarkdown
@@ -98,7 +101,7 @@ class TrackedFilesAuditTest {
     }
 
     @Test
-    fun githubAutomationFilesStayUntracked() {
+    fun onlyApprovedGithubAutomationFilesAreTracked() {
         val repoRoot = locateRepoRoot() ?: return
         val tracked = gitLsFiles(repoRoot) ?: run {
             assumeTrue("git command unavailable; skipping GitHub automation audit", false)
@@ -185,6 +188,7 @@ class TrackedFilesAuditTest {
 
         private val APPROVED_AUTOMATION_FILES = setOf(
             ".github/workflows/ci.yml",
+            ".github/workflows/main.yml",
         )
 
         private val REQUIRED_TRACKED = listOf(

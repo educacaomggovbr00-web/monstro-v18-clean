@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.tryPerformAccessibilityChecks
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResult
 import com.google.android.apps.common.testing.accessibility.framework.integrations.espresso.AccessibilityValidator
@@ -265,8 +266,14 @@ class JvmVisualVerificationTest {
     }
 
     private fun waitUntilAtLeastOneExists(tag: String, timeoutMillis: Long = 10_000L) {
-        compose.waitUntil(timeoutMillis) {
-            compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        try {
+            compose.waitUntil(timeoutMillis) {
+                compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
+            val tree = runCatching { compose.onRoot(useUnmergedTree = true).printToString() }
+                .getOrElse { "Semantics unavailable: ${it.javaClass.simpleName}" }
+            throw AssertionError("Timed out waiting for $tag. UI at failure:\n$tree", failure)
         }
     }
 

@@ -3363,4 +3363,5 @@
     <string name="ai_requirement_unmet_generic">%1$s aún no está listo, así que esta herramienta no puede ejecutarse.</string>
     <string name="ai_requirement_unknown_tool_title">Esta herramienta necesita algo que no está registrado</string>
     <string name="ai_requirement_unknown_tool_body">ClearCut no tiene una entrada de requisitos para esta herramienta, así que no puede indicar qué falta. Abre Herramientas de IA para ver qué modelos están instalados.</string>
+    <string name="monstro_tools">Monstro FX / Gemini</string>
 </resources>

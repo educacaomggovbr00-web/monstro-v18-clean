@@ -114,7 +114,9 @@ jobs:
       - name: Compilar aplicação e testes de integração
         run: ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest --no-daemon --stacktrace
       - name: Testes unitários e lint
-        run: ./gradlew :app:testQaUnitTest :app:lintQa --no-daemon --stacktrace
+        id: quality
+        continue-on-error: true
+        run: ./gradlew :app:testQaUnitTest :app:lintQa --no-daemon --stacktrace --continue
       - name: Validar efeitos Monstro por pixels
         run: |
           sudo apt-get update -qq
@@ -148,3 +150,6 @@ jobs:
             monstro/build/reports
             monstro/app/build/reports
             monstro/app/build/test-results
+      - name: Exigir aprovação dos testes unitários e lint
+        if: always() && steps.quality.outcome == 'failure'
+        run: exit 1

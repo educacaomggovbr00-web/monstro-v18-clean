@@ -33,6 +33,21 @@ class MonstroProjectConverterTest {
         val read=ProjectDocumentApplicator.read(ProjectDocumentApplicator.encode(converted))
         assertTrue(read is ProjectDocumentReadResult.Loaded)
     }
+    @Test fun activeJournalRecoversLastCutWithoutChangingOriginalOrOtherProjects() {
+        val source = old()
+        val before = source.toString()
+        val clips = JSONArray(source.getJSONObject("settings").getString("clips"))
+        clips.getJSONObject(0).put("start", 300)
+        val journal = mapOf("clips" to clips.toString(), "activeProjectId" to "legacy-id")
+        val recovered = MonstroProjectConverter.recoverActiveDocument(source, "legacy-id", journal, JSONArray())
+        assertEquals(before, source.toString())
+        assertEquals(300L, MonstroProjectConverter.convert(recovered).state.tracks.single().clips.single().trimStartMs)
+        assertFalse(recovered.getJSONObject("settings").has("activeProjectId"))
+        assertEquals(before, MonstroProjectConverter.recoverActiveDocument(source, "another-project", journal, null).toString())
+        val trashed = old().put("trashed", true)
+        assertEquals(trashed.toString(), MonstroProjectConverter.recoverActiveDocument(trashed, "legacy-id", journal, null).toString())
+    }
+
     @Test fun migrationIdIsStableAndInvalidTrimIsRejected() {
         assertEquals(MonstroProjectConverter.convert(old()).project.id,MonstroProjectConverter.convert(old()).project.id)
         val bad=old();val settings=bad.getJSONObject("settings");val clips=JSONArray(settings.getString("clips"));clips.getJSONObject(0).put("end",4000);settings.put("clips",clips.toString())

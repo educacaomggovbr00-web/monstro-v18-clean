@@ -77,7 +77,17 @@ class ClearCutApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         DebugRuntimePolicy.install()
-        applicationScope.launch { monstroMigration.migrate() }
+        applicationScope.launch {
+            try {
+                monstroMigration.migrate()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                com.monstro.v18.engine.AppLog.w(
+                    "MonstroMigration", "Migration deferred: ${e.javaClass.simpleName}"
+                )
+            }
+        }
         registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
         CrashRecordStore(this).installGlobalHandler(VERSION)
         processExitRecorder.recordStartupExitReasons()

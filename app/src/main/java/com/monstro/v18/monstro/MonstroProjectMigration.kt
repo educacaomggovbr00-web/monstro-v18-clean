@@ -3,9 +3,11 @@ package com.monstro.v18.monstro
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
 import com.monstro.v18.engine.ProjectAutoSave
+import com.monstro.v18.engine.ProjectDocument
 import com.monstro.v18.engine.db.ProjectDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
@@ -27,6 +29,19 @@ class MonstroProjectMigration @Inject constructor(
         val sources=directory.listFiles().orEmpty().filter{it.extension in listOf("json","bak")}
             .map{it.nameWithoutExtension}.distinct()
         val errors=JSONArray()
+        val prefs=context.getSharedPreferences("editor",0)
+        val activeId=prefs.getString("activeProjectId",null)
+        val journal=prefs.all
+        val captions=runCatching {
+            File(context.filesDir,"captions.json")
+                .takeIf{it.isFile && it.length()<=4*1024*1024}
+                ?.readText()?.let(::JSONArray)
+        }.getOrNull()
+        fun convert(document:JSONObject):ProjectDocument = runCatching {
+            MonstroProjectConverter.convert(
+                MonstroProjectConverter.recoverActiveDocument(document,activeId,journal,captions)
+            )
+        }.getOrElse { MonstroProjectConverter.convert(document) }
         for(id in sources) {
             if(progress.getBoolean(id,false))continue
             runCatching {
@@ -35,22 +50,31 @@ class MonstroProjectMigration @Inject constructor(
                     require(file.length()<=4*1024*1024)
                     return JSONObject(file.readText())
                 }
-                val converted=runCatching{MonstroProjectConverter.convert(read("json"))}
-                    .getOrElse{MonstroProjectConverter.convert(read("bak"))}
-                check(autoSave.saveNow(converted)){"Autosave indisponível"}
-                dao.insertProject(converted.project)
+                val converted=runCatching{convert(read("json"))}
+                    .getOrElse{convert(read("bak"))}
+                // A retry must not overwrite edits made after an earlier successful import.
+                if(dao.getProject(converted.project.id)==null) {
+                    check(autoSave.saveNow(converted)){"Autosave indisponível"}
+                    dao.insertProject(converted.project)
+                }
                 check(progress.edit().putBoolean(id,true).commit())
-            }.onFailure { errors.put(JSONObject().put("id",id).put("error",it.javaClass.simpleName)) }
+            }.onFailure {
+                if(it is CancellationException)throw it
+                errors.put(JSONObject().put("id",id).put("error",it.javaClass.simpleName))
+            }
         }
         if(sources.isEmpty() && !progress.getBoolean("journal",false)) {
-            val prefs=context.getSharedPreferences("editor",0)
             if(prefs.contains("clips"))runCatching {
-                val settings=JSONObject();prefs.all.forEach{(k,v)->if(v!=null && k!="activeProjectId")settings.put(k,v)}
-                val captions=File(context.filesDir,"captions.json").takeIf{it.isFile && it.length()<4*1024*1024}?.readText()?.let(::JSONArray) ?: JSONArray()
-                val converted=MonstroProjectConverter.convert(JSONObject().put("version",1).put("id","legacy-journal").put("name","Projeto Monstro recuperado").put("settings",settings).put("captions",captions))
-                check(autoSave.saveNow(converted));dao.insertProject(converted.project)
+                val settings=JSONObject();journal.forEach{(k,v)->if(v!=null && k!="activeProjectId")settings.put(k,v)}
+                val converted=MonstroProjectConverter.convert(JSONObject().put("version",1).put("id",activeId ?: "legacy-journal").put("name","Projeto Monstro recuperado").put("settings",settings).put("captions",captions ?: JSONArray()))
+                if(dao.getProject(converted.project.id)==null) {
+                    check(autoSave.saveNow(converted));dao.insertProject(converted.project)
+                }
                 check(progress.edit().putBoolean("journal",true).commit())
-            }.onFailure{errors.put(JSONObject().put("id","journal").put("error",it.javaClass.simpleName))}
+            }.onFailure{
+                if(it is CancellationException)throw it
+                errors.put(JSONObject().put("id","journal").put("error",it.javaClass.simpleName))
+            }
         }
         // No document, preference or media from the original editor is removed.
         File(context.filesDir,"monstro-migration-report.json").writeText(JSONObject().put("failed",errors).put("originalsPreserved",true).toString())
