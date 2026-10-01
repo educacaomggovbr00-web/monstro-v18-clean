@@ -7,6 +7,9 @@ Fonte examinada: `SysAdminDoc/ClearCut`, commit `8a18de40dd474bbc01f43fd5a6d8e13
 - Projetos nomeados: novo, abrir, busca, renomear, duplicar, lixeira e restauração na aba Projetos.
 - Documentos versionados, geração anterior válida, escrita atômica com sincronização antes de renomear e recuperação de arquivo truncado. Migração do projeto atual de SharedPreferences sem apagar suas mídias.
 - Backup/importação da edição em JSON, com limite de tamanho, validação de versão e durações e nova identidade a cada importação. As mídias continuam referenciadas; não é um arquivo que embute os vídeos.
+- Importação de marcadores e intervalos por timecode com validação e desfazer.
+- Registros locais de falhas, exportação de diagnóstico com remoção de URIs/caminhos sensíveis e avisos de licença no aplicativo.
+- Recuperação do diário imediato de edição após interrupção antes do autosave. Regras de backup limitadas aos documentos e configurações.
 - Foco de áudio gerenciado pelo player e pausa ao desconectar fones.
 - Verificação de espaço, codec, dimensão e FPS antes de exportar. MP4 temporário só é promovido após leitura da faixa de vídeo, primeiro quadro e duração; exportação com erro mantém o último MP4 concluído.
 - Limites para metadados de duração e leitura de documentos.

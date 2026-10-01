@@ -81,6 +81,8 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     var exportDialog by remember {mutableStateOf(false)}
     var mediaDialog by remember {mutableStateOf(false)}
     var aiDialog by remember {mutableStateOf(false)}
+    var timecodeDialog by remember {mutableStateOf(false)}
+    var timecodeText by remember {mutableStateOf("")}
     var fullscreen by remember {mutableStateOf(false)}
     var menuMode by remember {mutableStateOf("main")}
     var panel by remember {mutableStateOf<String?>(null)}
@@ -130,6 +132,7 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         StudioTool("⇆","Espelhar"){m.toggleMirror()},
         StudioTool("◇","Transformar"){openPanel("Vídeo")},
         StudioTool("◆+","Keyframe"){m.addTimelineMarker()},
+        StudioTool("⌗","Timecodes"){timecodeDialog=true},
         StudioTool("A↓","Ordenar nome"){m.orderClipsByName()},
         StudioTool("◩","Filtros"){openPanel("Filtros")},
         StudioTool("☷","Ajustar"){openPanel("Ajustes")}
@@ -481,6 +484,12 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         )
     }
 
+    if(timecodeDialog)AlertDialog(
+        onDismissRequest={timecodeDialog=false},title={Text("Marcadores por timecode")},
+        text={Column {Text("Um tempo por linha: 00:00:10.500 Intro. Um intervalo cria os marcadores de início e fim.");OutlinedTextField(timecodeText,{timecodeText=it.take(64000)},minLines=4)}},
+        confirmButton={TextButton(onClick={m.importTimecodeMarkers(timecodeText);timecodeDialog=false},enabled=!m.busy){Text("Adicionar")}},
+        dismissButton={TextButton(onClick={timecodeDialog=false}){Text("Cancelar")}}
+    )
     m.message?.let {
         AlertDialog(
             onDismissRequest=m::clearMessage,

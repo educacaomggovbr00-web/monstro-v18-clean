@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="sharedpref" path="editor.xml" />
+    <include domain="file" path="projects" />
+    <include domain="file" path="captions.json" />
+    <include domain="file" path="lyrics.srt" />
+</full-backup-content>

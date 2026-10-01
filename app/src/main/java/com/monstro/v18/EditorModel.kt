@@ -340,6 +340,36 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
         if(kotlin.math.abs(target.time-playhead)>800){message="Mova o playhead perto de um marcador para remover.";return}
         updateStudio(studio.copy(markers=studio.markers-target),false)
     }
+    fun importTimecodeMarkers(text:String) {
+        if(busy || totalDuration<=0)return
+        if(text.length>64000){message="Lista muito grande (máximo 64 mil caracteres).";return}
+        val parsed=CutListParser.parse(text)
+        if(parsed.hasErrors){message=parsed.errors.take(3).joinToString("\n"){"Linha ${it.lineNumber}: ${it.message}"};return}
+        val points=parsed.entries.flatMap {e->
+            if(e.endMs==null)listOf(TimelineMarker(time=e.startMs,label=e.label.ifBlank {"Marcador"}))
+            else listOf(TimelineMarker(time=e.startMs,label=e.label.ifBlank {"Trecho"}+" · início"),TimelineMarker(time=e.endMs,label=e.label.ifBlank {"Trecho"}+" · fim"))
+        }
+        if(points.any {it.time !in 0..totalDuration} || points.size+studio.markers.size>5000){message="Use tempos dentro da timeline e no máximo 5.000 marcadores.";return}
+        if(points.isEmpty()){message="Digite um timecode por linha, como 00:00:10.500 Intro.";return}
+        updateStudio(studio.copy(markers=(studio.markers+points).sortedBy {it.time}),false)
+        message="${points.size} marcadores adicionados. Desfazer recupera a versão anterior."
+    }
+
+    fun exportDiagnostics(uri:Uri?) {
+        if(uri==null || busy)return
+        saving=true
+        viewModelScope.launch {
+            try {withContext(Dispatchers.IO){
+                val crashes=CrashRecordStore(context).buildDiagnosticJson()
+                val report=JSONObject().put("version","18.6-Studio").put("sdk",Build.VERSION.SDK_INT)
+                    .put("clips",clips.size).put("timelineDurationMs",totalDuration)
+                    .put("crashes",crashes?.let {JSONObject(it)} ?: JSONObject())
+                context.contentResolver.openOutputStream(uri,"wt")!!.use {it.write(report.toString(2).toByteArray(Charsets.UTF_8))}
+            };message="Diagnóstico local salvo. Nenhuma mídia foi incluída."
+            }catch(e:Exception){message="Não foi possível salvar o diagnóstico: ${e.localizedMessage}"}
+            finally{saving=false}
+        }
+    }
     fun updateStudio(next:StudioProject,rebuild:Boolean=true,record:Boolean=true){if(busy || next==studio)return;if(record)pushHistory();studio=next;prefs.edit().putString("studio",StudioCodec.encode(next)).apply();if(rebuild){val pos=player.currentPosition;preview(pos,player.playWhenReady)}}
     fun seekTimeline(time:Long){if(clips.isEmpty() || busy)return;var remaining=time.coerceIn(0,(totalDuration-1).coerceAtLeast(0));var index=0
         while(index<clips.lastIndex && remaining>=speedMap(clips[index]).outputDuration){remaining-=speedMap(clips[index]).outputDuration;index++}
@@ -736,11 +766,28 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             try {
                 val loaded=withContext(Dispatchers.IO) {
                     val id=activeProjectId
-                    if(id!=null) runCatching { projectStore.load(id) }.getOrElse {
-                        projectStore.create("Projeto recuperado",previous.getJSONObject("settings"),previous.getJSONArray("captions"))
+                    if(id!=null) {
+                        val saved=runCatching { projectStore.load(id) }.getOrNull()
+                        val journal=runCatching {ProjectStore.validate(previous)}.getOrNull()
+                        when {
+                            saved!=null && journal!=null -> {
+                                // SharedPreferences is the immediate journal;
+                                // it can be newer than the debounced document.
+                                journal.put("name",saved.optString("name","Projeto Monstro"))
+                                projectStore.save(journal);journal
+                            }
+                            saved!=null -> saved
+                            journal!=null -> projectStore.create("Projeto recuperado",journal.getJSONObject("settings"),journal.getJSONArray("captions"))
+                            else -> error("O projeto e sua cópia não puderam ser recuperados.")
+                        }
                     } else projectStore.create("Meu primeiro projeto",previous.getJSONObject("settings"),previous.getJSONArray("captions"))
                 }
-                applyProject(loaded)
+                val sameJournal=loaded.getJSONObject("settings").toString()==previous.getJSONObject("settings").toString() &&
+                    loaded.getJSONArray("captions").toString()==previous.getJSONArray("captions").toString()
+                if(sameJournal){
+                    activeProjectId=loaded.getString("id");projectName=loaded.optString("name","Projeto Monstro")
+                    prefs.edit().putString("activeProjectId",activeProjectId).apply()
+                }else applyProject(loaded)
                 refreshProjects()
             } catch(e:Exception) { message="Seu projeto atual foi mantido. Biblioteca: ${e.localizedMessage}" }
             finally { projectBusy=false }
@@ -860,6 +907,7 @@ class EditorModel(application: Application) : AndroidViewModel(application) {
             // Decode before replacing any active data. Import always creates a
             // new identity, even when receiving one of our own backup files.
             StudioCodec.decode(imported.getJSONObject("settings").optString("studio","{}"))
+            imported.getJSONObject("settings").remove("output")
             projectStore.save(previous)
             projectStore.create(imported.optString("name","Projeto importado"),imported.getJSONObject("settings"),imported.optJSONArray("captions") ?: JSONArray())
         }

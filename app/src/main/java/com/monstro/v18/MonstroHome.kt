@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.util.UnstableApi
 
 @UnstableApi
@@ -75,7 +76,7 @@ fun MonstroApp(model:EditorModel,startInStudio:Boolean=false){
                         "Modelos"->ModelsHome(model,::withProject)
                         "Lab. IA"->AiLabHome(model,::withProject)
                         "Projetos"->ProjectsHome(model,{screen="studio"},{pendingAction=null;videoPicker.launch(arrayOf("video/*"))})
-                        "Eu"->ProfileHome(onAccount={accountDialog=true})
+                        "Eu"->ProfileHome(model,onAccount={accountDialog=true})
                         else->EditHome(model,::withProject,{pendingAction=null;videoPicker.launch(arrayOf("video/*"))},{screen="studio"})
                     }
                 }
@@ -198,6 +199,7 @@ private fun AiLabHome(model:EditorModel,action:(String)->Unit){
 }
 
 @Composable
+@UnstableApi
 private fun ProjectsHome(model:EditorModel,openEditor:()->Unit,newVideo:()->Unit){
     val backup=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json"),model::exportProjectDocument)
     val restore=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),model::importProjectDocument)
@@ -253,7 +255,11 @@ private fun ProjectsHome(model:EditorModel,openEditor:()->Unit,newVideo:()->Unit
 }
 
 @Composable
-private fun ProfileHome(onAccount:()->Unit){
+@UnstableApi
+private fun ProfileHome(model:EditorModel,onAccount:()->Unit){
+    val diagnostics=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json"),model::exportDiagnostics)
+    var licenses by remember {mutableStateOf(false)}
+    val context=LocalContext.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
         Text("Eu",fontSize=30.sp,fontWeight=FontWeight.Black,color=Color(0xff111216))
         ElevatedCard(onClick=onAccount,modifier=Modifier.fillMaxWidth()){
@@ -268,7 +274,13 @@ private fun ProfileHome(onAccount:()->Unit){
             Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                 Text("Monstro V18 Studio",fontWeight=FontWeight.Bold)
                 Text("Projetos locais têm salvamento automático. Conta Firebase fica disponível quando o método de autenticação estiver ativado no projeto.",fontSize=12.sp,color=Color.Gray)
+                OutlinedButton(onClick={diagnostics.launch("monstro-diagnostico.json")},enabled=!model.busy){Text("Salvar diagnóstico local")}
+                TextButton(onClick={licenses=true}){Text("Licença dos recursos ClearCut")}
+                model.message?.let {Text(it,fontSize=12.sp);TextButton(onClick=model::clearMessage){Text("Fechar mensagem")}}
             }
         }
     }
+    if(licenses)AlertDialog(onDismissRequest={licenses=false},title={Text("ClearCut · MIT")},
+        text={Text(context.resources.openRawResource(R.raw.clearcut_license).bufferedReader().use {it.readText()},modifier=Modifier.verticalScroll(rememberScrollState()),fontSize=11.sp)},
+        confirmButton={TextButton(onClick={licenses=false}){Text("Fechar")}})
 }
