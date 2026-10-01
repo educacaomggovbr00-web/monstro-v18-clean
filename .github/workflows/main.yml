@@ -82,7 +82,7 @@ jobs:
         run: |
           cp gradle/verification-metadata.xml /tmp/monstro-verification-before.xml
           set +e
-          ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest :app:testQaUnitTest :app:lintQa --write-verification-metadata sha256 --no-daemon --stacktrace
+          ./gradlew :app:assembleDebug :app:assembleQa :app:assembleQaAndroidTest :app:testQaUnitTest :app:lintQa --write-verification-metadata sha256 --continue --no-daemon --stacktrace
           result=$?
           set -e
           python3 .integration/check_dependency_lock.py /tmp/monstro-verification-before.xml gradle/verification-metadata.xml
