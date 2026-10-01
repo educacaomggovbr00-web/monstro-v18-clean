@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.util.UnstableApi
 
 @UnstableApi
@@ -75,7 +76,7 @@ fun MonstroApp(model:EditorModel,startInStudio:Boolean=false){
                         "Modelos"->ModelsHome(model,::withProject)
                         "Lab. IA"->AiLabHome(model,::withProject)
                         "Projetos"->ProjectsHome(model,{screen="studio"},{pendingAction=null;videoPicker.launch(arrayOf("video/*"))})
-                        "Eu"->ProfileHome(onAccount={accountDialog=true})
+                        "Eu"->ProfileHome(model,onAccount={accountDialog=true})
                         else->EditHome(model,::withProject,{pendingAction=null;videoPicker.launch(arrayOf("video/*"))},{screen="studio"})
                     }
                 }
@@ -198,33 +199,67 @@ private fun AiLabHome(model:EditorModel,action:(String)->Unit){
 }
 
 @Composable
+@UnstableApi
 private fun ProjectsHome(model:EditorModel,openEditor:()->Unit,newVideo:()->Unit){
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
-        Row(verticalAlignment=Alignment.CenterVertically){Text("Projetos",fontSize=30.sp,fontWeight=FontWeight.Black,color=Color(0xff111216),modifier=Modifier.weight(1f));Button(onClick=newVideo){Text("+ Novo")}}
-        if(model.clips.isEmpty()){
-            Surface(shape=RoundedCornerShape(20.dp),color=Color.White,modifier=Modifier.fillMaxWidth()){
-                Column(Modifier.padding(28.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("Nenhum projeto aberto",fontWeight=FontWeight.Bold);Text("Importe um vídeo para começar.",color=Color.Gray);Spacer(Modifier.height(12.dp));Button(onClick=newVideo){Text("Criar projeto")}}
+    val backup=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json"),model::exportProjectDocument)
+    val restore=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),model::importProjectDocument)
+    var query by remember {mutableStateOf("")}
+    var trash by remember {mutableStateOf(false)}
+    var renameId by remember {mutableStateOf<String?>(null)}
+    var name by remember {mutableStateOf("")}
+    val projects=(if(trash)model.trashedProjects else model.savedProjects).filter {it.name.contains(query,true)}
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+        Text("Projetos",fontSize=30.sp,fontWeight=FontWeight.Black,color=Color(0xff111216))
+        Text("Atual: ${model.projectName}",color=Color.Gray)
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            Button(onClick={model.newProject()},enabled=!model.busy){Text("Novo projeto")}
+            OutlinedButton(onClick={restore.launch(arrayOf("application/json","text/plain","application/octet-stream"))},enabled=!model.busy){Text("Importar projeto")}
+        }
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            OutlinedButton(onClick={backup.launch("monstro-projeto.json")},enabled=!model.busy){Text("Backup da edição")}
+            TextButton(onClick={trash=!trash}){Text(if(trash)"Voltar aos projetos" else "Lixeira (${model.trashedProjects.size})")}
+        }
+        Text("O backup guarda cortes, efeitos e camadas. Mantenha as mídias originais acessíveis.",fontSize=11.sp,color=Color.Gray)
+        OutlinedTextField(value=query,onValueChange={query=it},label={Text("Buscar projetos")},singleLine=true,modifier=Modifier.fillMaxWidth())
+        if(model.projectBusy)LinearProgressIndicator(Modifier.fillMaxWidth())
+        model.message?.let {text->
+            Surface(color=Color(0xffece9ff),shape=RoundedCornerShape(14.dp)){
+                Column(Modifier.padding(12.dp)){Text(text,fontSize=12.sp);TextButton(onClick=model::clearMessage){Text("Fechar")}}
             }
-        }else{
-            Text("Local",fontWeight=FontWeight.Bold,color=Color(0xff111216))
-            ElevatedCard(onClick=openEditor,modifier=Modifier.fillMaxWidth()){
-                Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){
-                    Surface(Modifier.size(82.dp),shape=RoundedCornerShape(14.dp),color=Color(0xff14131c)){Box(contentAlignment=Alignment.Center){Text("▶",color=Color(0xffa855f7),fontSize=28.sp)}}
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)){
-                        Text(model.clips.firstOrNull()?.name ?: "Projeto Monstro",fontWeight=FontWeight.Bold,maxLines=1)
-                        Text("${model.clips.size} mídia(s) · ${timeLabel(model.totalDuration)}",color=Color.Gray,fontSize=12.sp)
-                        Text("Salvo automaticamente neste aparelho",color=Color(0xff8b35e6),fontSize=10.sp)
+        }
+        if(projects.isEmpty())Text(if(trash)"A lixeira está vazia." else "Nenhum projeto encontrado.",color=Color.Gray)
+        projects.forEach {project->
+            ElevatedCard(modifier=Modifier.fillMaxWidth()){
+                Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
+                    Text(project.name,fontWeight=FontWeight.Bold)
+                    Text("${project.clips} mídia(s) · salvo automaticamente",fontSize=11.sp,color=Color.Gray)
+                    if(trash){
+                        Button(onClick={model.trashProject(project.id,false)},enabled=!model.busy){Text("Restaurar")}
+                    }else{
+                        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                            Button(onClick={model.openProject(project.id);openEditor()},enabled=!model.busy){Text("Abrir")}
+                            TextButton(onClick={model.duplicateProject(project.id)},enabled=!model.busy){Text("Duplicar")}
+                            TextButton(onClick={renameId=project.id;name=project.name},enabled=!model.busy){Text("Renomear")}
+                        }
+                        TextButton(onClick={model.trashProject(project.id,true)},enabled=!model.busy){Text("Mover para lixeira")}
                     }
-                    Text("›",fontSize=28.sp)
                 }
             }
         }
+        if(model.clips.isEmpty() && !trash)OutlinedButton(onClick=newVideo,enabled=!model.busy){Text("Importar vídeos no projeto atual")}
     }
+    renameId?.let {id->AlertDialog(onDismissRequest={renameId=null},title={Text("Renomear projeto")},
+        text={OutlinedTextField(name,{name=it.take(80)},singleLine=true)},
+        confirmButton={TextButton(onClick={model.renameProject(id,name);renameId=null},enabled=name.isNotBlank() && !model.busy){Text("Salvar")}},
+        dismissButton={TextButton(onClick={renameId=null}){Text("Cancelar")}})}
 }
 
 @Composable
-private fun ProfileHome(onAccount:()->Unit){
+@UnstableApi
+private fun ProfileHome(model:EditorModel,onAccount:()->Unit){
+    val diagnostics=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json"),model::exportDiagnostics)
+    var licenses by remember {mutableStateOf(false)}
+    val context=LocalContext.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
         Text("Eu",fontSize=30.sp,fontWeight=FontWeight.Black,color=Color(0xff111216))
         ElevatedCard(onClick=onAccount,modifier=Modifier.fillMaxWidth()){
@@ -239,7 +274,13 @@ private fun ProfileHome(onAccount:()->Unit){
             Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                 Text("Monstro V18 Studio",fontWeight=FontWeight.Bold)
                 Text("Projetos locais têm salvamento automático. Conta Firebase fica disponível quando o método de autenticação estiver ativado no projeto.",fontSize=12.sp,color=Color.Gray)
+                OutlinedButton(onClick={diagnostics.launch("monstro-diagnostico.json")},enabled=!model.busy){Text("Salvar diagnóstico local")}
+                TextButton(onClick={licenses=true}){Text("Licença dos recursos ClearCut")}
+                model.message?.let {Text(it,fontSize=12.sp);TextButton(onClick=model::clearMessage){Text("Fechar mensagem")}}
             }
         }
     }
+    if(licenses)AlertDialog(onDismissRequest={licenses=false},title={Text("ClearCut · MIT")},
+        text={Text(context.resources.openRawResource(R.raw.clearcut_license).bufferedReader().use {it.readText()},modifier=Modifier.verticalScroll(rememberScrollState()),fontSize=11.sp)},
+        confirmButton={TextButton(onClick={licenses=false}){Text("Fechar")}})
 }

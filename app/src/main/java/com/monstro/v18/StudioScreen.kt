@@ -68,6 +68,8 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     val videos=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(),m::importVideos)
     val audio=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importAudio)
     val image=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(),m::importImage)
+    var subtitleFormat by remember {mutableStateOf("srt")}
+    val subtitleSave=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")){uri->m.exportSubtitles(uri,subtitleFormat)}
     val mic=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
         if(granted)m.startVoiceover() else m.showMessage("Permita acesso ao microfone para gravar dublagem.")
     }
@@ -79,6 +81,8 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
     var exportDialog by remember {mutableStateOf(false)}
     var mediaDialog by remember {mutableStateOf(false)}
     var aiDialog by remember {mutableStateOf(false)}
+    var timecodeDialog by remember {mutableStateOf(false)}
+    var timecodeText by remember {mutableStateOf("")}
     var fullscreen by remember {mutableStateOf(false)}
     var menuMode by remember {mutableStateOf("main")}
     var panel by remember {mutableStateOf<String?>(null)}
@@ -128,6 +132,8 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         StudioTool("⇆","Espelhar"){m.toggleMirror()},
         StudioTool("◇","Transformar"){openPanel("Vídeo")},
         StudioTool("◆+","Keyframe"){m.addTimelineMarker()},
+        StudioTool("⌗","Timecodes"){timecodeDialog=true},
+        StudioTool("A↓","Ordenar nome"){m.orderClipsByName()},
         StudioTool("◩","Filtros"){openPanel("Filtros")},
         StudioTool("☷","Ajustar"){openPanel("Ajustes")}
     )
@@ -154,7 +160,10 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         StudioTool("⌗","Legendas autom."){m.autoCaption()},
         StudioTool("🌐","Traduzir IA"){openPanel("Legenda")},
         StudioTool("CC","Modelos"){openPanel("Legenda")},
-        StudioTool("▱","Importar"){srt.launch(arrayOf("*/*"))}
+        StudioTool("▱","Importar"){srt.launch(arrayOf("*/*"))},
+        StudioTool("SRT","Salvar SRT"){subtitleFormat="srt";subtitleSave.launch("monstro-legendas.srt")},
+        StudioTool("VTT","Salvar VTT"){subtitleFormat="vtt";subtitleSave.launch("monstro-legendas.vtt")},
+        StudioTool("ASS","Salvar ASS"){subtitleFormat="ass";subtitleSave.launch("monstro-legendas.ass")}
     )
 
     val fxTools=listOf(
@@ -475,6 +484,12 @@ fun StudioScreen(m:EditorModel,onBack:(()->Unit)?=null){
         )
     }
 
+    if(timecodeDialog)AlertDialog(
+        onDismissRequest={timecodeDialog=false},title={Text("Marcadores por timecode")},
+        text={Column {Text("Um tempo por linha: 00:00:10.500 Intro. Um intervalo cria os marcadores de início e fim.");OutlinedTextField(timecodeText,{timecodeText=it.take(64000)},minLines=4)}},
+        confirmButton={TextButton(onClick={m.importTimecodeMarkers(timecodeText);timecodeDialog=false},enabled=!m.busy){Text("Adicionar")}},
+        dismissButton={TextButton(onClick={timecodeDialog=false}){Text("Cancelar")}}
+    )
     m.message?.let {
         AlertDialog(
             onDismissRequest=m::clearMessage,

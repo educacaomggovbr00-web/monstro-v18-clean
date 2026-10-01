@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <include domain="sharedpref" path="editor.xml" />
+        <include domain="file" path="projects" />
+        <include domain="file" path="captions.json" />
+        <include domain="file" path="lyrics.srt" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="editor.xml" />
+        <include domain="file" path="projects" />
+        <include domain="file" path="captions.json" />
+        <include domain="file" path="lyrics.srt" />
+        <include domain="file" path="images" />
+        <include domain="file" path="voiceover" />
+    </device-transfer>
+</data-extraction-rules>

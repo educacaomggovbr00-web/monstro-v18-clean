@@ -27,8 +27,8 @@ android {
         applicationId "com.monstro.v18.studio"
         minSdk 24
         targetSdk 34
-        versionCode 23
-        versionName "18.5-Studio"
+        versionCode 24
+        versionName "18.6-Studio"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
